@@ -1,8 +1,8 @@
-# G-Presets 1.5.3 — guide technique
+# G-Presets 1.6.0 — guide technique
 
 Édition modifiée de [sirjonasxx/G-Presets](https://github.com/sirjonasxx/G-Presets), à partir de la version modifiée 1.3.7 fournie. Auteurs : **sirjonasxx & 1desirable1337** ; dépôt de cette édition : [Tear1338/G-Presets](https://github.com/Tear1338/G-Presets).
 
-Consultez le [README principal](README.md) pour l'installation, les commandes et l'utilisation des fonctions. Téléchargements : [JAR 1.5.3](https://github.com/Tear1338/G-Presets/releases/download/v1.5.3/GPresets-1.5.3.jar) et [archive complète](https://github.com/Tear1338/G-Presets/releases/download/v1.5.3/GPresets-1.5.3-complet.zip).
+Consultez le [README principal](README.md) pour l'installation, les commandes et l'utilisation des fonctions. Téléchargements : [JAR 1.6.0](https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/GPresets-1.6.0.jar) et [archive complète](https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/GPresets-1.6.0-complet.zip).
 
 ## Environnement
 
@@ -27,7 +27,7 @@ L'interface propose zoom, panoramique, recentrage, rotation de vue, recherche, s
 
 Les deux fenêtres — aperçu et partage — utilisent `FurnitureSprites` et `FurnitureSpriteStore`. Le chargement est préamorcé après une sélection de preset stabilisée pendant 250 ms.
 
-| Mécanisme | Comportement en 1.5.3 |
+| Mécanisme | Comportement en 1.6.0 |
 | :--- | :--- |
 | Téléchargements | Quatre tâches simultanées en arrière-plan ; suppression du délai de 1,1 seconde par image |
 | Déduplication | Une demande en cours partagée pour une même classe, orientation normalisée et état normalisé |
@@ -82,13 +82,13 @@ Le rapport reflète un instant donné. Des réponses tardives peuvent modifier l
 - Le partage et les rapports enregistrent de nouveaux fichiers sans écraser une destination existante.
 - La distribution exclut les dossiers de presets personnels ; les données du cache ne sont pas incluses dans l'archive complète.
 
-## Validation de la version 1.5.3
+## Validation de la version 1.6.0
 
-**1 269 assertions de régression passent**, ainsi que les vérifications de l'interface JavaFX et de ses ressources embarquées. Les tests comprennent les formats binaires, les fichiers, les correspondances d'identifiants, les diagnostics, la pause et les comportements du cache : parallélisme borné, demande unique partagée, cache disque après redémarrage, corruption et panne. Un contrôle JavaFX vérifie aussi qu'une image déjà décodée est disponible dès la première vue, avec les couleurs du thème sombre de G-Earth : panneaux #333333, champs #363636, boutons #262626 et textes clairs.
+**1 349 assertions de régression passent**, ainsi que les vérifications de l'interface JavaFX et de ses ressources embarquées. Les 80 nouvelles assertions couvrent l’historique, la comparaison, les remplacements, la confidentialité, le placement et les garde-fous d’annulation. Le traitement réel d’annulation est aussi exercé avec une salle simulée, sans connexion réseau. Les tests comprennent les formats binaires, les fichiers, les correspondances d'identifiants, les diagnostics, la pause et les comportements du cache : parallélisme borné, demande unique partagée, cache disque après redémarrage, corruption et panne. Un contrôle JavaFX vérifie aussi qu'une image déjà décodée est disponible dès la première vue, avec les couleurs du thème sombre de G-Earth : panneaux #333333, champs #363636, boutons #262626 et textes clairs.
 
 Le catalogue de référence comporte **284 classes liées aux WIRED**, dont **207 classes des six familles** ; les fixtures couvrent **188 codes de formulaires**. Ces tests utilisent des exemples contrôlés pour vérifier les données et ne constituent pas une validation de chaque règle métier.
 
-**Aucun cycle complet export/import ni scénario WIRED en jeu n'a été validé pour cette édition.** La salle observée était vide. Les prototypes `wf_test_26secret1` et `wf_test_26secret2` ont un comportement configurable inconnu. Voir [COMPATIBILITE.md](COMPATIBILITE.md), [COUVERTURE-WIRED.csv](COUVERTURE-WIRED.csv) et le [rapport du build 1.5.3](https://github.com/Tear1338/G-Presets/releases/download/v1.5.3/build-report.json).
+**Aucun cycle complet export/import ni scénario WIRED en jeu n'a été validé pour cette édition.** La salle observée était vide. Les prototypes `wf_test_26secret1` et `wf_test_26secret2` ont un comportement configurable inconnu. Voir [COMPATIBILITE.md](COMPATIBILITE.md), [COUVERTURE-WIRED.csv](COUVERTURE-WIRED.csv) et le [rapport du build 1.6.0](https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/build-report.json).
 
 Les rapports sous `validation/1.4.0-rc2/` sont historiques et ne décrivent pas la validation de la version actuelle.
 
@@ -104,3 +104,35 @@ python scripts/package.py
 Le build recompile les sources applicatives et la classe `HPacket` adaptée. `lib/gpresets-runtime.jar` et `lib/dependencies` fournissent les autres dépendances. Les résultats locaux sont dans `target/build-report.json`, `target/test-results.txt` et `target/ui-test-results.txt`.
 
 L'archive complète contient le JAR, les sources, dépendances, fixtures, documents et rapports sélectionnés. Le workflow GitHub recompile et vérifie les changements, puis publie une nouvelle version si son tag n'existe pas déjà. Une modification du README ne remplace pas une release existante. Consulter [RELEASING.md](RELEASING.md).
+
+
+## Outils 1.6.0 et conservation des releases
+
+L'onglet **Tools** regroupe les nouveaux outils. La 1.5.3 et les releases déjà publiées sont conservées sur GitHub ; les prochaines publications ne les suppriment pas.
+
+### Annuler le dernier import
+
+**Undo last import** propose de récupérer les mobis nouvellement posés et identifiés individuellement pendant le dernier import de cette session, y compris un import incomplet. Les objets déjà présents, réutilisés et les stacktiles temporaires sont exclus. Chaque récupération vérifie la salle, le type, le propriétaire et les droits, puis attend la disparition de l'objet dans l'état reçu du serveur. `:a` arrête la récupération ; les objets sans confirmation restent disponibles pour une nouvelle tentative.
+
+L'annulation ne restaure pas les déplacements, états, WIRED ou réglages de salle modifiés sur des éléments existants. Elle ne persiste pas après fermeture de l'extension ou déconnexion. Les placements non identifiés ou arrivés trop tard sont exclus. Les objets BC nécessitent une attribution non ambiguë au compte connecté ; **Load Inventory** actualise aussi cette identité lorsque le message est connu de G-Earth. Les objets BC appartenant à un propriétaire non identifié ne sont pas récupérés automatiquement.
+
+### Comparer deux presets
+
+**Compare presets & history** permet de choisir A et B et d'afficher les ajouts, suppressions et modifications de mobilier, positions, états et configurations WIRED. Tous les champs sérialisés sont comparés. Les identifiants sol/mur sont distincts ; deux exports indépendants peuvent attribuer des identifiants différents aux mêmes objets.
+
+### Remplacer le mobilier manquant
+
+Sélectionnez votre preset, puis **Replace missing furniture**. Les classes manquantes peuvent être remplacées par une classe du même type sol/mur présente dans votre inventaire. Le changement s'applique à tous les objets de cette classe **pour la session uniquement**, en conservant leurs identifiants et les références WIRED. Les états sont remis à leur valeur par défaut. Les WIRED, affiches et objets porteurs de configurations spéciales sont protégés contre un remplacement incompatible. Un remplacement peut changer les dimensions ou le comportement attendu par les WIRED : relisez l'avertissement et vérifiez le nouvel aperçu. Les quantités restent contrôlées avant l'import.
+
+### Historique local
+
+Les sauvegardes de presets conservent des révisions locales, avec déduplication des contenus inchangés. **Save revision** enregistre aussi une copie du fichier courant, pratique après une modification dans un éditeur externe. Choisissez une révision pour **Compare revision to current** ou **Restore revision** ; le fichier remplacé est conservé dans l'historique. Le déplacement vers un dossier garde les révisions accessibles. L'historique se trouve dans `history` à côté du dossier `presets` et n'est jamais ajouté aux fichiers partagés. Resélectionnez un preset après restauration avant de l'importer.
+
+### Contrôle du partage
+
+Les cases du partage permettent d'exclure le nom, la description et l'image. La fenêtre **Privacy review - exact exported file** montre le contenu exact qui sera enregistré après validation. Elle rappelle les champs de configuration pouvant contenir des textes, liens ou destinations. Aucun envoi en ligne n'est effectué.
+
+### Placement assisté
+
+Dans **Preview preset**, activez **Choose origin here** et réglez **X** / **Y**. Le contrôle se rafraîchit avec la salle : les empreintes hors du sol utilisable ou chevauchant un mobi existant sont entourées en rouge. Ce contrôle géométrique en 2D reste indicatif : il ne simule ni les hauteurs d'empilement, ni les droits, ni les collisions physiques, ni le placement mural exact. La confirmation utilise l'origine choisie ; la préparation peut encore demander la zone technique des stacktiles dans Habbo.
+

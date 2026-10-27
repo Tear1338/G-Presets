@@ -13,13 +13,21 @@ public final class PresetPreviewSession {
    public final int roomId;
    public final Integer rootX,rootY;
    private boolean closed;
+   private HPoint placementRoot;
+   private boolean placementChosen;
    public PresetPreviewSession(PresetConfig preset,PostConfig post,int roomId,HPoint root) {
       originalPreset=preset;originalOptions=post;json=preset.toJsonObject().toString();options=new PostConfig(post);
       this.roomId=roomId;rootX=root==null?null:root.getX();rootY=root==null?null:root.getY();
    }
    public PresetConfig preset() { return new PresetConfig(new JSONObject(json)); }
    public PostConfig options() { return new PostConfig(options); }
-   public HPoint root() { return rootX==null?null:new HPoint(rootX,rootY); }
+   public synchronized HPoint root() { return placementChosen?(placementRoot==null?null:new HPoint(placementRoot.getX(),placementRoot.getY())):(rootX==null?null:new HPoint(rootX,rootY)); }
+   public synchronized void chooseRoot(Integer x,Integer y) {
+      if(closed)throw new IllegalStateException("Preview is closed");
+      if(x==null || y==null){placementChosen=true;placementRoot=null;return;}
+      if(x<0 || y<0 || x>129 || y>129)throw new IllegalArgumentException("Origin must be between 0 and 129");
+      placementChosen=true;placementRoot=new HPoint(x,y);
+   }
    public synchronized boolean isCurrent(PresetConfig preset,PostConfig post,int room) { return !closed && originalPreset==preset && originalOptions==post && roomId==room; }
    public synchronized boolean confirm(PresetConfig preset,PostConfig post,int room,boolean ready,Runnable launch) {
       if(!ready || !isCurrent(preset,post,room))return false;

@@ -161,7 +161,10 @@ public class PresetConfigUtils {
       if(!Files.exists(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))Files.createDirectory(directory);
       if(!Files.isDirectory(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid destination folder");
       Path destination=directory.resolve(source.getFileName());
-      if(!source.equals(destination))Files.move(source,destination);
+      if(!source.equals(destination)) {
+         extension.tools.library.PresetHistory.move(preset,folder+"/"+source.getFileName().toString().replaceFirst("\\.json$",""));
+         Files.move(source,destination);
+      }
    }
 
    public static boolean savePreset(String name, PresetConfig config) {
@@ -170,6 +173,12 @@ public class PresetConfigUtils {
          Path destination = resolvePresetFile(name);
          // Serialize first: a bad preset must never truncate an existing good export.
          String contents = config.toJsonObject().toString(4);
+          if(Files.exists(destination)) {
+             PresetConfig previous=loadPreset(name);
+             if(previous==null)throw new IOException("Existing preset is unreadable; preserving it");
+             extension.tools.library.PresetHistory.checkpoint(name,previous);
+          }
+          extension.tools.library.PresetHistory.checkpoint(name,config);
          temporary = Files.createTempFile(destination.getParent(), ".preset-", ".tmp");
          Files.write(temporary, contents.getBytes(StandardCharsets.UTF_8));
          try {

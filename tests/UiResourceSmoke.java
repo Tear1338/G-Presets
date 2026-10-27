@@ -54,6 +54,13 @@ public final class UiResourceSmoke {
             javax.imageio.ImageIO.write(toBufferedImage(root.snapshot(null,null)),"png",new java.io.File("target/main-theme-ui-smoke.png"));
             if(!controller.previewBeforeImportCbx.getText().equals("Preview before import (:ip)"))throw new AssertionError("Preview setting label");
 
+            tabs.getSelectionModel().select(2);root.applyCss();root.layout();
+            if(!tabs.getSelectionModel().getSelectedItem().getText().equals("Tools"))throw new AssertionError("Tools tab missing");
+            for(var node:tabs.getSelectionModel().getSelectedItem().getContent().lookupAll(".button")) {
+               var bounds=node.localToScene(node.getBoundsInLocal());if(bounds.getMaxY()>mainScene.getHeight() || bounds.getMinY()<0)throw new AssertionError("Tools button clipped: "+node);
+            }
+            verifyReferenceTheme(root);
+            javax.imageio.ImageIO.write(toBufferedImage(root.snapshot(null,null)),"png",new java.io.File("target/tools-ui-smoke.png"));
             // A reopened share/preview must paint a warm sprite in its very first frame.
             var cacheKey=new FurnitureSpriteStore.Key("gpresets_test_cached",0,"0");
             var cache=FurnitureSprites.shared();
@@ -75,9 +82,15 @@ public final class UiResourceSmoke {
             PresetFurni stacked=new PresetFurni(4,"wf_trg_says_something",new HPoint(1,2,1.5),0,null);stacked.setFurniName("wired[1]");
             PresetConfig sample=new PresetConfig(new ArrayList<>(List.of(f,table,flower,stacked)),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
             PresetPreviewPane pane=new PresetPreviewPane(new PresetPreviewModel(sample,new PostConfig(),name->name.equals("table")?new PresetPreviewModel.Footprint(2,1):new PresetPreviewModel.Footprint(1,1)),"Exemple",12,13);
+            int[] picked={-1,-1};
+            pane.configurePlacement((x,y)->new PlacementAudit.Result(Map.of(2,"Overlaps existing furniture"),"Demo collision: one footprint overlaps existing furniture. 2D advisory check."),(x,y)->{picked[0]=x==null?-1:x;picked[1]=y==null?-1:y;});
             pane.setPresetDescription("A shared preset description");
             Scene scene=new Scene(pane,1040,720);scene.getStylesheets().add(darkTheme);pane.getStyleClass().add("g-dark");pane.applyCss();pane.layout();
             if(pane.getCanvas().getWidth()<200 || pane.getItemList().getItems().size()!=4)throw new AssertionError("Preview layout missing");
+            var px=(javafx.scene.control.Spinner<Integer>)pane.lookup("#placementX");px.getValueFactory().setValue(14);
+            if(picked[0]!=14 || picked[1]!=13)throw new AssertionError("Chosen origin not routed to import session");
+            var choose=(javafx.scene.control.CheckBox)pane.lookup("#choosePlacement");choose.setSelected(false);
+            if(picked[0]!=-1 || picked[1]!=-1)throw new AssertionError("Disabling origin did not restore in-game selection");choose.setSelected(true);
             pane.getItemList().getSelectionModel().select(0);
             var turn=(javafx.scene.control.Button)pane.lookup("#turnView");if(turn==null)throw new AssertionError("Camera rotation button missing");turn.fire();turn.fire();turn.fire();turn.fire();
             String png=extension.tools.sharing.PreviewImages.png(pane.getCanvas());

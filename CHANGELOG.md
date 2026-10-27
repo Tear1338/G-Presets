@@ -1,3 +1,14 @@
+## 1.6.0
+
+- Add Tools: recover individually identified new floor/wall placements from the last import in the same session/room, with per-item type/owner/permission checks, server-state acknowledgement and abort/retry support. Existing/reused furniture and helper tiles are excluded; unconfirmed or unattributable BC placements are excluded. Configuration changes on existing items are not reverted.
+- Compare every preset field, identifying additions/removals and WIRED changes; keep floor and wall ID namespaces separate.
+- Save append-only local revisions on preset save, deduplicate unchanged content, compare/restore revisions and retain history when moving presets to folders.
+- Replace missing ordinary floor/wall furniture with inventory classes for the current session, retain IDs and references, clear incompatible states and protect WIRED/configured furniture and poster variants.
+- Add independent name/description/image privacy switches and a review of the exact shared JSON before local export. Gameplay text, links and variables remain visible for review.
+- Choose import origin in the preview and highlight out-of-floor/overlapping room footprints. This is an advisory 2D check, not a physics/stacking or wall-placement simulation.
+- Preserve v1.5.3 and every existing/future GitHub release. No release pruning workflow.
+- Extend regression/UI checks for the new tools. Live Habbo gameplay remains untested.
+
 ## 1.5.3
 
 - Match the supplied G-Earth dark theme reference using its original bundled stylesheet: charcoal panels, dark controls, light text, blue tabs and cyan accents.

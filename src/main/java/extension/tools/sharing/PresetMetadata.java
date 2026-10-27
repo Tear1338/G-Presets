@@ -6,7 +6,7 @@ import org.json.JSONObject;
 /** Optional sharing data, kept out of all packet serializers. */
 public record PresetMetadata(String name, String description, String imagePng) {
    public PresetMetadata {
-      if(name==null || name.isBlank() || name.length()>120)throw new IllegalArgumentException("Name must contain 1 to 120 characters");
+      if(name==null || (!name.isEmpty() && name.isBlank()) || name.length()>120)throw new IllegalArgumentException("Name must be empty or contain 1 to 120 characters");
       if(description==null || description.length()>4000)throw new IllegalArgumentException("Description is limited to 4000 characters");
       if(imagePng==null || imagePng.length()>2800000)throw new IllegalArgumentException("Preview image is too large");
       if(!imagePng.isEmpty()) {
@@ -19,6 +19,6 @@ public record PresetMetadata(String name, String description, String imagePng) {
          if(w<1 || h<1 || w>4096 || h>4096)throw new IllegalArgumentException("Preview image dimensions exceed 4096 pixels");
       }
    }
-   public PresetMetadata(JSONObject data) {this(data.getString("name"),data.optString("description",""),data.optString("imagePng",""));}
-   public JSONObject toJsonObject() {return new JSONObject().put("name",name).put("description",description).put("imagePng",imagePng).put("imageSource","G-Presets preview; furniture artwork: HabboAssets / Sulake");}
+   public PresetMetadata(JSONObject data) {this(data.optString("name",""),data.optString("description",""),data.optString("imagePng",""));}
+   public JSONObject toJsonObject() {JSONObject out=new JSONObject();if(!name.isEmpty())out.put("name",name);if(!description.isEmpty())out.put("description",description);if(!imagePng.isEmpty())out.put("imagePng",imagePng).put("imageSource","G-Presets preview; furniture artwork: HabboAssets / Sulake");return out;}
 }

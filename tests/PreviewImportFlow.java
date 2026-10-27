@@ -3,6 +3,7 @@ import extension.GPresets;
 import extension.logger.Logger;
 import extension.tools.GPresetImporter;
 import extension.tools.importutils.ImportReport;
+import extension.tools.importutils.ImportUndoJournal;
 import extension.tools.importutils.AvailabilityAudit;
 import extension.tools.importutils.WiredDiagnostics;
 import extension.tools.preview.PresetPreviewSession;
@@ -20,15 +21,27 @@ public final class PreviewImportFlow {
    private static void require(boolean condition,String text) { if(!condition)throw new AssertionError(text); }
    private static final class FakeExtension extends GPresets {
       final Map<String,ExtensionBase.MessageListener> callbacks=new HashMap<>();
-      int serverPackets;int room=42;
+      int serverPackets;int room=42;boolean roomLoaded;Runnable onPickup;
+      final Map<Integer,gearth.extensions.parsers.HFloorItem> floorItems=new HashMap<>();
+      final Map<Integer,gearth.extensions.parsers.HWallItem> wallItems=new HashMap<>();
+      final List<String> pickups=new ArrayList<>();
+      final game.RoomPermissions permissions=new game.RoomPermissions(this,new Logger(),()->{}){@Override public boolean canMoveFurni(){return true;}};
+      @Override public game.RoomPermissions getPermissions(){return permissions;}
+      @Override public int getOwnUserId(){return 5;}
       PresetPreviewSession session;BooleanSupplier confirm,ready;Runnable cancel;
       final FloorState floor=new FloorState(this,new Logger(),()->{},()->{}) {
          @Override public int getRoomId() { return room; }
-         @Override public boolean inRoom() { return false; }
+         @Override public boolean inRoom() { return roomLoaded; }
+         @Override public java.util.List<gearth.extensions.parsers.HFloorItem> getItems(){return new ArrayList<>(floorItems.values());}
+         @Override public gearth.extensions.parsers.HFloorItem furniFromId(int id){return floorItems.get(id);}
+         @Override public gearth.extensions.parsers.HWallItem wallItemFromId(int id){return wallItems.get(id);}
       };
       @Override public void intercept(HMessage.Direction direction,String name,ExtensionBase.MessageListener listener) { callbacks.put(direction+":"+name,listener); }
       @Override public FloorState getFloorState() { return floor; }
-      @Override public boolean sendToServer(HPacket packet) { serverPackets++;return true; }
+      @Override public boolean sendToServer(HPacket packet) {
+         serverPackets++;HPacket decoded=new HPacket(packet);int category=decoded.readInteger(),id=decoded.readInteger();pickups.add(category+":"+id);
+         if(category==1)wallItems.remove(id);else floorItems.remove(id);if(onPickup!=null)onPickup.run();return true;
+      }
       @Override public void sendVisualChatInfo(String text) { }
       @Override public void updatePreviewAvailability() { }
       @Override public boolean previewBeforeImport() { return true; }
@@ -70,6 +83,40 @@ public final class PreviewImportFlow {
       require(extension.serverPackets==0,"room-change rejection must send no packets");extension.cancel.run();
       extension.chat(":ip");importer.setPresetConfig(new PresetConfig(preset.toJsonObject()));
       require(!extension.confirm.getAsBoolean() && extension.serverPackets==0,"selection change blocks actual importer confirmation");extension.cancel.run();
+      importer.setPresetConfig(preset);
+      require(importer.applySessionReplacements(preset,new PresetConfig(preset.toJsonObject())),"session substitutions applied while idle");
+      require(!importer.applySessionReplacements(preset,preset),"stale substitution dialog cannot replace a new selection");
+      extension.chat(":pp");PresetConfig active=importer.getPresetConfig();
+      require(!importer.applySessionReplacements(active,preset),"substitutions cannot change an active preview/import");extension.cancel.run();
+      undoWorker(extension,importer);
       System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
    }
+   private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
+      try {
+         var field=GPresetImporter.class.getDeclaredField("state");field.setAccessible(true);
+         var method=GPresetImporter.class.getDeclaredMethod("undoLastImport");method.setAccessible(true);
+         extension.roomLoaded=true;extension.room=42;
+         var floorItem=new gearth.extensions.parsers.HFloorItem(new HPacket(1,101,10,1,2,0,"0","1",0,0,"0",-1,0,5));
+         var existing=new gearth.extensions.parsers.HFloorItem(new HPacket(1,1,10,1,2,0,"0","1",0,0,"0",-1,0,5));
+         var wallItem=new gearth.extensions.parsers.HWallItem(new HPacket(1,"101",11,":w=1,2 l=0,0 l","0",-1,0,5));
+         extension.floorItems.put(101,floorItem);extension.floorItems.put(1,existing);extension.wallItems.put(101,wallItem);
+         var journal=importer.getUndoJournal();journal.begin(42,5,Set.of(1),Set.of());
+         journal.record(new ImportUndoJournal.Entry(false,101,10,5,false));
+         journal.record(new ImportUndoJournal.Entry(true,101,11,5,false));
+         field.set(importer,GPresetImporter.BuildingImportState.UNDOING);method.invoke(importer);
+         require(extension.pickups.equals(List.of("1:101","2:101")),"actual undo worker routes distinct floor/wall native categories");
+         require(extension.floorItems.containsKey(1) && journal.entries().isEmpty(),"actual undo worker preserves existing furniture and acknowledges individual removals");
+         extension.floorItems.put(101,floorItem);journal.begin(42,5,Set.of(1),Set.of());journal.record(new ImportUndoJournal.Entry(false,101,10,5,false));
+         extension.room=43;int sent=extension.serverPackets;field.set(importer,GPresetImporter.BuildingImportState.UNDOING);method.invoke(importer);
+         require(extension.serverPackets==sent && journal.entries().size()==1,"actual undo worker rejects changed room without losing retry entry");
+         extension.room=42;floorItem.setOwnerId(6);field.set(importer,GPresetImporter.BuildingImportState.UNDOING);method.invoke(importer);
+         require(extension.serverPackets==sent && journal.entries().size()==1,"actual undo worker rechecks current furniture owner");floorItem.setOwnerId(5);
+         journal.record(new ImportUndoJournal.Entry(true,101,11,5,false));extension.wallItems.put(101,wallItem);
+         extension.onPickup=()->importer.reset();field.set(importer,GPresetImporter.BuildingImportState.UNDOING);method.invoke(importer);
+         require(extension.serverPackets==sent+1 && extension.floorItems.containsKey(101),"abort during real undo worker stops before the next pickup");
+         extension.onPickup=null;extension.roomLoaded=false;
+         System.out.println("PASS: real undo worker native routing, existing-item preservation, room/owner guards, acknowledgement and abort");
+      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
+   }
+
 }

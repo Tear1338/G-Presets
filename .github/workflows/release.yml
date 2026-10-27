@@ -51,6 +51,7 @@ jobs:
         with:
           name: gpresets-build-${{ github.sha }}
           path: release-artifacts
+      # Preserve all existing releases and tags, including v1.5.3. Never prune releases.
       - name: Create the versioned release and upload its JAR
         env:
           GH_TOKEN: ${{ github.token }}

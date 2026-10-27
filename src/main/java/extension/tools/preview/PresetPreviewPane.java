@@ -41,7 +41,29 @@ public final class PresetPreviewPane extends BorderPane {
    private final CheckBox showSprites=new CheckBox("Furniture images");
    private double panX,panY,dragX,dragY,dragDistance;
    private double scale,offsetX,offsetY;
-   private final Integer originX,originY;
+   private Integer originX,originY;
+   private final Label originScope=new Label();
+   private Map<Integer,String> placementIssues=Map.of();
+   private Runnable placementRefresh;
+   public void refreshPlacement() {if(placementRefresh!=null && !closed)placementRefresh.run();}
+   public void configurePlacement(java.util.function.BiFunction<Integer,Integer,PlacementAudit.Result> check,java.util.function.BiConsumer<Integer,Integer> selected) {
+      CheckBox choose=new CheckBox("Choose origin here");choose.setSelected(originX!=null);
+      Spinner<Integer> x=new Spinner<>(0,129,originX==null?0:Math.max(0,Math.min(129,originX))),y=new Spinner<>(0,129,originY==null?0:Math.max(0,Math.min(129,originY)));
+      x.setId("placementX");y.setId("placementY");choose.setId("choosePlacement");x.setPrefWidth(85);y.setPrefWidth(85);
+      Label outcome=new Label();outcome.setWrapText(true);outcome.setId("placementSummary");
+      placementRefresh=()->{
+         if(choose.isSelected()) {
+            originX=x.getValue();originY=y.getValue();selected.accept(originX,originY);
+            try{var result=check.apply(originX,originY);placementIssues=result.issues();outcome.setText(result.summary());}
+            catch(RuntimeException error){placementIssues=Map.of();outcome.setText("Room placement unknown: "+error.getMessage());}
+         }else {originX=null;originY=null;selected.accept(null,null);placementIssues=Map.of();outcome.setText("Choose an origin to check room collisions, or select it in Habbo after confirmation.");}
+         originScope.setText((originX==null?"Origin: choose in Habbo after confirmation.":"Requested origin: ("+originX+", "+originY+").")+"  "+model.reusedCount+" existing items reused without moving.");
+         x.setDisable(!choose.isSelected());y.setDisable(!choose.isSelected());showDetails(items.getSelectionModel().getSelectedItem());draw();
+      };
+      choose.selectedProperty().addListener(o->refreshPlacement());x.valueProperty().addListener(o->refreshPlacement());y.valueProperty().addListener(o->refreshPlacement());
+      if(getTop() instanceof VBox header)header.getChildren().addAll(new FlowPane(10,8,choose,new Label("X"),x,new Label("Y"),y),outcome);
+      refreshPlacement();
+   }
    private Runnable availabilityAction;
    private Runnable compatibilityAction;
    private record Point(double x,double y) { }
@@ -59,7 +81,7 @@ public final class PresetPreviewPane extends BorderPane {
       title.setStyle("-fx-font-size:20px; -fx-font-weight:bold; ");
       Label counts=new Label(model.floorCount+" floor items  \u00b7  "+model.wallCount+" wall items  \u00b7  "+model.wiredCount+" WIRED  \u00b7  "+model.configurationCount+" configurations");
       String origin=originX==null?"Origin: choose in Habbo after confirmation.":"Requested origin: ("+originX+", "+originY+").";
-      Label scope=new Label(origin+"  "+model.reusedCount+" existing items reused without moving.");scope.setWrapText(true);
+      Label scope=originScope;scope.setText(origin+"  "+model.reusedCount+" existing items reused without moving.");scope.setWrapText(true);
       Label note=new Label("Furniture images: HabboAssets. Positions and wall items are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("");
       VBox header=new VBox(5,title,counts,scope,note);header.setPadding(new Insets(0,0,14,0));setTop(header);
       StackPane surface=new StackPane(canvas);surface.setMinSize(280,200);surface.setPrefSize(680,440);
@@ -148,7 +170,7 @@ public final class PresetPreviewPane extends BorderPane {
    private void showDetails(PresetPreviewModel.Item item) {
       if(item==null)return;
       String position=String.format(Locale.ROOT,"X %.2f  Y %.2f  Z preset %.2f",item.x()+(originX==null?0:originX),item.y()+(originY==null?0:originY),item.z());
-      details.setText(item.name()+"\n"+item.className()+"  ["+item.id()+"]\n"+position+(originX==null?" (relative)":"")+"\nRotation "+item.rotation()+"  \u00b7  "+item.width()+"\u00d7"+item.depth()+"\n"+(item.wall()?item.wallLocation():"State: "+(item.state()==null?"default":item.state())));
+      details.setText(item.name()+"\n"+item.className()+"  ["+item.id()+"]\n"+position+(originX==null?" (relative)":"")+"\nRotation "+item.rotation()+"  \u00b7  "+item.width()+"\u00d7"+item.depth()+"\n"+(item.wall()?item.wallLocation():"State: "+(item.state()==null?"default":item.state()))+(!item.wall() && placementIssues.containsKey(item.id())?"\n"+placementIssues.get(item.id()):""));
    }
    private Point project(double x,double y,double z) { var p=PreviewGeometry.project(x,y,z,viewTurns,heights.isSelected());return new Point(p.x(),p.y()); }
    private Point screen(double x,double y,double z) {Point p=project(x,y,z);return new Point(offsetX+p.x()*scale,offsetY+p.y()*scale);}
@@ -193,7 +215,7 @@ public final class PresetPreviewPane extends BorderPane {
          Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
          Image sprite=showSprites.isSelected()?spriteFor(item):null;
          g.setFill(fill.deriveColor(0,1,1,sprite!=null?0.15:item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
-         g.setStroke(item==selected?Color.web("#56c0e0"):fill.brighter());g.setLineWidth(item==selected?3:1);g.strokePolygon(xs,ys,4);
+         g.setStroke(!item.wall() && placementIssues.containsKey(item.id())?Color.web("#ff5555"):item==selected?Color.web("#56c0e0"):fill.brighter());g.setLineWidth(item==selected || (!item.wall() && placementIssues.containsKey(item.id()))?3:1);g.strokePolygon(xs,ys,4);
          if(showSprites.isSelected()) {
             if(sprite!=null) {
                Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());

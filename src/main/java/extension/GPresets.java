@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.5.3",
+   Version = "1.6.0",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -133,6 +133,8 @@ public class GPresets extends ExtensionForm {
    private RoomPermissions permissions = null;
    private BCCatalog catalog = null;
    private volatile boolean isConnected = false;
+   private volatile int ownUserId;
+   public int getOwnUserId(){return ownUserId;}
    private GPresetExporter exporter = null;
    private GPresetImporter importer = null;
    private AutoDonator autoDonator = null;
@@ -220,6 +222,7 @@ public class GPresets extends ExtensionForm {
       this.exporter = new GPresetExporter(this);
       this.importer = new GPresetImporter(this);
       this.autoDonator = new AutoDonator(this);
+      this.intercept(HMessage.Direction.TOCLIENT,"UserObject",message->{var packet=message.getPacket();int index=packet.getReadIndex();try{ownUserId=packet.readInteger();}finally{packet.setReadIndex(index);}});
       this.onConnect((host, i, s1, s2, hClient) -> {
          this.showSelfDonateBtn("game-s2.habbo.com".equals(host));
          this.furniDataTools = new FurniDataTools(host, this::updateUI);
@@ -300,6 +303,8 @@ public class GPresets extends ExtensionForm {
 
    protected void onEndConnection() {
       this.isConnected = false;
+      this.ownUserId=0;
+      if(this.importer!=null)this.importer.getUndoJournal().clear();
       this.furniDataTools = null;
       this.floorState.reset();
       this.inventory.clear();
@@ -372,6 +377,7 @@ public class GPresets extends ExtensionForm {
    }
 
    public void loadInventoryClick(ActionEvent actionEvent) {
+      if(this.getPacketInfoManager()!=null && this.getPacketInfoManager().getPacketInfoFromName(HMessage.Direction.TOSERVER,"InfoRetrieve")!=null)this.sendToServer(new HPacket("InfoRetrieve",HMessage.Direction.TOSERVER));
       this.inventory.requestInventory();
    }
 
@@ -465,14 +471,15 @@ public class GPresets extends ExtensionForm {
             stage.setTitle("G-Presets - Preset Preview");
             PresetPreviewPane pane=new PresetPreviewPane(model,this.selectedPresetName,session.rootX,session.rootY);
             if(session.preset().getMetadata()!=null)pane.setSharedMetadata(session.preset().getMetadata());
-            pane.setActions(confirm,stage::close);pane.setAvailabilityAction(()->pane.setAvailabilitySummary(previewAvailability(session)));pane.setCompatibilityAction(()->pane.setAvailabilitySummary(previewWiredCompatibility(session)));pane.updateLaunchAvailability(canConfirm.getAsBoolean());
+            pane.configurePlacement((x,y)->extension.tools.preview.PlacementAudit.inspect(model,this.floorState,this.furniDataTools,x,y),(x,y)->session.chooseRoot(x,y));
+             pane.setActions(confirm,stage::close);pane.setAvailabilityAction(()->pane.setAvailabilitySummary(previewAvailability(session)));pane.setCompatibilityAction(()->pane.setAvailabilitySummary(previewWiredCompatibility(session)));pane.updateLaunchAvailability(canConfirm.getAsBoolean());
             try {
                var audit=extension.tools.importutils.AvailabilityAudit.inspect(session.preset(),session.options(),furniDataTools,inventory,catalog,useRoomFurni());
                long missing=audit.getJSONArray("items").toList().stream().filter(row->"MISSING".equals(((java.util.Map<?,?>)row).get("status"))).count();
                long unknown=audit.getJSONArray("items").toList().stream().filter(row->String.valueOf(((java.util.Map<?,?>)row).get("status")).contains("UNKNOWN")).count();
                pane.setAvailabilitySummary("Before import: "+missing+" furniture type(s) missing; "+unknown+" unknown. Check availability for floor/wall details and BC conditions.");
             }catch(RuntimeException error){pane.setAvailabilitySummary("Availability unknown: "+error.getMessage());}
-            Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
+            Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else {pane.updateLaunchAvailability(canConfirm.getAsBoolean());pane.refreshPlacement();}}));
             refresh.setCycleCount(Timeline.INDEFINITE);
             stage.setOnHidden(e->{refresh.stop();pane.close();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
             javafx.geometry.Rectangle2D bounds=javafx.stage.Screen.getPrimary().getVisualBounds();
@@ -601,6 +608,27 @@ public class GPresets extends ExtensionForm {
    public void pauseImportClick(ActionEvent event) {
       if(this.importer==null || !this.importer.togglePause()) {this.logger.log("Pause is available during an active import", "orange");return;}
       this.pauseImportBtn.setText(this.importer.isPauseRequested()?"Resume import":"Pause import");
+   }
+
+   
+   public void presetToolsClick(ActionEvent event) {
+      extension.tools.library.PresetLibraryDialog.show(this.primaryStage,this.presetListView.getSelectionModel().getSelectedItem(),this::updateInstalledPresets);
+   }
+   public void replaceMissingClick(ActionEvent event) {
+      if(this.importer==null || this.importer.getState()!=GPresetImporter.BuildingImportState.NONE){this.logger.log("Finish or cancel the current import first","orange");return;}
+      PresetConfig source=this.importer.getPresetConfig();if(source==null){this.logger.log("Select a preset first","orange");return;}
+      try {
+         PresetConfig copy=extension.tools.importutils.ReplacementDialog.show(this.primaryStage,source,this.createPostConfig(),this.furniDataTools,this.inventory,this.catalog);
+         if(copy!=null){if(!this.importer.applySessionReplacements(source,copy))throw new IllegalStateException("Import or selection changed; reopen replacements");this.imagePreloadDelay.stop();extension.tools.preview.FurnitureSprites.preload(copy);this.logger.log("Session replacements applied. The original preset file is unchanged; reopen Preview and Check WIRED before importing.","green");this.updateUI();}
+      }catch(Exception error){this.logger.log("Cannot replace furniture: "+error.getMessage(),"red");}
+   }
+   public void undoImportClick(ActionEvent event) {
+      if(this.importer==null || this.importer.getState()!=GPresetImporter.BuildingImportState.NONE || this.exporter.getState()!=GPresetExporter.PresetExportState.NONE){this.logger.log("Finish or abort the current operation before undo","orange");return;}
+      var journal=this.importer.getUndoJournal();
+      if(journal.entries().isEmpty() || journal.room()!=this.floorState.getRoomId()){this.logger.log("No confirmed placements from the last import in this room. Unidentified items and reused furniture are excluded.","orange");return;}
+      javafx.scene.control.Alert confirm=new javafx.scene.control.Alert(javafx.scene.control.Alert.AlertType.CONFIRMATION,"Recover "+journal.entries().size()+" individually identified placement(s) from the last import in room "+journal.room()+"? Existing/reused furniture and configuration changes are excluded. Unconfirmed removals remain available to retry.",javafx.scene.control.ButtonType.CANCEL,javafx.scene.control.ButtonType.OK);
+      confirm.initOwner(this.primaryStage);extension.ui.ReadableTheme.apply(confirm.getDialogPane());confirm.setTitle("Undo last import");
+      if(confirm.showAndWait().orElse(javafx.scene.control.ButtonType.CANCEL)==javafx.scene.control.ButtonType.OK)try{if(!this.importer.startUndo())this.logger.log("Cannot undo: room, permissions or import state changed","orange");}catch(Exception error){this.logger.log("Cannot undo: "+error.getMessage(),"red");}
    }
 
    public void reloadPresetsClick(ActionEvent actionEvent) {

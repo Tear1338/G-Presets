@@ -8,6 +8,7 @@ import extension.parsers.HWiredLinkConfiguration;
 import extension.parsers.HWiredVariablesForObject;
 import extension.tools.importutils.AvailabilityChecker;
 import extension.tools.importutils.ImportReport;
+import extension.tools.importutils.ImportUndoJournal;
 import extension.tools.importutils.WiredDiagnostics;
 import extension.tools.importutils.FurniDropInfo;
 import extension.tools.importutils.FurniMoveInfo;
@@ -74,6 +75,56 @@ import utils.WallPosition;
 
 public class GPresetImporter {
    private final Object lock = new Object();
+   private final extension.tools.importutils.ImportUndoJournal undoJournal=new extension.tools.importutils.ImportUndoJournal();
+   public extension.tools.importutils.ImportUndoJournal getUndoJournal(){return undoJournal;}
+   private void recordFloorPlacement(FurniDropInfo drop,Integer inventoryId) {
+      if(drop.getFurniId()<0 || this.extension.getFloorState().getRoomId()!=undoJournal.room())return;
+      // Only preset placements; temporary helper stack tiles are excluded.
+      if(this.workingPresetConfig.getFurniture().stream().noneMatch(f->f.getFurniId()==drop.getFurniId()))return;
+      var matches=this.extension.getFloorState().getItems().stream().filter(f->f.getTypeId()==drop.getTypeId() && f.getTile().getX()==drop.getX() && f.getTile().getY()==drop.getY())
+         .filter(f->inventoryId!=null?f.getId()==Math.abs(inventoryId):undoJournal.owner()>0 && f.getOwnerId()==undoJournal.owner())
+         .filter(f->!undoBaselineFloors.contains(f.getId()) && undoJournal.entries().stream().noneMatch(e->!e.wall() && e.id()==f.getId())).toList();
+      if(matches.size()==1){var item=matches.get(0);undoJournal.record(new extension.tools.importutils.ImportUndoJournal.Entry(false,item.getId(),item.getTypeId(),item.getOwnerId(),inventoryId==null));}
+   }
+   private Set<Integer> undoBaselineFloors=Set.of();
+   public boolean applySessionReplacements(PresetConfig expected,PresetConfig changed) {
+      synchronized(lock){if(state!=BuildingImportState.NONE || presetConfig!=expected)return false;presetConfig=changed;return true;}
+   }
+   public boolean startUndo() {
+      synchronized(lock) {
+         if(state!=BuildingImportState.NONE || undoJournal.room()!=this.extension.getFloorState().getRoomId() || undoJournal.entries().isEmpty() || !this.extension.getPermissions().canMoveFurni())return false;
+         requirePacket(HMessage.Direction.TOSERVER,"PickupObject");
+         state=BuildingImportState.UNDOING;this.extension.updatePreviewAvailability();
+         Thread worker=new Thread(this::undoLastImport,"G-Presets undo");worker.setDaemon(true);worker.start();return true;
+      }
+   }
+   private void undoLastImport() {
+      int recovered=0,skipped=0;var entries=undoJournal.entries();
+      try {
+         for(var entry:entries) {
+            if(state!=BuildingImportState.UNDOING || !this.extension.getFloorState().inRoom() || this.extension.getFloorState().getRoomId()!=undoJournal.room())break;
+            int type,owner;boolean present;
+            if(entry.wall()){var item=this.extension.getFloorState().wallItemFromId(entry.id());present=item!=null;type=present?item.getTypeId():0;owner=present?item.getOwnerId():0;}
+            else {var item=this.extension.getFloorState().furniFromId(entry.id());present=item!=null;type=present?item.getTypeId():0;owner=present?item.getOwnerId():0;}
+            if(!present){undoJournal.removed(entry);continue;}
+            synchronized(lock) {
+               if(!undoJournal.eligible(entry,this.extension.getFloorState().getRoomId(),this.extension.getOwnUserId(),type,owner,state==BuildingImportState.UNDOING) || !this.extension.getPermissions().canMoveFurni()){skipped++;continue;}
+               this.extension.sendToServer(ImportUndoJournal.pickup(entry));
+            }
+            // Wait for room-state acknowledgement, without locking packet callbacks.
+            boolean removed=false;
+            for(int attempt=0;attempt<20 && state==BuildingImportState.UNDOING;attempt++) {
+               if(this.extension.getFloorState().getRoomId()!=undoJournal.room())break;
+               removed=entry.wall()?this.extension.getFloorState().wallItemFromId(entry.id())==null:this.extension.getFloorState().furniFromId(entry.id())==null;
+               if(removed)break;Utils.sleep(100);
+            }
+            if(removed){undoJournal.removed(entry);recovered++;}else skipped++;
+            this.extension.setImportProgress("Undo last import",recovered+skipped,entries.size());Utils.sleep(150);
+         }
+      }catch(RuntimeException error){this.extension.getLogger().log("Undo stopped: "+error.getMessage(),"red");}
+      finally {synchronized(lock){if(state==BuildingImportState.UNDOING)state=BuildingImportState.NONE;}this.extension.updatePreviewAvailability();}
+      this.extension.getLogger().log("Undo: "+recovered+" item(s) removed from room; "+skipped+" unconfirmed/skipped. Remaining confirmed items can be retried. Existing furniture and configuration changes to reused items are not restored.","blue");
+   }
    private GPresets extension = null;
    private List<String> needVariableIds = new ArrayList();
    private int variablesProcessed;
@@ -504,6 +555,8 @@ public class GPresetImporter {
 
    private void beginImport(HPoint root,PresetConfig preset,PostConfig options) {
       this.pauseGate.cancel();this.activeImportRoomId=this.extension.getFloorState().getRoomId();
+       undoBaselineFloors=this.extension.getFloorState().getItems().stream().map(HFloorItem::getId).collect(Collectors.toSet());
+       undoJournal.begin(activeImportRoomId,this.extension.getOwnUserId(),undoBaselineFloors,this.extension.getFloorState().getWallItems().stream().map(HWallItem::getId).collect(Collectors.toSet()));
       try { this.prepare(root!=null,preset,options); } finally { this.extension.updatePreviewAvailability(); }
       if(this.state==BuildingImportState.NONE)return;
       if(root!=null) { this.rootLocation=root;this.computeImportZDelta(); }
@@ -1055,6 +1108,7 @@ public class GPresetImporter {
 
          this.extension.sendToServer(new HPacket("BuildersClubPlaceRoomItem", HMessage.Direction.TOSERVER, new Object[]{-1, offerId, "", dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()}));
          Utils.sleep(230);
+         recordFloorPlacement(dropInfo,null);
       } else {
          if (inventoryItems.isEmpty() && !useRoomFurni) {
             if (!this.extension.allowIncompleteBuilds()) {
@@ -1095,6 +1149,7 @@ public class GPresetImporter {
          HInventoryItem item = (HInventoryItem)inventoryItems.pollFirst();
          this.extension.sendToServer(new HPacket("PlaceObject", HMessage.Direction.TOSERVER, new Object[]{String.format("-%d %d %d %d", item.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation())}));
          Utils.sleep(150);
+         recordFloorPlacement(dropInfo,item.getId());
       }
 
    }
@@ -1964,6 +2019,7 @@ public class GPresetImporter {
                int offY = relPos.getOffsetY();
                WallPosition absPos = new WallPosition(absX, absY, relPos.getOffsetX(), offY, relPos.getDirection(), absAltitude);
                String locationString = absPos.toString();
+               Integer undoWallInventoryId=null;
                boolean isPoster = "poster".equals(className);
                String invCacheKey = isPoster ? typeId + ":" + wallState : String.valueOf(typeId);
                LinkedList<HInventoryItem> inventoryItems = (LinkedList)this.wallInventoryCache.computeIfAbsent(invCacheKey, (k) -> {
@@ -2063,7 +2119,8 @@ public class GPresetImporter {
                   }
 
                   HInventoryItem item = (HInventoryItem)inventoryItems.pollFirst();
-                  String placeCmd = item.getId() + " " + locationString;
+                  undoWallInventoryId=item.getId();
+                   String placeCmd = item.getId() + " " + locationString;
                   this.extension.sendToServer(new HPacket("PlaceObject", HMessage.Direction.TOSERVER, new Object[]{placeCmd}));
                   Utils.sleep(Math.max(this.extension.getSafeFeedbackTimeout(), 100));
                   boolean found = false;
@@ -2101,6 +2158,12 @@ public class GPresetImporter {
 
                if (newWallItemId != -1) {
                   this.reportWallIds.put(wallFurni.getFurniId(),newWallItemId);
+                   final Integer expectedUndoWallId=undoWallInventoryId;
+                   var undoCandidates=floor.getWallItems().stream().filter(w->!wallIdsBefore.contains(w.getId()) && w.getTypeId()==typeId)
+                      .filter(w->expectedUndoWallId!=null?w.getId()==Math.abs(expectedUndoWallId):undoJournal.owner()>0 && w.getOwnerId()==undoJournal.owner()).toList();
+                   if(undoCandidates.size()==1 && undoCandidates.get(0).getId()==newWallItemId && floor.getRoomId()==undoJournal.room()) {
+                      var placed=undoCandidates.get(0);undoJournal.record(new extension.tools.importutils.ImportUndoJournal.Entry(true,placed.getId(),placed.getTypeId(),placed.getOwnerId(),expectedUndoWallId==null));
+                   }
                   this.realFurniIdMap.put(wallFurni.getFurniId(), newWallItemId);
                   this.realFurniIdMap.put(-wallFurni.getFurniId(), -newWallItemId);
                   placedWallTracking.add(new int[]{newWallItemId, absX, absY, absAltitude, relPos.getOffsetX(), offY, relPos.getDirection()});
@@ -2721,7 +2784,8 @@ public class GPresetImporter {
       ADD_FURNITURE,
       SETUP_ADS,
       SETUP_WIRED,
-      MOVE_FURNITURE;
+      MOVE_FURNITURE,
+      UNDOING;
 
       // $FF: synthetic method
       private static BuildingImportState[] $values() {
