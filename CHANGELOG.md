@@ -1,3 +1,8 @@
+## 1.4.3
+
+- Preview real furniture images from HabboAssets with schematic fallback when unavailable.
+- Prevent personal preset directories from being included in the distribution.
+
 ## 1.4.2
 
 - Restore G-Earth-compatible binary encoding for intercepted packet transport to prevent data corruption.

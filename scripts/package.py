@@ -60,6 +60,7 @@ def main():
     prefix=f"GPresets-{version}/"
     with zipfile.ZipFile(output,"w",zipfile.ZIP_DEFLATED) as z:
         for p in sorted(set(files)):
+            if any(part.lower() == "presets" for part in p.relative_to(ROOT).parts): continue
             info=zipfile.ZipInfo(prefix+p.relative_to(ROOT).as_posix(),date_time=(2026,10,26,0,0,0))
             info.compress_type=zipfile.ZIP_DEFLATED;z.writestr(info,p.read_bytes())
     with zipfile.ZipFile(output) as z:

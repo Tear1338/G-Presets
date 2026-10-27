@@ -15,7 +15,7 @@ public final class PresetPreviewModel {
    }
    public record Item(int id,String className,String name,double x,double y,double z,int rotation,
                       int width,int depth,boolean wall,boolean wired,boolean approximate,String state,String wallLocation) {
-      @Override public String toString() { return (wall?"[Mur] ":wired?"[WIRED] ":"")+name; }
+      @Override public String toString() { return (wall?"[Wall] ":wired?"[WIRED] ":"")+name; }
    }
    public final List<Item> items;
    public final int floorCount,wallCount,wiredCount,reusedCount,configurationCount,approximateCount;

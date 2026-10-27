@@ -76,7 +76,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.2",
+   Version = "1.4.3",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -445,7 +445,7 @@ public class GPresets extends ExtensionForm {
             pane.setActions(confirm,stage::close);pane.updateLaunchAvailability(canConfirm.getAsBoolean());
             Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
             refresh.setCycleCount(Timeline.INDEFINITE);
-            stage.setOnHidden(e->{refresh.stop();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
+            stage.setOnHidden(e->{refresh.stop();pane.close();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
             javafx.geometry.Rectangle2D bounds=javafx.stage.Screen.getPrimary().getVisualBounds();
             stage.setScene(new Scene(pane,Math.min(1040,bounds.getWidth()),Math.min(720,bounds.getHeight())));
             stage.setMinWidth(Math.min(700,bounds.getWidth()));stage.setMinHeight(Math.min(480,bounds.getHeight()));

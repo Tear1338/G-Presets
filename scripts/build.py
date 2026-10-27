@@ -93,7 +93,7 @@ def main():
     entries = {}
     with zipfile.ZipFile(runtime) as base:
         for name in base.namelist():
-            if not name.endswith("/") and not name.upper().endswith((".SF", ".RSA", ".DSA")):
+            if not name.endswith("/") and not any(part.lower() == "presets" for part in Path(name).parts) and not name.upper().endswith((".SF", ".RSA", ".DSA")):
                 entries[name] = base.read(name)
     # Bundle the pinned Windows UI runtime so `java -jar` works in G-Earth.
     dependency_dir = ROOT / "lib" / "dependencies"

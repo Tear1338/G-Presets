@@ -12,6 +12,13 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.image.Image;
+import javafx.application.Platform;
+import java.net.URL;
+import java.net.URLConnection;
+import java.io.InputStream;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
 /** Isometric footprint preview; intentionally independent of all hotel/network APIs. */
 public final class PresetPreviewPane extends BorderPane {
@@ -25,6 +32,10 @@ public final class PresetPreviewPane extends BorderPane {
    private final Slider zoom=new Slider(0.5,4,1);
    private final CheckBox heights=new CheckBox("Show heights");
    private final List<Hit> hits=new ArrayList<>();
+   private final Map<String,Image> sprites=new HashMap<>();
+   private final Set<String> requestedSprites=new HashSet<>();
+   private final ExecutorService spriteLoader=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"gpresets-preview-images");t.setDaemon(true);return t;});
+   private final CheckBox showSprites=new CheckBox("Furniture images");
    private double panX,panY,dragX,dragY,dragDistance;
    private double scale,offsetX,offsetY;
    private final Integer originX,originY;
@@ -41,7 +52,7 @@ public final class PresetPreviewPane extends BorderPane {
       Label counts=new Label(model.floorCount+" floor items  \u00b7  "+model.wallCount+" wall items  \u00b7  "+model.wiredCount+" WIRED  \u00b7  "+model.configurationCount+" configurations");
       String origin=originX==null?"Origin: choose in Habbo after confirmation.":"Requested origin: ("+originX+", "+originY+").";
       Label scope=new Label(origin+"  "+model.reusedCount+" existing items reused without moving.");scope.setWrapText(true);
-      Label note=new Label("Schematic footprints, not exact furniture graphics. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("-fx-text-fill:#475569;");
+      Label note=new Label("Furniture images: HabboAssets. Positions and wall items are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("-fx-text-fill:#475569;");
       VBox header=new VBox(5,title,counts,scope,note);header.setPadding(new Insets(0,0,14,0));setTop(header);
       StackPane surface=new StackPane(canvas);surface.setMinSize(280,200);surface.setPrefSize(680,440);
       canvas.widthProperty().bind(surface.widthProperty());canvas.heightProperty().bind(surface.heightProperty());
@@ -49,7 +60,8 @@ public final class PresetPreviewPane extends BorderPane {
       heights.setSelected(true);heights.selectedProperty().addListener(o->draw());
       zoom.setPrefWidth(160);zoom.valueProperty().addListener(o->draw());
       Button fit=new Button("Reset view");fit.setOnAction(e->{panX=0;panY=0;zoom.setValue(1);draw();});
-      HBox tools=new HBox(10,new Label("Zoom"),zoom,fit,heights);tools.setAlignment(Pos.CENTER_LEFT);tools.setPadding(new Insets(9,0,9,0));
+      showSprites.setSelected(true); showSprites.selectedProperty().addListener(o->draw());
+      HBox tools=new HBox(10,new Label("Zoom"),zoom,fit,heights,showSprites);tools.setAlignment(Pos.CENTER_LEFT);tools.setPadding(new Insets(9,0,9,0));
       Label legend=new Label("Blue: furniture  \u00b7  Purple: WIRED  \u00b7  Orange: wall items  \u00b7  Drag: pan  \u00b7  Scroll: zoom");legend.setWrapText(true);legend.setStyle("-fx-text-fill:#475569;");
       VBox view=new VBox(tools,surface,legend);VBox.setVgrow(surface,Priority.ALWAYS);setCenter(view);
       TextField search=new TextField();search.setPromptText("Search furniture or ID");
@@ -75,6 +87,7 @@ public final class PresetPreviewPane extends BorderPane {
       canvas.setOnMouseClicked(e->{if(dragDistance>5)return;for(int i=hits.size()-1;i>=0;i--){Hit h=hits.get(i);if(contains(h,e.getX(),e.getY())){items.getSelectionModel().select(h.item());items.scrollTo(h.item());break;}}});
       draw();
    }
+   public void close() { spriteLoader.shutdownNow(); }
    public Canvas getCanvas() { return canvas; }
    public ListView<PresetPreviewModel.Item> getItemList() { return items; }
    public Button getLaunchButton() { return launch; }
@@ -122,9 +135,38 @@ public final class PresetPreviewPane extends BorderPane {
          Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
          g.setFill(fill.deriveColor(0,1,1,item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
          g.setStroke(item==selected?Color.web("#67e8f9"):fill.brighter());g.setLineWidth(item==selected?3:1);g.strokePolygon(xs,ys,4);
+         if(showSprites.isSelected() && !item.wall()) {
+            Image sprite=spriteFor(item);
+            if(sprite!=null) {
+               Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
+               double imageWidth=sprite.getWidth()*scale, imageHeight=sprite.getHeight()*scale;
+               g.drawImage(sprite,center.x()-imageWidth/2,center.y()-imageHeight+16*scale,imageWidth,imageHeight);
+            }
+         }
          hits.add(new Hit(item,xs,ys));
          if(scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f8fafc"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
       }
+   }
+   private Image spriteFor(PresetPreviewModel.Item item) {
+      String classname=item.className();
+      if(classname==null || !classname.matches("[A-Za-z0-9_.*-]{1,120}"))return null;
+      String key=classname+"|"+item.rotation()+"|"+(item.state()==null?"":item.state());
+      Image image=sprites.get(key);
+      if(image==null && !spriteLoader.isShutdown() && requestedSprites.size()<128 && requestedSprites.add(key)) {
+         spriteLoader.submit(()->{
+            try {
+               String state=item.state()!=null && item.state().matches("[0-9]{1,3}")?"&state="+item.state():"";
+               String url="https://www.habboassets.com/imaging/furniture/"+classname+".png?direction="+item.rotation()+state;
+               URLConnection connection=new URL(url).openConnection();connection.setConnectTimeout(5000);connection.setReadTimeout(5000);
+               byte[] bytes;try(InputStream stream=connection.getInputStream()){bytes=stream.readNBytes(2_000_001);}
+               if(bytes.length>2_000_000)throw new IllegalArgumentException("Image too large");
+               Image loaded=new Image(new java.io.ByteArrayInputStream(bytes));
+               if(!loaded.isError() && loaded.getWidth()>0)Platform.runLater(()->{sprites.put(key,loaded);draw();});
+            } catch(Exception ignored) { /* The footprint remains visible offline. */ }
+            try {Thread.sleep(1100);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+         });
+      }
+      return image;
    }
    private static boolean contains(Hit h,double x,double y) {
       boolean inside=false;for(int i=0,j=3;i<4;j=i++)if((h.y()[i]>y)!=(h.y()[j]>y) && x<(h.x()[j]-h.x()[i])*(y-h.y()[i])/(h.y()[j]-h.y()[i])+h.x()[i])inside=!inside;return inside;
