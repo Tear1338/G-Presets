@@ -255,7 +255,7 @@ public class GPresetImporter {
 
    private void onInspectVariablesForObject(HMessage hMessage) {
       try {
-         HWiredVariablesForObject inspection = new HWiredVariablesForObject(hMessage.getPacket());
+         HWiredVariablesForObject inspection = new HWiredVariablesForObject(new HPacket(hMessage.getPacket()));
          if(inspection.type==-10) {
             this.inspectedFurniVariables.put(0,new HashMap<>(inspection.variables));
             if(Integer.valueOf(0).equals(this.awaitingInspectionForFurniId.get()))this.inspectionResponseSemaphore.release();
@@ -275,7 +275,8 @@ public class GPresetImporter {
          if (waiting != null && waiting == furniId) {
             this.inspectionResponseSemaphore.release();
          }
-      } catch (Exception var5) {
+      } catch (RuntimeException error) {
+         if(this.awaitingInspectionForFurniId.get()!=null)this.extension.getLogger().log("Cannot read inspected furniture variables: "+error.getMessage(),"orange");
       }
 
    }
@@ -1558,7 +1559,14 @@ public class GPresetImporter {
                if(!this.extension.sendToServer(p)) { failWiredImport("Cannot save variable holder " + mapped.objectId);return; }
             }
             Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
-            if(!fetchObjectVariables(mapped.target,mapped.objectId,3000L) || !mapped.matches(this.inspectedFurniVariables.getOrDefault(mapped.objectId,Collections.emptyMap()))) {
+            boolean inspected=fetchObjectVariables(mapped.target,mapped.objectId,3000L);
+            Map<String,Integer> actual=this.inspectedFurniVariables.getOrDefault(mapped.objectId,Collections.emptyMap());
+            if(inspected && this.incompleteBuildAllowed && this.partialPlan!=null && mapped.onlyClockPulseUnconfirmed(actual)) {
+               String reason="Clock pulse snapshot not confirmed while the counter is active; other holder properties matched";
+               this.partialPlan.noteUnconfirmed("objectVariables",original.objectId,reason);
+               this.extension.getLogger().log(reason+" (preset holder "+original.objectId+")","orange");continue;
+            }
+            if(!inspected || !mapped.matches(actual)) {
                failWiredImport("Variable values not confirmed for holder " + mapped.objectId);return;
             }
             this.reportOtherCounts.merge("objectVariables",1,Integer::sum);
@@ -1570,12 +1578,13 @@ public class GPresetImporter {
       for(PresetRoomLink original:this.workingPresetConfig.getRoomLinks()) {
          if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
          if(this.state!=BuildingImportState.SETUP_WIRED) return false;
-         Integer id=this.realFurniIdMap.get(original.furniId);
-         if(id==null) return failWiredImport("Missing room linker " + original.furniId);
-         if(!this.extension.sendToServer(original.withFurniId(id).savePacket())) return failWiredImport("Cannot save room linker " + id);
+         String unavailable=original.unavailableReason(this.realFurniIdMap);
+         if(unavailable!=null)return failWiredImport(unavailable);
+         PresetRoomLink mapped=original.remap(this.realFurniIdMap);int id=mapped.furniId;
+         if(!this.extension.sendToServer(mapped.savePacket()))return failWiredImport("Cannot save linked furniture destination for "+id);
          Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
-         boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==(original.destination.isEmpty()?0:Integer.parseInt(original.destination));
-         if(!confirmed) return failWiredImport("Room linker destination not confirmed for " + id);
+         boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==Integer.parseInt(mapped.destination);
+         if(!confirmed)return failWiredImport("Linked furniture destination not confirmed for "+id);
          this.reportOtherCounts.merge("roomLinks",1,Integer::sum);
       }
       return this.state==BuildingImportState.SETUP_WIRED;

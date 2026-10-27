@@ -1,3 +1,12 @@
+## 1.6.3
+
+- Fix the observed room-linker import stop: native property ~103 is a linked furniture ID (teleport.target_id), not a room ID. Never send an old absolute source furniture ID as an apartment destination.
+- Preserve legacy JSON without rewriting private presets. In partial mode, report and omit unsupported legacy/external pairings while continuing WIRED and final placement. Keep native pairings intact; strict imports still stop on non-portable settings.
+- Export explicit local, external and unpaired furniture destinations; remap both endpoints before a portable local pairing is saved and verified. Reject runtime-only resolved IDs supplied by preset JSON.
+- Exercise the actual WIRED-setup-to-final-placement continuation, source preservation, pair remapping, legacy/external guards and inspection diagnostics. Live read-only inspection confirmed the property semantics and actual failing target; full private-preset remapping/encoding tested offline. A complete live import with this build is not yet validated.
+- In partial mode, report an unconfirmed live clock pulse counter without stopping the remaining import when all other holder properties match. Missing inspection replies and other mismatches still stop; the counter is not counted as confirmed.
+- Keep every earlier GitHub release and the 1.6.2 preview fixes.
+
 ## 1.6.2
 
 - Align preview sprites using official revisioned furniture asset origins and bitmap bounds instead of one fixed bottom offset. Correct sand, overhanging water, rectangular platforms and tall decorations; retain explicit approximate anchors for unsupported or mismatched variants.

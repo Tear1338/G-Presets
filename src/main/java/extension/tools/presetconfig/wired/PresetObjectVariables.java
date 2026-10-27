@@ -62,5 +62,10 @@ public final class PresetObjectVariables {
       return packets;
    }
    public JSONObject toJsonObject() { return new JSONObject().put("target",target).put("objectId",objectId).put("values",new JSONObject(values)).put("furnitureReferenceKeys",new JSONArray(furnitureReferenceKeys)).put("writeOnlyVariableIds",new JSONArray(writeOnlyVariableIds)); }
+   /** The clock pulse count can advance between a write and its inspection reply. */
+   public boolean onlyClockPulseUnconfirmed(Map<String,Integer> actual) {
+      return target==0 && values.containsKey("~121") && actual.containsKey("~121") && !matches(actual)
+         && values.entrySet().stream().filter(e->!e.getKey().equals("~121")).allMatch(e->e.getValue().equals(actual.get(e.getKey())));
+   }
    public boolean matches(Map<String,Integer> actual) { return values.entrySet().stream().allMatch(e->e.getValue().equals(actual.get(e.getKey()))); }
 }

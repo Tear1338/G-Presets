@@ -386,8 +386,10 @@ public final class RegressionTests {
       fails(()->room.remap(Map.of(),Map.of()),"missing room variable blocks restoration");
       PresetConfig preset=emptyPreset();preset.setObjectVariables(List.of(v,room));
       check(new PresetConfig(preset.toJsonObject()).getObjectVariables().get(0).matches(v.values),"builtin property JSON round trip");
-      PresetRoomLink link=new PresetRoomLink(123,"9999");HPacket packet=link.savePacket();
-      check(packet.readInteger()==0 && packet.readInteger()==123 && packet.readString().equals("~103") && packet.readInteger()==9999 && packet.readInteger()==0,"room linker uses native writable property");
+      PresetRoomLink legacy=new PresetRoomLink(123,"9999");
+      fails(legacy::savePacket,"legacy room linker must never write an absolute source furniture ID as a room destination");
+      PresetRoomLink link=PresetRoomLink.capture(123,888,Map.of(888,7));HPacket packet=link.remap(Map.of(123,123,7,9999)).savePacket();
+      check(packet.readInteger()==0 && packet.readInteger()==123 && packet.readString().equals("~103") && packet.readInteger()==9999 && packet.readInteger()==0,"room linker maps a local furniture reference to its real destination ID");
       fails(()->new PresetRoomLink(123,"invalid"),"invalid room linker rejected");
       fails(()->new PresetRoomLink(123,"9999999999999"),"room destination overflow rejected before placing furniture");
       fails(()->new HWiredVariablesForObject(new HPacket(1,0,123,-1)),"negative inspection count rejected");
@@ -588,6 +590,7 @@ public final class RegressionTests {
       passed+=PresetToolsTests.run();
       passed+=PartialImportTests.run();
       passed+=PreviewGeometryTests.run();
+      passed+=RoomLinkTests.run();
       pauseGateTests();
       imageCacheTests();
       release150Tests();

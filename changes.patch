@@ -81,7 +81,7 @@
 +@ExtensionInfo(
 +   Title = "G-Presets",
 +   Description = "edit by 1desirable1337",
-+   Version = "1.6.2",
++   Version = "1.6.3",
 +   Author = "sirjonasxx & 1desirable1337"
 +)
 +public class GPresets extends ExtensionForm {
@@ -1575,7 +1575,7 @@
 +}
 --- a/src/main/java/extension/tools/GPresetExporter.java
 +++ b/src/main/java/extension/tools/GPresetExporter.java
-@@ -0,0 +1,1604 @@
+@@ -0,0 +1,1602 @@
 +package extension.tools;
 +
 +import extension.GPresets;
@@ -2384,9 +2384,7 @@
 +               HFloorItem item=entry.getKey()>0?floor.furniFromId(entry.getKey()):null;
 +               if(item!=null && "wf_room_linker".equals(furniDataTools.getFloorItemName(item.getTypeId()))) {
 +                  Map<String,Integer> properties=this.furniVariablesByFurniId.get(item.getId());
-+                  String destination=properties!=null && properties.containsKey("~103")?Integer.toString(properties.get("~103")):
-+                     item.getStuff() instanceof MapStuffData ? ((MapStuffData)item.getStuff()).getOrDefault("internalLink", "") : "";
-+                  exportedRoomLinks.add(new PresetRoomLink(entry.getValue(),destination));
++                  if(properties!=null && properties.containsKey("~103"))exportedRoomLinks.add(PresetRoomLink.capture(entry.getValue(),properties.get("~103"),mappedFurniIds));
 +               }
 +               if(item!=null && PresetChest.isChest(furniDataTools.getFloorItemName(item.getTypeId()))) {
 +                  if(!(item.getStuff() instanceof MapStuffData)) throw new IllegalStateException("Chest settings not loaded for " + item.getId());
@@ -3182,7 +3180,7 @@
 +}
 --- a/src/main/java/extension/tools/GPresetImporter.java
 +++ b/src/main/java/extension/tools/GPresetImporter.java
-@@ -0,0 +1,2804 @@
+@@ -0,0 +1,2813 @@
 +package extension.tools;
 +
 +import extension.GPresets;
@@ -3440,7 +3438,7 @@
 +
 +   private void onInspectVariablesForObject(HMessage hMessage) {
 +      try {
-+         HWiredVariablesForObject inspection = new HWiredVariablesForObject(hMessage.getPacket());
++         HWiredVariablesForObject inspection = new HWiredVariablesForObject(new HPacket(hMessage.getPacket()));
 +         if(inspection.type==-10) {
 +            this.inspectedFurniVariables.put(0,new HashMap<>(inspection.variables));
 +            if(Integer.valueOf(0).equals(this.awaitingInspectionForFurniId.get()))this.inspectionResponseSemaphore.release();
@@ -3460,7 +3458,8 @@
 +         if (waiting != null && waiting == furniId) {
 +            this.inspectionResponseSemaphore.release();
 +         }
-+      } catch (Exception var5) {
++      } catch (RuntimeException error) {
++         if(this.awaitingInspectionForFurniId.get()!=null)this.extension.getLogger().log("Cannot read inspected furniture variables: "+error.getMessage(),"orange");
 +      }
 +
 +   }
@@ -4743,7 +4742,14 @@
 +               if(!this.extension.sendToServer(p)) { failWiredImport("Cannot save variable holder " + mapped.objectId);return; }
 +            }
 +            Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
-+            if(!fetchObjectVariables(mapped.target,mapped.objectId,3000L) || !mapped.matches(this.inspectedFurniVariables.getOrDefault(mapped.objectId,Collections.emptyMap()))) {
++            boolean inspected=fetchObjectVariables(mapped.target,mapped.objectId,3000L);
++            Map<String,Integer> actual=this.inspectedFurniVariables.getOrDefault(mapped.objectId,Collections.emptyMap());
++            if(inspected && this.incompleteBuildAllowed && this.partialPlan!=null && mapped.onlyClockPulseUnconfirmed(actual)) {
++               String reason="Clock pulse snapshot not confirmed while the counter is active; other holder properties matched";
++               this.partialPlan.noteUnconfirmed("objectVariables",original.objectId,reason);
++               this.extension.getLogger().log(reason+" (preset holder "+original.objectId+")","orange");continue;
++            }
++            if(!inspected || !mapped.matches(actual)) {
 +               failWiredImport("Variable values not confirmed for holder " + mapped.objectId);return;
 +            }
 +            this.reportOtherCounts.merge("objectVariables",1,Integer::sum);
@@ -4755,12 +4761,13 @@
 +      for(PresetRoomLink original:this.workingPresetConfig.getRoomLinks()) {
 +         if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
 +         if(this.state!=BuildingImportState.SETUP_WIRED) return false;
-+         Integer id=this.realFurniIdMap.get(original.furniId);
-+         if(id==null) return failWiredImport("Missing room linker " + original.furniId);
-+         if(!this.extension.sendToServer(original.withFurniId(id).savePacket())) return failWiredImport("Cannot save room linker " + id);
++         String unavailable=original.unavailableReason(this.realFurniIdMap);
++         if(unavailable!=null)return failWiredImport(unavailable);
++         PresetRoomLink mapped=original.remap(this.realFurniIdMap);int id=mapped.furniId;
++         if(!this.extension.sendToServer(mapped.savePacket()))return failWiredImport("Cannot save linked furniture destination for "+id);
 +         Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
-+         boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==(original.destination.isEmpty()?0:Integer.parseInt(original.destination));
-+         if(!confirmed) return failWiredImport("Room linker destination not confirmed for " + id);
++         boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==Integer.parseInt(mapped.destination);
++         if(!confirmed)return failWiredImport("Linked furniture destination not confirmed for "+id);
 +         this.reportOtherCounts.merge("roomLinks",1,Integer::sum);
 +      }
 +      return this.state==BuildingImportState.SETUP_WIRED;
@@ -6430,7 +6437,7 @@
 +      for(Object value:report.getJSONArray("items")){JSONObject row=(JSONObject)value;String status=row.getString("status");totals.merge(row.getString("kind")+" "+status,1,Integer::sum);s.append(row.getString("kind")).append(" ").append(row.getString("className")).append(" [").append(row.getInt("presetId")).append("] — ").append(status.replace('_',' '));if(row.has("stateCheck"))s.append("; state: ").append(row.getString("stateCheck"));if(row.has("altitudeCheck"))s.append("; height: ").append(row.getString("altitudeCheck"));s.append('\n');}
 +      JSONArray omissions=report.optJSONArray("omissions");
 +      if(omissions!=null && !omissions.isEmpty()) {
-+         s.append("\nSkipped because furniture/dependencies were unavailable\n");
++         s.append("\nSkipped or unconfirmed configurations\n");
 +         for(Object value:omissions){JSONObject row=(JSONObject)value;s.append(row.getString("category")).append(" [").append(row.getInt("presetId")).append("]: ").append(row.getString("reason")).append('\n');}
 +      }
 +      s.append("\nTotals\n");totals.forEach((key,value)->s.append(key.replace('_',' ')).append(": ").append(value).append('\n'));
@@ -6471,7 +6478,7 @@
 +}
 --- a/src/main/java/extension/tools/importutils/PartialImportPlan.java
 +++ b/src/main/java/extension/tools/importutils/PartialImportPlan.java
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,106 @@
 +package extension.tools.importutils;
 +
 +import extension.tools.presetconfig.PresetConfig;
@@ -6532,7 +6539,7 @@
 +      for(var item:effective.getWallFurniture())item.setVariables(legacyValues(item.getVariables(),missingNames,-Math.abs(item.getFurniId())));
 +      wired.getVariablesMap().entrySet().removeIf(e->missingVariables.contains(e.getValue()));
 +      effective.getBindings().removeIf(b->skippedWired.containsKey(b.getWiredId()));
-+      exclude(effective.getRoomLinks(),b->b.furniId,"roomLinks",furniture);
++      effective.getRoomLinks().removeIf(link->{String reason=link.unavailableReason(furniture);if(reason==null)return false;omit("roomLinks",link.furniId,reason);return true;});
 +      exclude(effective.getChests(),b->b.furniId,"chests",furniture);
 +      exclude(effective.getContracts(),b->b.furniId,"contracts",furniture);
 +      exclude(effective.getWiredLinks(),b->b.furniId,"links",furniture);
@@ -6568,6 +6575,7 @@
 +      }
 +      return kept;
 +   }
++   public void noteUnconfirmed(String category,int id,String reason){omit(category,id,reason);}
 +   private void omit(String category,int id,String reason){omissions.add(new Omission(category,id,reason));}
 +   private <T> void exclude(List<T> items,ToIntFunction<T> id,String category,Map<Integer,Integer> furniture) {
 +      items.removeIf(item->{int source=id.applyAsInt(item);if(furniture.containsKey(source))return false;omit(category,source,"Owner furniture was not placed");return true;});
@@ -8581,7 +8589,7 @@
 +}
 --- a/src/main/java/extension/tools/presetconfig/wired/PresetObjectVariables.java
 +++ b/src/main/java/extension/tools/presetconfig/wired/PresetObjectVariables.java
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,71 @@
 +package extension.tools.presetconfig.wired;
 +import gearth.protocol.HMessage;
 +import gearth.protocol.HPacket;
@@ -8646,28 +8654,61 @@
 +      return packets;
 +   }
 +   public JSONObject toJsonObject() { return new JSONObject().put("target",target).put("objectId",objectId).put("values",new JSONObject(values)).put("furnitureReferenceKeys",new JSONArray(furnitureReferenceKeys)).put("writeOnlyVariableIds",new JSONArray(writeOnlyVariableIds)); }
++   /** The clock pulse count can advance between a write and its inspection reply. */
++   public boolean onlyClockPulseUnconfirmed(Map<String,Integer> actual) {
++      return target==0 && values.containsKey("~121") && actual.containsKey("~121") && !matches(actual)
++         && values.entrySet().stream().filter(e->!e.getKey().equals("~121")).allMatch(e->e.getValue().equals(actual.get(e.getKey())));
++   }
 +   public boolean matches(Map<String,Integer> actual) { return values.entrySet().stream().allMatch(e->e.getValue().equals(actual.get(e.getKey()))); }
 +}
 --- a/src/main/java/extension/tools/presetconfig/wired/PresetRoomLink.java
 +++ b/src/main/java/extension/tools/presetconfig/wired/PresetRoomLink.java
-@@ -0,0 +1,18 @@
+@@ -0,0 +1,46 @@
 +package extension.tools.presetconfig.wired;
++
 +import gearth.protocol.HMessage;
 +import gearth.protocol.HPacket;
++import java.util.Map;
++import java.util.Set;
 +import org.json.JSONObject;
-+/** Destination is a room ID, independent of furniture IDs. */
++
++/** ~103 is teleport.target_id (a furniture ID), never a room destination. */
 +public final class PresetRoomLink {
 +   public final int furniId;
 +   public final String destination;
-+   public PresetRoomLink(int id,String destination) {
-+      this.furniId=id;this.destination=destination;
-+      if(destination==null || (!destination.isEmpty() && !destination.matches("[0-9]+"))) throw new IllegalArgumentException("Invalid room linker destination");
-+      if(!destination.isEmpty()) Integer.parseInt(destination);
++   public final String destinationType;
++   private static final Set<String> TYPES=Set.of("legacy","furniture","externalFurniture","none","resolvedFurniture");
++   /** Old snapshots stored an absolute source-world furniture ID without its meaning. */
++   public PresetRoomLink(int id,String destination){this(id,destination,"legacy");}
++   private PresetRoomLink(int id,String destination,String type) {
++      this.furniId=id;this.destination=destination;this.destinationType=type;
++      if(destination==null || (!destination.isEmpty() && !destination.matches("[0-9]+")) || !TYPES.contains(type))throw new IllegalArgumentException("Invalid linked furniture destination");
++      if(!destination.isEmpty())Integer.parseInt(destination);
++      if(type.equals("none") && !destination.equals("0") || type.equals("furniture") && destination.isEmpty())throw new IllegalArgumentException("Invalid linked furniture reference");
 +   }
-+   public PresetRoomLink(JSONObject json) { this(json.getInt("furniId"),json.getString("destination")); }
-+   public JSONObject toJsonObject() { return new JSONObject().put("furniId",furniId).put("destination",destination); }
-+   public PresetRoomLink withFurniId(int id) { return new PresetRoomLink(id,destination); }
-+   public HPacket savePacket() { return new HPacket("WiredSetObjectVariableValue",HMessage.Direction.TOSERVER,0,furniId,"~103",destination.isEmpty()?0:Integer.parseInt(destination),0); }
++   public PresetRoomLink(JSONObject json){this(json.getInt("furniId"),json.getString("destination"),json.optString("destinationType","legacy"));if(destinationType.equals("resolvedFurniture"))throw new IllegalArgumentException("Resolved furniture IDs cannot be supplied by preset JSON");}
++   public static PresetRoomLink capture(int owner,int target,Map<Integer,Integer> furniture) {
++      Integer local=furniture.get(target);
++      return new PresetRoomLink(owner,Integer.toString(local!=null?local:target),local!=null?"furniture":target==0?"none":"externalFurniture");
++   }
++   public String unavailableReason(Map<Integer,Integer> furniture) {
++      if(!furniture.containsKey(furniId))return "Room linker furniture was not placed: "+furniId;
++      if(destinationType.equals("legacy"))return "Legacy room linker snapshot contains a source furniture ID, not a room ID; its native pairing is retained. Re-export to capture a portable local link";
++      if(destinationType.equals("externalFurniture"))return "Linked teleport furniture is outside this preset; native pairing retained";
++      if(destinationType.equals("furniture") && !furniture.containsKey(Integer.parseInt(destination)))return "Linked destination furniture was not placed: "+destination;
++      return null;
++   }
++   public PresetRoomLink remap(Map<Integer,Integer> furniture) {
++      String reason=unavailableReason(furniture);if(reason!=null)throw new IllegalStateException(reason);
++      int target=destinationType.equals("none")?0:destinationType.equals("resolvedFurniture")?Integer.parseInt(destination):furniture.get(Integer.parseInt(destination));
++      return new PresetRoomLink(furniture.get(furniId),Integer.toString(target),"resolvedFurniture");
++   }
++   public JSONObject toJsonObject(){JSONObject json=new JSONObject().put("furniId",furniId).put("destination",destination);if(!destinationType.equals("legacy"))json.put("destinationType",destinationType);return json;}
++   public PresetRoomLink withFurniId(int id){return new PresetRoomLink(id,destination,destinationType);}
++   public HPacket savePacket() {
++      if(!destinationType.equals("resolvedFurniture"))throw new IllegalStateException("Room linker furniture references must be resolved before saving");
++      return new HPacket("WiredSetObjectVariableValue",HMessage.Direction.TOSERVER,0,furniId,"~103",Integer.parseInt(destination),0);
++   }
 +}
 --- a/src/main/java/extension/tools/presetconfig/wired/PresetWiredAddon.java
 +++ b/src/main/java/extension/tools/presetconfig/wired/PresetWiredAddon.java
@@ -13942,7 +13983,7 @@
 +}
 --- a/tests/PreviewImportFlow.java
 +++ b/tests/PreviewImportFlow.java
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,177 @@
 +package tests;
 +import extension.GPresets;
 +import extension.logger.Logger;
@@ -13975,6 +14016,7 @@
 +      @Override public int getOwnUserId(){return 5;}
 +      PresetPreviewSession session;BooleanSupplier confirm,ready;Runnable cancel;
 +      final FloorState floor=new FloorState(this,new Logger(),()->{},()->{}) {
++         @Override public java.util.List<gearth.extensions.parsers.HFloorItem> getFurniOnTile(int x,int y){return floorItems.values().stream().filter(f->f.getTile().getX()==x && f.getTile().getY()==y).toList();}
 +         @Override public int getRoomId() { return room; }
 +         @Override public boolean inRoom() { return roomLoaded; }
 +         @Override public java.util.List<gearth.extensions.parsers.HFloorItem> getItems(){return new ArrayList<>(floorItems.values());}
@@ -14036,6 +14078,7 @@
 +      require(!importer.applySessionReplacements(active,preset),"substitutions cannot change an active preview/import");extension.cancel.run();
 +      undoWorker(extension,importer);
 +      incompletePolicy(extension,importer);
++      legacyLinkContinuation(extension,importer);
 +      System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
 +   }
 +   private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
@@ -14095,6 +14138,25 @@
 +         require(extension.lastReport.getString("outcome").equals("Import finished"),"subsequent complete build resets previous partial outcome");
 +         extension.roomLoaded=false;
 +         System.out.println("PASS: real importer incomplete/strict policy, finish outcome, original totals, omission/error reasons and next-import isolation");
++      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
++   }
++
++   private static void legacyLinkContinuation(FakeExtension extension,GPresetImporter importer) {
++      try {
++         var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
++         // Explicitly reused furniture is already mapped, and absent from the remaining placement list.
++         var preset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
++         preset.setRoomLinks(new ArrayList<>(List.of(new extension.tools.presetconfig.wired.PresetRoomLink(7,"420000001"))));
++         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(7,101)));put(importer,"incompleteBuildAllowed",true);
++         put(importer,"rootLocation",new gearth.extensions.parsers.HPoint(0,0));put(importer,"stackTileLocation",new gearth.extensions.parsers.HPoint(20,20));put(importer,"allAvailableStackTiles",new ArrayList<>());
++         put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);extension.roomLoaded=true;
++         int sent=extension.serverPackets;var setup=GPresetImporter.class.getDeclaredMethod("setupWired");setup.setAccessible(true);setup.invoke(importer);
++         require(importer.getState()==GPresetImporter.BuildingImportState.NONE,"actual setup pipeline reaches final placement/completion after an unavailable legacy pairing");
++         require(extension.serverPackets==sent,"legacy foreign pairing is never written to the hotel");
++         require(extension.lastReport.getString("outcome").equals("Import finished with omissions"),"continuation does not claim legacy pairing was restored");
++         require(extension.lastReport.getJSONObject("otherConfigurations").getInt("roomLinks")==1 && ImportReport.text(extension.lastReport).contains("native pairing is retained"),"final report preserves requested pairing and reason for its omission");
++         require(preset.getRoomLinks().size()==1,"actual import leaves selected preset intact");extension.roomLoaded=false;
++         System.out.println("PASS: actual WIRED setup-to-final-placement pipeline continues past an unavailable legacy room-linker pairing");
 +      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
 +   }
 +
@@ -14174,7 +14236,7 @@
 +}
 --- a/tests/RegressionTests.java
 +++ b/tests/RegressionTests.java
-@@ -0,0 +1,620 @@
+@@ -0,0 +1,623 @@
 +package tests;
 +
 +import extension.parsers.*;
@@ -14563,8 +14625,10 @@
 +      fails(()->room.remap(Map.of(),Map.of()),"missing room variable blocks restoration");
 +      PresetConfig preset=emptyPreset();preset.setObjectVariables(List.of(v,room));
 +      check(new PresetConfig(preset.toJsonObject()).getObjectVariables().get(0).matches(v.values),"builtin property JSON round trip");
-+      PresetRoomLink link=new PresetRoomLink(123,"9999");HPacket packet=link.savePacket();
-+      check(packet.readInteger()==0 && packet.readInteger()==123 && packet.readString().equals("~103") && packet.readInteger()==9999 && packet.readInteger()==0,"room linker uses native writable property");
++      PresetRoomLink legacy=new PresetRoomLink(123,"9999");
++      fails(legacy::savePacket,"legacy room linker must never write an absolute source furniture ID as a room destination");
++      PresetRoomLink link=PresetRoomLink.capture(123,888,Map.of(888,7));HPacket packet=link.remap(Map.of(123,123,7,9999)).savePacket();
++      check(packet.readInteger()==0 && packet.readInteger()==123 && packet.readString().equals("~103") && packet.readInteger()==9999 && packet.readInteger()==0,"room linker maps a local furniture reference to its real destination ID");
 +      fails(()->new PresetRoomLink(123,"invalid"),"invalid room linker rejected");
 +      fails(()->new PresetRoomLink(123,"9999999999999"),"room destination overflow rejected before placing furniture");
 +      fails(()->new HWiredVariablesForObject(new HPacket(1,0,123,-1)),"negative inspection count rejected");
@@ -14765,6 +14829,7 @@
 +      passed+=PresetToolsTests.run();
 +      passed+=PartialImportTests.run();
 +      passed+=PreviewGeometryTests.run();
++      passed+=RoomLinkTests.run();
 +      pauseGateTests();
 +      imageCacheTests();
 +      release150Tests();
@@ -14794,6 +14859,51 @@
 +      System.out.println("PASS: "+passed+" regression assertions; native-codec fixtures, JSON, variables, contexts, catalog, and file persistence");
 +      System.out.println("Live Habbo import/export and gameplay: NOT TESTED");
 +   }
++}
+--- a/tests/RoomLinkTests.java
++++ b/tests/RoomLinkTests.java
+@@ -0,0 +1,42 @@
++package tests;
++import extension.tools.importutils.PartialImportPlan;
++import extension.tools.presetconfig.PresetConfig;
++import extension.tools.presetconfig.wired.*;
++import gearth.protocol.HPacket;
++import java.util.*;
++import org.json.*;
++
++public final class RoomLinkTests {
++ private static int checks;
++ private static void check(boolean value,String message){if(!value)throw new AssertionError(message);checks++;}
++ private static void rejects(Runnable action,String message){try{action.run();}catch(IllegalArgumentException|IllegalStateException e){checks++;return;}throw new AssertionError(message);}
++ public static int run() {
++  checks=0;var ids=Map.of(7,107,8,108);
++  var legacy=new PresetRoomLink(new JSONObject().put("furniId",7).put("destination","420000001"));
++  check(legacy.unavailableReason(ids).contains("source furniture ID"),"legacy room linker is recognized as an unmapped source furniture reference");
++  rejects(legacy::savePacket,"raw legacy target is never sent as a room ID");rejects(()->legacy.remap(ids),"unknown legacy destination cannot be rebound implicitly");
++  check(!legacy.toJsonObject().has("destinationType"),"legacy JSON remains round-trip compatible and is not silently rewritten");
++  var local=PresetRoomLink.capture(7,900,Map.of(900,8));
++  check(local.destinationType.equals("furniture") && local.destination.equals("8"),"new export stores the destination as a preset furniture ID");
++  local=new PresetRoomLink(local.toJsonObject());var mapped=local.remap(ids);HPacket packet=mapped.savePacket();
++  check(packet.readInteger()==0 && packet.readInteger()==107 && packet.readString().equals("~103") && packet.readInteger()==108 && packet.readInteger()==0,"both owner and paired furniture IDs are mapped before sending the native setter");
++  var missing=PresetRoomLink.capture(7,900,Map.of(900,8));check(missing.unavailableReason(Map.of(7,107)).contains("not placed"),"missing local target is diagnosed before a save");
++  var external=PresetRoomLink.capture(7,900,Map.of());check(external.destinationType.equals("externalFurniture"),"external pairing is explicit in new exports");rejects(()->external.remap(ids),"external pairing keeps the native destination instead of writing a foreign object ID");
++  var empty=PresetRoomLink.capture(7,0,Map.of()).remap(ids).savePacket();empty.readInteger();empty.readInteger();empty.readString();check(empty.readInteger()==0,"explicit unpaired source can be restored without resolving a non-existent target");
++  var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
++  var preset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());preset.setRoomLinks(new ArrayList<>(List.of(legacy)));
++  var plan=PartialImportPlan.create(preset,ids,Map.of());
++  check(plan.effective().getRoomLinks().isEmpty() && plan.omissions().size()==1,"partial build excludes the unsupported legacy pairing without excluding other configuration");
++  check(plan.omissions().get(0).category().equals("roomLinks") && preset.getRoomLinks().size()==1,"report records the omitted pairing and source preset remains intact");
++  preset.setRoomLinks(new ArrayList<>(List.of(PresetRoomLink.capture(7,900,Map.of(900,8)))));
++  check(PartialImportPlan.create(preset,ids,Map.of()).omissions().isEmpty(),"available portable pairings remain eligible for save and verification");
++  rejects(()->new PresetRoomLink(new JSONObject().put("furniId",7).put("destination","999").put("destinationType","resolvedFurniture")),"preset JSON cannot bypass furniture remapping with a runtime-only resolved marker");
++  rejects(()->new PresetRoomLink(new JSONObject().put("furniId",7).put("destination","999").put("destinationType","none")),"an unpaired marker cannot silently discard a nonzero destination");
++  var clock=new PresetObjectVariables(0,7,Map.of("~121",12,"~100",20));
++  check(!clock.matches(Map.of("~121",13,"~100",20)) && clock.onlyClockPulseUnconfirmed(Map.of("~121",13,"~100",20)),"a changing clock value remains unconfirmed rather than being counted as a successful snapshot");
++  check(!clock.onlyClockPulseUnconfirmed(Map.of("~121",13,"~100",21)),"another mismatching property remains a real validation failure");
++  check(!clock.onlyClockPulseUnconfirmed(Map.of("~100",20)),"missing clock inspection is not mistaken for a moving counter");
++  check(!clock.onlyClockPulseUnconfirmed(Map.of("~121",12,"~100",20)),"fully matching clock snapshot remains fully confirmed");
++  return checks;
++ }
 +}
 --- a/tests/UiResourceSmoke.java
 +++ b/tests/UiResourceSmoke.java

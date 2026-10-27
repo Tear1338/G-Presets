@@ -30,6 +30,7 @@ public final class PreviewImportFlow {
       @Override public int getOwnUserId(){return 5;}
       PresetPreviewSession session;BooleanSupplier confirm,ready;Runnable cancel;
       final FloorState floor=new FloorState(this,new Logger(),()->{},()->{}) {
+         @Override public java.util.List<gearth.extensions.parsers.HFloorItem> getFurniOnTile(int x,int y){return floorItems.values().stream().filter(f->f.getTile().getX()==x && f.getTile().getY()==y).toList();}
          @Override public int getRoomId() { return room; }
          @Override public boolean inRoom() { return roomLoaded; }
          @Override public java.util.List<gearth.extensions.parsers.HFloorItem> getItems(){return new ArrayList<>(floorItems.values());}
@@ -91,6 +92,7 @@ public final class PreviewImportFlow {
       require(!importer.applySessionReplacements(active,preset),"substitutions cannot change an active preview/import");extension.cancel.run();
       undoWorker(extension,importer);
       incompletePolicy(extension,importer);
+      legacyLinkContinuation(extension,importer);
       System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
    }
    private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
@@ -150,6 +152,25 @@ public final class PreviewImportFlow {
          require(extension.lastReport.getString("outcome").equals("Import finished"),"subsequent complete build resets previous partial outcome");
          extension.roomLoaded=false;
          System.out.println("PASS: real importer incomplete/strict policy, finish outcome, original totals, omission/error reasons and next-import isolation");
+      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
+   }
+
+   private static void legacyLinkContinuation(FakeExtension extension,GPresetImporter importer) {
+      try {
+         var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
+         // Explicitly reused furniture is already mapped, and absent from the remaining placement list.
+         var preset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
+         preset.setRoomLinks(new ArrayList<>(List.of(new extension.tools.presetconfig.wired.PresetRoomLink(7,"420000001"))));
+         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(7,101)));put(importer,"incompleteBuildAllowed",true);
+         put(importer,"rootLocation",new gearth.extensions.parsers.HPoint(0,0));put(importer,"stackTileLocation",new gearth.extensions.parsers.HPoint(20,20));put(importer,"allAvailableStackTiles",new ArrayList<>());
+         put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);extension.roomLoaded=true;
+         int sent=extension.serverPackets;var setup=GPresetImporter.class.getDeclaredMethod("setupWired");setup.setAccessible(true);setup.invoke(importer);
+         require(importer.getState()==GPresetImporter.BuildingImportState.NONE,"actual setup pipeline reaches final placement/completion after an unavailable legacy pairing");
+         require(extension.serverPackets==sent,"legacy foreign pairing is never written to the hotel");
+         require(extension.lastReport.getString("outcome").equals("Import finished with omissions"),"continuation does not claim legacy pairing was restored");
+         require(extension.lastReport.getJSONObject("otherConfigurations").getInt("roomLinks")==1 && ImportReport.text(extension.lastReport).contains("native pairing is retained"),"final report preserves requested pairing and reason for its omission");
+         require(preset.getRoomLinks().size()==1,"actual import leaves selected preset intact");extension.roomLoaded=false;
+         System.out.println("PASS: actual WIRED setup-to-final-placement pipeline continues past an unavailable legacy room-linker pairing");
       }catch(ReflectiveOperationException e){throw new AssertionError(e);}
    }
 

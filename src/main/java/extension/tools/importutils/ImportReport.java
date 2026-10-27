@@ -53,7 +53,7 @@ public final class ImportReport {
       for(Object value:report.getJSONArray("items")){JSONObject row=(JSONObject)value;String status=row.getString("status");totals.merge(row.getString("kind")+" "+status,1,Integer::sum);s.append(row.getString("kind")).append(" ").append(row.getString("className")).append(" [").append(row.getInt("presetId")).append("] — ").append(status.replace('_',' '));if(row.has("stateCheck"))s.append("; state: ").append(row.getString("stateCheck"));if(row.has("altitudeCheck"))s.append("; height: ").append(row.getString("altitudeCheck"));s.append('\n');}
       JSONArray omissions=report.optJSONArray("omissions");
       if(omissions!=null && !omissions.isEmpty()) {
-         s.append("\nSkipped because furniture/dependencies were unavailable\n");
+         s.append("\nSkipped or unconfirmed configurations\n");
          for(Object value:omissions){JSONObject row=(JSONObject)value;s.append(row.getString("category")).append(" [").append(row.getInt("presetId")).append("]: ").append(row.getString("reason")).append('\n');}
       }
       s.append("\nTotals\n");totals.forEach((key,value)->s.append(key.replace('_',' ')).append(": ").append(value).append('\n'));

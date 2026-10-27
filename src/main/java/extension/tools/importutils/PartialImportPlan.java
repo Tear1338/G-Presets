@@ -58,7 +58,7 @@ public final class PartialImportPlan {
       for(var item:effective.getWallFurniture())item.setVariables(legacyValues(item.getVariables(),missingNames,-Math.abs(item.getFurniId())));
       wired.getVariablesMap().entrySet().removeIf(e->missingVariables.contains(e.getValue()));
       effective.getBindings().removeIf(b->skippedWired.containsKey(b.getWiredId()));
-      exclude(effective.getRoomLinks(),b->b.furniId,"roomLinks",furniture);
+      effective.getRoomLinks().removeIf(link->{String reason=link.unavailableReason(furniture);if(reason==null)return false;omit("roomLinks",link.furniId,reason);return true;});
       exclude(effective.getChests(),b->b.furniId,"chests",furniture);
       exclude(effective.getContracts(),b->b.furniId,"contracts",furniture);
       exclude(effective.getWiredLinks(),b->b.furniId,"links",furniture);
@@ -94,6 +94,7 @@ public final class PartialImportPlan {
       }
       return kept;
    }
+   public void noteUnconfirmed(String category,int id,String reason){omit(category,id,reason);}
    private void omit(String category,int id,String reason){omissions.add(new Omission(category,id,reason));}
    private <T> void exclude(List<T> items,ToIntFunction<T> id,String category,Map<Integer,Integer> furniture) {
       items.removeIf(item->{int source=id.applyAsInt(item);if(furniture.containsKey(source))return false;omit(category,source,"Owner furniture was not placed");return true;});

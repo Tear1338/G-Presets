@@ -806,9 +806,7 @@ public class GPresetExporter {
                HFloorItem item=entry.getKey()>0?floor.furniFromId(entry.getKey()):null;
                if(item!=null && "wf_room_linker".equals(furniDataTools.getFloorItemName(item.getTypeId()))) {
                   Map<String,Integer> properties=this.furniVariablesByFurniId.get(item.getId());
-                  String destination=properties!=null && properties.containsKey("~103")?Integer.toString(properties.get("~103")):
-                     item.getStuff() instanceof MapStuffData ? ((MapStuffData)item.getStuff()).getOrDefault("internalLink", "") : "";
-                  exportedRoomLinks.add(new PresetRoomLink(entry.getValue(),destination));
+                  if(properties!=null && properties.containsKey("~103"))exportedRoomLinks.add(PresetRoomLink.capture(entry.getValue(),properties.get("~103"),mappedFurniIds));
                }
                if(item!=null && PresetChest.isChest(furniDataTools.getFloorItemName(item.getTypeId()))) {
                   if(!(item.getStuff() instanceof MapStuffData)) throw new IllegalStateException("Chest settings not loaded for " + item.getId());
