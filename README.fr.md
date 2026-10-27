@@ -1,84 +1,106 @@
-# G-Presets 1.4.0
+# G-Presets 1.5.3 — guide technique
 
-Mise à jour locale de l’extension Java G-Presets, préparée à partir de la version modifiée 1.3.7 fournie. Projet d’origine : https://github.com/sirjonasxx/G-Presets ; auteur conservé : sirjonasxx. Édition modifiée et publiée par 1desirable1337 (Tear1338 / Darkz) : https://github.com/Tear1338/G-Presets. Version indépendante du projet original. Voir README.md pour la présentation et les téléchargements.
+Édition modifiée de [sirjonasxx/G-Presets](https://github.com/sirjonasxx/G-Presets), à partir de la version modifiée 1.3.7 fournie. Auteurs : **sirjonasxx & 1desirable1337** ; dépôt de cette édition : [Tear1338/G-Presets](https://github.com/Tear1338/G-Presets).
 
-## Installation et utilisation
+Consultez le [README principal](README.md) pour l'installation, les commandes et l'utilisation des fonctions. Téléchargements : [JAR 1.5.3](https://github.com/Tear1338/G-Presets/releases/download/v1.5.3/GPresets-1.5.3.jar) et [archive complète](https://github.com/Tear1338/G-Presets/releases/download/v1.5.3/GPresets-1.5.3-complet.zip).
 
-1. Décompresser l’archive complète et conserver une copie de ses anciens presets.
-2. Charger `dist/GPresets-1.4.0.jar` dans G-Earth, avec un catalogue de noms de paquets compatible avec le client utilisé.
-3. Entrer dans la salle source après le démarrage de l’extension : le snapshot des labels/régions est envoyé à l’entrée.
-4. Pour tout conserver, laisser décochées les options `Do not export wired`, `Do not export Furni Variables` et `Do not export wall items`. L’export des valeurs de variables est maintenant activé par défaut pour une nouvelle configuration ; les préférences existantes restent respectées.
-5. Utiliser `:ep all` pour exporter la salle ou `:ep` pour sélectionner une zone, puis `:ip` pour importer. `:a` interrompt une opération.
+## Environnement
 
-Le mobilier requis doit être disponible dans l’inventaire, la salle ou le BC selon la source choisie. Les contrats, coffres, labels et liens nécessitent les droits correspondants. Une absence de message reconnu, de référence ou de confirmation serveur arrête l’import avec une erreur explicite. Des mobis déjà placés peuvent rester dans la salle après une interruption ; il n’y a pas de transaction globale côté Habbo.
+- Distribution Windows 64 bits, Java 17+ ; compilation et vérifications effectuées avec Java 21.
+- Intégration visant notamment G-Earth 1.5.4-beta-29, avec un catalogue de noms de messages adapté au client Habbo connecté.
+- Référence de protocole examinée : client Flash français `WIN63-202610201032-107964540`, du 20 octobre 2026, et catalogue du 26 octobre 2026.
+- Le build inclut les dépendances JavaFX Windows nécessaires au JAR. Les autres systèmes ne sont pas validés par cette distribution.
 
-## Mode preview avant import
+## Thème de l'interface
 
-Un bouton **Aperçu du preset** ouvre un plan isométrique du preset sélectionné. La commande `:preview` (ou `:pp`) ouvre la même fenêtre. Le plan fonctionne sans inventaire chargé ; sans données de dimensions des mobis, les empreintes inconnues sont signalées comme des repères 1×1.
+L'extension importe directement la feuille de style `gearth/ui/themes/G-Earth_Dark/styling.css` embarquée dans son runtime. La palette correspond à la capture de référence fournie : panneau #333333, en-tête #222222, champs #363636, boutons #262626, textes #f0f0f0 et onglets #5d83b4. Les accents de sélection utilisent les couleurs du thème G-Earth. Les fenêtres d'aperçu, de partage et de rapport reçoivent aussi cette feuille de style ; le canevas suit le fond anthracite.
 
-- Zoom avec la molette ou le curseur ; glisser pour déplacer la vue ; **Recentrer** pour revenir au plan complet.
-- Hauteurs du preset, orientations et empreintes des mobis ; distinction entre mobilier, WIRED et repères muraux.
-- Recherche dans la liste et sélection pour consulter la classe, l'ID, les coordonnées, l'état et les offsets muraux.
-- Les remplacements de classes sont appliqués au plan. Les mobis existants réutilisés sont comptés séparément, car leur position reste conservée.
+## Aperçu et confirmation
 
-L'option **Aperçu avant import (:ip)**, activée par défaut, ouvre cette fenêtre avant toute préparation ou placement. **Continuer vers l'import** confirme le preset et ses options figés, puis reprend le choix des cases dans Habbo. `:ip x,y` conserve l'origine demandée. **Annuler**, la fermeture de la fenêtre ou `:a` ne lancent aucun import. Un changement de salle, de preset ou d'options invalide l'ancienne confirmation ; un double clic ne peut pas lancer deux imports.
+`PresetPreviewModel` travaille sur une copie du preset et de ses options. Il applique les remplacements avant de calculer les empreintes. Les dimensions absentes sont représentées en 1×1 ; les mobis existants explicitement réutilisés sont comptés séparément et ne sont pas déplacés par l'aperçu.
 
-Ce mode est un **plan schématique**, pas un rendu des images originales des mobis dans Habbo. Les positions murales sont indicatives dans le plan ; leurs offsets exacts sont lisibles dans les détails. Les hauteurs affichées sont celles du preset ; le sol de destination peut imposer un décalage lors de l'import.
+`PresetPreviewSession` fige le preset, les options et le contexte de salle. La confirmation devient invalide lorsque ce contexte change. L'ouverture, l'annulation et le rejet d'une confirmation obsolète sont vérifiés sans envoyer de paquets au serveur Habbo.
 
-## Changements principaux
+L'interface propose zoom, panoramique, recentrage, rotation de vue, recherche, sélection, isolation et filtre de hauteur. Les images de mobilier demandent l'orientation et l'état disponibles à l'imager HabboAssets. Les points d'ancrage, animations et placements muraux ne reproduisent pas le moteur complet de Habbo ; les offsets muraux restent consultables dans les détails. Le sol de destination peut imposer un décalage de hauteur à l'import.
 
-- Six familles de configurations : déclencheurs, effets, conditions, add-ons, sélecteurs et variables ; variantes de test et prototypes reconnues par famille.
-- Transport des options, textes, deux sélections de mobilier, sources, références de variables, délais et quantificateurs. Cela couvre notamment pointeurs, classements, Variable FX, API Web, messages/dataframes, initialisation de salle, visibilité, surbrillance et contrats personnalisés.
-- Métadonnées modernes des variables, contextes 7 et 8, connecteurs de texte avec valeur de secours, réponses en plusieurs morceaux et identifiants de suppressions sous forme de chaînes.
-- Ordre des dépendances de variables, rejet des références non résolues et des cycles ; conservation des références externes identifiées comme telles par le serveur.
-- Contrats de paiement, d’échange et de récompense : règles structurées, montants, types de mobi, textes et options ; traduction des types de mobi par nom de classe à l’import et relecture de la définition sauvegardée.
-- Coffres : options, capacité configurée, nom, description, accès, apparence, aperçu, activation WIRED et notifications. Aucun contenu ni solde n’est copié ; les extensions de capacité achetées ne sont pas achetées automatiquement.
-- Liens WIRED : association à un réseau existant et réception locale, avec validation de disponibilité et relecture.
-- Labels et régions : formats typés distincts, texte, présentation, rectangles et décalage des coordonnées de région.
-- Propriétés spéciales du mobilier : zones masquées, couleurs, compteurs, occupation et destinations ; valeurs des variables de mobilier par ID, sans confusion entre noms identiques. Les valeurs de variables de salle définies par les boîtes exportées sont également conservées.
-- Mobilier mural placé avant les sélections WIRED ; identifiants signés de mur et de sol conservés dans des espaces distincts. Les références internes entre téléporteurs et les ancres de classement suivent la copie.
-- Encodage UTF-8 des chaînes réseau pour les accents et emojis ; la sérialisation binaire de liaison à G-Earth reste inchangée.
-- Suppression de la double sauvegarde des add-ons, meilleure gestion des reprises et validations ; écriture atomique des presets, contrôle des noms de fichier, gestion des JSON invalides et correction des fonds publicitaires.
+## Chargement et cache des images
 
-Les paramètres WIRED de salle (droits et fuseau horaire) sont enregistrés ; leur application automatique est réservée aux presets qui incluent tout le mobilier de sol et de mur. Un preset de zone conserve ce contexte sans remplacer les paramètres de toute la salle.
+Les deux fenêtres — aperçu et partage — utilisent `FurnitureSprites` et `FurnitureSpriteStore`. Le chargement est préamorcé après une sélection de preset stabilisée pendant 250 ms.
 
-## Validation et limites
+| Mécanisme | Comportement en 1.5.3 |
+| :--- | :--- |
+| Téléchargements | Quatre tâches simultanées en arrière-plan ; suppression du délai de 1,1 seconde par image |
+| Déduplication | Une demande en cours partagée pour une même classe, orientation normalisée et état normalisé |
+| Mémoire | Cache des images décodées, éviction LRU avec un budget de 64 MiB |
+| Disque | Fichiers PNG sous le dossier de données `cache/furniture-v1`, noms dérivés de l'URL ; expiration après sept jours |
+| Nettoyage | Nettoyage périodique du cache disque visant 128 MiB et 2 048 fichiers |
+| Validation | Taille de réponse limitée à 2 000 000 octets, signature PNG, dimensions au plus 2 048×2 048 et décodage de l'image |
+| Serveur occupé | Temporisation commune sur HTTP 429/503, respect de `Retry-After`, nombre d'essais limité |
+| Panne ou fichier corrompu | Rechargement d'une entrée disque invalide ; court cache des échecs pour éviter les demandes répétées ; empreinte visible si l'image manque |
+| Fermeture de fenêtre | Les tâches partagées peuvent terminer pour alimenter le cache, sans mettre à jour la fenêtre fermée |
 
-**1 203 assertions de régression passent**, avec des exemples binaires indépendants pour les six familles et les 188 codes de formulaires recensés, ainsi que les contrats, coffres, labels, régions et paramètres de salle. Les tests couvrent aussi le plan, les snapshots, la confirmation unique, les commandes réelles de l'importer interceptées sans réseau, l'annulation et les contextes obsolètes. Le FXML et le CSS du JAR sont chargés sans fenêtre visible pour vérifier les ressources et les liaisons des contrôles.
+Les images déjà en mémoire sont récupérées avant le calcul des limites de la vue afin d'être disponibles dès la première image. La lecture du disque, le réseau et le décodage sont exécutés en arrière-plan. Le premier téléchargement reste tributaire du réseau et du service HabboAssets ; le cache ne garantit pas un chargement instantané à froid.
 
-L’inventaire comporte **284 classes liées aux WIRED**, dont **207 classes des six familles de configuration**. Le détail se trouve dans `COUVERTURE-WIRED.csv` et `COMPATIBILITE.md`. Un code de formulaire ou une classe reconnue n’est pas une preuve de fonctionnement de chaque scénario de jeu.
+L'aperçu limite ses nouvelles demandes à 256 variantes par fenêtre. Le préchargement de sélection limite aussi son ensemble initial à 256 variantes distinctes. Le compteur de chargement indique les images disponibles ou en échec. Les images publiques sont demandées par classe, orientation et état, sans identifiants de connexion Habbo.
 
-**Aucun cycle complet export/import ni scénario WIRED en jeu n’a été validé.** La salle connectée était vide lors de cette vérification. Les prototypes `wf_test_26secret1` et `wf_test_26secret2` n’ont pas de formulaire identifié ni de scénario validé ; leur comportement configurable reste inconnu. Une garantie « tous les bugs corrigés / rien ne manque » ne serait donc pas fondée.
+## Données WIRED prises en charge
 
-Référence examinée : client Flash français `WIN63-202610201032-107964540`, fichier HabboAir.swf du 20 octobre 2026, catalogue chargé le 26 octobre 2026. Une évolution ultérieure de Habbo peut nécessiter une nouvelle adaptation.
+| Ensemble | Implémentation |
+| :--- | :--- |
+| Six familles | Déclencheurs, effets, conditions, add-ons, sélecteurs et variables ; variantes reconnues par famille |
+| Champs des formulaires | Options, textes, deux sélections de mobilier, sources, références de variables, délais et quantificateurs |
+| Variables modernes | Métadonnées de contexte, connecteurs de texte et valeur de secours, réponses fragmentées, identifiants sous forme de chaînes |
+| Dépendances | Ordre topologique des définitions, remappage d'identifiants, contrôle des références et cycles |
+| Contrats | Règles structurées de paiement, d'échange et de récompense ; types de mobilier traduits par classe, sauvegarde puis relecture |
+| Coffres | Options, préférences, capacité configurée, présentation, accès et notifications ; aucun contenu ni solde copié, aucun achat automatique de capacité |
+| Liens WIRED | Association à un réseau existant accessible, réception locale et relecture de la configuration |
+| Labels et régions | Formats distincts, textes, présentation, rectangles et translation des régions |
+| Propriétés et valeurs | Propriétés modifiables inspectées et valeurs personnalisées, remappées selon leur nature |
+| Paramètres de salle | Contexte conservé ; application réservée aux presets de salle complète |
+| Mobilier mural | Placement avant la configuration des sélections WIRED, gestion des variantes et décalages |
 
-## Reconstruction
+Les chaînes du protocole Habbo utilisent UTF-8. Le transport binaire vers G-Earth conserve les octets avec l'encodage ISO-8859-1 adapté à son enveloppe ; ce transport a fait l'objet de la correction du blocage de session en 1.4.2.
 
-JDK 17 ou ultérieur et Python 3 :
+## Vérifications avant et après import
+
+`AvailabilityAudit` examine la copie effective du preset et les réglages de source. Il distingue mobilier au sol et au mur, variantes d'affiches, quantité en inventaire, offre BC, manque et données inconnues. Une offre ne constitue pas une vérification du quota BC ou des droits de placement. La sélection de mobilier réutilisé dans la salle intervient lors de l'import.
+
+`WiredDiagnostics` contrôle la sérialisation locale des configurations, les doublons d'identifiants, les cycles de variables et les références externes. Le contrôle interactif vérifie aussi les messages requis dans le catalogue G-Earth. Les erreurs locales détectées à la préparation bloquent le placement ; les références externes restent des avertissements et ne sont pas supprimées automatiquement.
+
+La progression affiche les opérations traitées par phase. La pause est appliquée entre les opérations ; les réponses réseau continuent d'être traitées. La reprise concerne la même session d'import, sans reprise après redémarrage. Un changement de salle détecté aux points de contrôle interrompt le travail.
+
+`ImportReport` conserve des suivis distincts pour les identifiants du sol et du mur. Il capture l'état observé, les positions attendues et observées, les orientations et états disponibles, les objets non observés et les confirmations des configurations. Une altitude murale non transmise reste inconnue. Les compteurs auxiliaires portent sur les contrats, coffres, liens, labels/régions, paramètres de salle, liens de salle et valeurs d'objets vérifiés par l'importeur.
+
+Le rapport reflète un instant donné. Des réponses tardives peuvent modifier la salle et les propriétés non comparées restent à contrôler en jeu. Un accusé de sauvegarde ne prouve pas le fonctionnement d'un montage WIRED. Une interruption peut laisser du mobilier déjà placé.
+
+## Fichiers, dossiers et partage
+
+- Les presets restent des JSON. La sauvegarde des presets est atomique et les chemins sont contrôlés.
+- Sous Windows, le dossier de données par défaut est `%APPDATA%/G-Presets` ; `gpresets.dataDir` permet de le remplacer.
+- Les presets sont dans `presets/`. Les dossiers sont limités à un niveau ; un déplacement n'écrase pas un fichier existant.
+- Le partage ajoute des métadonnées optionnelles : nom, description et image PNG encodée. Elles sont conservées lors de la relecture et restent séparées des sérialisations de paquets.
+- Le partage et les rapports enregistrent de nouveaux fichiers sans écraser une destination existante.
+- La distribution exclut les dossiers de presets personnels ; les données du cache ne sont pas incluses dans l'archive complète.
+
+## Validation de la version 1.5.3
+
+**1 269 assertions de régression passent**, ainsi que les vérifications de l'interface JavaFX et de ses ressources embarquées. Les tests comprennent les formats binaires, les fichiers, les correspondances d'identifiants, les diagnostics, la pause et les comportements du cache : parallélisme borné, demande unique partagée, cache disque après redémarrage, corruption et panne. Un contrôle JavaFX vérifie aussi qu'une image déjà décodée est disponible dès la première vue, avec les couleurs du thème sombre de G-Earth : panneaux #333333, champs #363636, boutons #262626 et textes clairs.
+
+Le catalogue de référence comporte **284 classes liées aux WIRED**, dont **207 classes des six familles** ; les fixtures couvrent **188 codes de formulaires**. Ces tests utilisent des exemples contrôlés pour vérifier les données et ne constituent pas une validation de chaque règle métier.
+
+**Aucun cycle complet export/import ni scénario WIRED en jeu n'a été validé pour cette édition.** La salle observée était vide. Les prototypes `wf_test_26secret1` et `wf_test_26secret2` ont un comportement configurable inconnu. Voir [COMPATIBILITE.md](COMPATIBILITE.md), [COUVERTURE-WIRED.csv](COUVERTURE-WIRED.csv) et le [rapport du build 1.5.3](https://github.com/Tear1338/G-Presets/releases/download/v1.5.3/build-report.json).
+
+Les rapports sous `validation/1.4.0-rc2/` sont historiques et ne décrivent pas la validation de la version actuelle.
+
+## Reconstruction et publication
+
+JDK 17+ et Python 3 ; la vérification JavaFX de la distribution embarquée cible Windows :
 
 ```powershell
 python scripts/build.py --java-home 'C:/Program Files/Java/jdk-21.0.10' --ui-smoke
 python scripts/package.py
 ```
 
-Le build recompile tous les sources applicatifs et la classe HPacket adaptée. `lib/gpresets-runtime.jar` fournit les autres classes G-Earth et dépendances récupérées ; `lib/dependencies` contient les bibliothèques d’interface nécessaires. Le contrôle UI utilise les natives Windows de l’archive ; sans interface/native compatible, reconstruire sans `--ui-smoke`.
+Le build recompile les sources applicatives et la classe `HPacket` adaptée. `lib/gpresets-runtime.jar` et `lib/dependencies` fournissent les autres dépendances. Les résultats locaux sont dans `target/build-report.json`, `target/test-results.txt` et `target/ui-test-results.txt`.
 
-Les rapports se trouvent dans `target/build-report.json`, `target/test-results.txt` et `target/ui-test-results.txt`. `changes.patch` et `target/changed-files.json` permettent de relire les modifications ; `target/baseline-sources.zip` conserve les sources applicatives initiales.
-
-
-## Nouveautés 1.5.0
-
-- **Share preset** : nom, description et image de la vue actuelle dans un fichier JSON compatible avec les presets existants. Attendez le chargement des images avant de sauvegarder. L'original est conservé.
-- **Avant import** : le résumé apparaît dans l'aperçu. **Check availability** détaille les objets au sol et au mur, les variantes d'affiches, l'inventaire et les offres BC. Une offre BC ne garantit ni le quota ni les droits de placement.
-- **Check WIRED** : format, doublons, dépendances de variables et catalogue de messages G-Earth. Les références externes sont signalées ; elles peuvent être intentionnelles et doivent être vérifiées dans la salle de destination.
-- **Après import** : fenêtre avec positions/états observés, objets non observés et confirmations de configurations. **Save report** exporte un JSON sans écraser un fichier existant. Les réponses serveur tardives peuvent modifier l'état réel après cette photographie.
-- **Aperçu** : **Rotate view**, **Max height** et **Selected item only** aident à examiner les empilements. Zoom, panoramique et recentrage restent disponibles. Les images proviennent de l'imager public HabboAssets avec orientation et état demandés.
-
-Le rendu des images reste approximatif (ancrages, variantes absentes, murs et animations). La rotation de l'aperçu ne modifie pas le preset ni les coordonnées d'import. Les images indisponibles restent représentées par leur empreinte. Les contrôles locaux et confirmations de sauvegarde ne valident pas les comportements WIRED en jeu ; un cycle réel export/import reste nécessaire.
-
-
-### Chargement des images — 1.5.2
-
-Les images sont préchargées dès la sélection d'un preset et partagées entre l'aperçu et **Share preset**. Les mobis déjà décodés réapparaissent dès la première image ; un cache sur disque évite de tout retélécharger au redémarrage. Les variantes d'orientation et d'état sont conservées séparément. Les nouveaux téléchargements se font à quatre en parallèle, sans la pause de 1,1 seconde entre chaque mobi.
-
-Le compteur indique les images chargées et indisponibles. Au tout premier chargement, le délai dépend encore du réseau et du serveur HabboAssets ; ses demandes de temporisation sont respectées. Le cache expire après sept jours et reste limité en taille. Aucune donnée de connexion Habbo n'est envoyée au serveur d'images.
+L'archive complète contient le JAR, les sources, dépendances, fixtures, documents et rapports sélectionnés. Le workflow GitHub recompile et vérifie les changements, puis publie une nouvelle version si son tag n'existe pas déjà. Une modification du README ne remplace pas une release existante. Consulter [RELEASING.md](RELEASING.md).

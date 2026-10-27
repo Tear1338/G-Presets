@@ -1,3 +1,9 @@
+## 1.5.3
+
+- Match the supplied G-Earth dark theme reference using its original bundled stylesheet: charcoal panels, dark controls, light text, blue tabs and cyan accents.
+- Apply the same palette to the main extension, preview, sharing and report windows; keep existing image caching and import behavior.
+- Refresh the README and technical guide for the current features and remove obsolete 1.4.0 instructions.
+
 ## 1.5.2
 
 - Replace serialized image fetching and its 1.1-second per-image delay with four concurrent background downloads.

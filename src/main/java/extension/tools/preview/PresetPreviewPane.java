@@ -52,15 +52,15 @@ public final class PresetPreviewPane extends BorderPane {
       imageStatus.setId("imageProgress");
       extension.ui.ReadableTheme.apply(this);
       cancel.setCancelButton(true);
-      setStyle("-fx-background-color:#f3f5f9; -fx-font-family:'Segoe UI'; -fx-font-size:12px;");
+      setStyle("-fx-font-family:'Segoe UI'; -fx-font-size:12px;");
       setPadding(new Insets(16));
       canvas.getGraphicsContext2D().setImageSmoothing(false);
       Label title=new Label("Preset preview"+(name==null?"":" \u00b7 "+name));
-      title.setStyle("-fx-font-size:20px; -fx-font-weight:bold; -fx-text-fill:black;");
+      title.setStyle("-fx-font-size:20px; -fx-font-weight:bold; ");
       Label counts=new Label(model.floorCount+" floor items  \u00b7  "+model.wallCount+" wall items  \u00b7  "+model.wiredCount+" WIRED  \u00b7  "+model.configurationCount+" configurations");
       String origin=originX==null?"Origin: choose in Habbo after confirmation.":"Requested origin: ("+originX+", "+originY+").";
       Label scope=new Label(origin+"  "+model.reusedCount+" existing items reused without moving.");scope.setWrapText(true);
-      Label note=new Label("Furniture images: HabboAssets. Positions and wall items are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("-fx-text-fill:black;");
+      Label note=new Label("Furniture images: HabboAssets. Positions and wall items are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("");
       VBox header=new VBox(5,title,counts,scope,note);header.setPadding(new Insets(0,0,14,0));setTop(header);
       StackPane surface=new StackPane(canvas);surface.setMinSize(280,200);surface.setPrefSize(680,440);
       canvas.widthProperty().bind(surface.widthProperty());canvas.heightProperty().bind(surface.heightProperty());
@@ -73,7 +73,7 @@ public final class PresetPreviewPane extends BorderPane {
       isolate.selectedProperty().addListener(o->draw());
       layer.setMin(0);layer.setMax(Math.max(0,model.maxZ));layer.setValue(layer.getMax());layer.setPrefWidth(110);layer.valueProperty().addListener(o->draw());
       FlowPane tools=new FlowPane(10,8,new Label("Zoom"),zoom,fit,turn,heights,showSprites,isolate,new Label("Max height"),layer,imageStatus);tools.setPadding(new Insets(9,0,9,0));
-      Label legend=new Label("Blue: furniture  \u00b7  Purple: WIRED  \u00b7  Orange: wall items  \u00b7  Drag: pan  \u00b7  Scroll: zoom");legend.setWrapText(true);legend.setStyle("-fx-text-fill:black;");
+      Label legend=new Label("Blue: furniture  \u00b7  Purple: WIRED  \u00b7  Orange: wall items  \u00b7  Drag: pan  \u00b7  Scroll: zoom");legend.setWrapText(true);legend.setStyle("");
       VBox view=new VBox(tools,surface,legend);VBox.setVgrow(surface,Priority.ALWAYS);setCenter(view);
       TextField search=new TextField();search.setPromptText("Search furniture or ID");
       items.setItems(FXCollections.observableArrayList(model.items));
@@ -82,16 +82,16 @@ public final class PresetPreviewPane extends BorderPane {
          items.setItems(FXCollections.observableArrayList(model.items.stream().filter(i->(i.name()+" "+i.className()+" "+i.id()).toLowerCase(Locale.ROOT).contains(q)).collect(Collectors.toList())));
       });
       items.getSelectionModel().selectedItemProperty().addListener((o,a,b)->{showDetails(b);draw();});
-      details.setWrapText(true);details.setMinHeight(115);details.setStyle("-fx-text-fill:black;");
+      details.setWrapText(true);details.setMinHeight(115);details.setStyle("");
       VBox sidebar=new VBox(9,new Label("Furniture"),search,items,details);sidebar.setPrefWidth(270);sidebar.setMinWidth(220);sidebar.setPadding(new Insets(9,0,0,14));VBox.setVgrow(items,Priority.ALWAYS);setRight(sidebar);
-      status.setWrapText(true);status.setStyle("-fx-text-fill:black;");
+      status.setWrapText(true);status.setStyle("");
       String warning=model.approximateCount==0?"":"Unknown dimensions for "+model.approximateCount+" item(s): shown as 1\u00d71. Load furnidata for exact footprints.";
       if(model.wallCount>0)warning+=(warning.isEmpty()?"":" ")+"Wall markers are approximate; exact offsets appear in the details.";
       if(model.isEmpty())warning="This preset is empty.";
-      Label limitations=new Label(warning);limitations.setWrapText(true);limitations.setStyle("-fx-text-fill:black;");
-      launch.setStyle("-fx-background-color:#d9e4ef; -fx-text-fill:black; -fx-font-weight:bold;");
+      Label limitations=new Label(warning);limitations.setWrapText(true);limitations.setStyle("");
+      launch.setStyle(" -fx-font-weight:bold;");
       HBox actions=new HBox(10,cancel,launch);actions.setAlignment(Pos.CENTER_RIGHT);
-      availability.setWrapText(true); availability.setStyle("-fx-text-fill:black;");
+      availability.setWrapText(true); availability.setStyle("");
       Button checkAvailability=new Button("Check availability"); checkAvailability.setId("checkAvailability"); checkAvailability.setOnAction(e->{if(availabilityAction!=null)availabilityAction.run();});
       actions.getChildren().add(0,checkAvailability);
       Button checkCompatibility=new Button("Check WIRED");
@@ -159,8 +159,8 @@ public final class PresetPreviewPane extends BorderPane {
          var request=spriteRequest(item);if(request==null)continue;
          String key=request.url();if(!sprites.containsKey(key)){Image cached=spriteStore.peek(request);if(cached!=null)sprites.put(key,cached);}
       }
-      GraphicsContext g=canvas.getGraphicsContext2D();g.setFill(Color.web("#edf0f4"));g.fillRect(0,0,width,height);hits.clear();
-      if(model.items.isEmpty()){g.setFill(Color.BLACK);g.setFont(Font.font(15));g.fillText(model.reusedCount>0?"Existing furniture only: positions preserved.":"No furniture in this preset.",22,40);return;}
+      GraphicsContext g=canvas.getGraphicsContext2D();g.setFill(Color.web("#333333"));g.fillRect(0,0,width,height);hits.clear();
+      if(model.items.isEmpty()){g.setFill(Color.web("#f0f0f0"));g.setFont(Font.font(15));g.fillText(model.reusedCount>0?"Existing furniture only: positions preserved.":"No furniture in this preset.",22,40);return;}
       double lowX=Double.POSITIVE_INFINITY,lowY=Double.POSITIVE_INFINITY,highX=Double.NEGATIVE_INFINITY,highY=Double.NEGATIVE_INFINITY;
       for(PresetPreviewModel.Item item:model.items)for(int corner=0;corner<4;corner++) {
          double x=item.x()+((corner==1 || corner==2)?item.width():0),y=item.y()+(corner>=2?item.depth():0);
@@ -176,7 +176,7 @@ public final class PresetPreviewPane extends BorderPane {
       }
       scale=Math.max(0.00001,Math.min((width-64)/Math.max(64,highX-lowX),(height-64)/Math.max(48,highY-lowY)))*zoom.getValue();
       offsetX=(width-(lowX+highX)*scale)/2+panX;offsetY=(height-(lowY+highY)*scale)/2+panY;
-      g.setLineWidth(1);g.setStroke(Color.web("#c0c9d4"));
+      g.setLineWidth(1);g.setStroke(Color.web("#505050"));
       double spanX=model.maxX-model.minX,spanY=model.maxY-model.minY;
       if(spanX<=120 && spanY<=120) {
          for(double x=Math.floor(model.minX);x<=Math.ceil(model.maxX);x++){Point a=screen(x,model.minY,0),b=screen(x,model.maxY,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
@@ -193,7 +193,7 @@ public final class PresetPreviewPane extends BorderPane {
          Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
          Image sprite=showSprites.isSelected()?spriteFor(item):null;
          g.setFill(fill.deriveColor(0,1,1,sprite!=null?0.15:item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
-         g.setStroke(item==selected?Color.web("#67e8f9"):fill.brighter());g.setLineWidth(item==selected?3:1);g.strokePolygon(xs,ys,4);
+         g.setStroke(item==selected?Color.web("#56c0e0"):fill.brighter());g.setLineWidth(item==selected?3:1);g.strokePolygon(xs,ys,4);
          if(showSprites.isSelected()) {
             if(sprite!=null) {
                Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
@@ -204,7 +204,7 @@ public final class PresetPreviewPane extends BorderPane {
             }
          }
          hits.add(new Hit(item,xs,ys));
-         if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#111111"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
+         if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f0f0f0"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
       }
       updateImageStatus();
    }

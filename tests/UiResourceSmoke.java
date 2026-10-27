@@ -16,13 +16,17 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 /** Loads the packaged FXML and CSS without a visible window or a hotel connection. */
 public final class UiResourceSmoke {
-   private static void verifyBlackText(Parent root) {
+   private static void verifyReferenceTheme(Parent root) {
       root.applyCss();root.layout();
+      Set<javafx.scene.paint.Color> colors=Set.of(javafx.scene.paint.Color.web("#f0f0f0"),javafx.scene.paint.Color.web("#eeeeee"),javafx.scene.paint.Color.web("#5d83b4"),javafx.scene.paint.Color.web("#0096c8"));
       for(javafx.scene.Node node:root.lookupAll("*")) {
-         javafx.scene.paint.Paint fill=null;
-         if(node instanceof javafx.scene.control.Labeled labeled)fill=labeled.getTextFill();
-         if(fill!=null && !javafx.scene.paint.Color.BLACK.equals(fill))throw new AssertionError("Text is not black under the dark G-Earth theme: "+node+" "+fill);
+         if(node instanceof javafx.scene.control.Labeled labeled && !colors.contains(labeled.getTextFill()))throw new AssertionError("Control does not use G-Earth reference text colors: "+node+" "+labeled.getTextFill());
       }
+      if(root instanceof javafx.scene.layout.Region region && !region.getBackground().getFills().get(0).getFill().equals(javafx.scene.paint.Color.web("#333333")))throw new AssertionError("G-Earth panel background mismatch");
+   }
+   private static java.awt.image.BufferedImage toBufferedImage(javafx.scene.image.WritableImage snapshot) {
+      var image=new java.awt.image.BufferedImage((int)snapshot.getWidth(),(int)snapshot.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);
+      var pixels=snapshot.getPixelReader();for(int y=0;y<image.getHeight();y++)for(int x=0;x<image.getWidth();x++)image.setRGB(x,y,pixels.getArgb(x,y));return image;
    }
    public static void main(String[] args) throws Exception {
       System.setProperty("gpresets.dataDir",java.nio.file.Path.of("target","ui-smoke-data").toAbsolutePath().toString());
@@ -44,7 +48,10 @@ public final class UiResourceSmoke {
             tabs.getSelectionModel().select(1);root.applyCss();root.layout();
             javafx.geometry.Bounds box=controller.previewBeforeImportCbx.localToScene(controller.previewBeforeImportCbx.getBoundsInLocal());
             if(box.getMinY()<0 || box.getMaxY()>mainScene.getHeight())throw new AssertionError("Preview setting is clipped: "+box);
-            verifyBlackText(root);
+            verifyReferenceTheme(root);
+            if(!controller.presetSearch.getBackground().getFills().get(0).getFill().equals(javafx.scene.paint.Color.web("#363636")))throw new AssertionError("G-Earth input background mismatch");
+            if(!controller.previewBtn.getBackground().getFills().get(0).getFill().equals(javafx.scene.paint.Color.web("#262626")))throw new AssertionError("G-Earth button background mismatch");
+            javax.imageio.ImageIO.write(toBufferedImage(root.snapshot(null,null)),"png",new java.io.File("target/main-theme-ui-smoke.png"));
             if(!controller.previewBeforeImportCbx.getText().equals("Preview before import (:ip)"))throw new AssertionError("Preview setting label");
 
             // A reopened share/preview must paint a warm sprite in its very first frame.
@@ -92,7 +99,7 @@ public final class UiResourceSmoke {
             pane.updateLaunchAvailability(true);pane.getLaunchButton().fire();
             if(confirmations[0]!=1 || closes[0]!=1)throw new AssertionError("Preview confirmation not routed");
             pane.getCancelButton().fire();if(confirmations[0]!=1 || closes[0]!=2)throw new AssertionError("Cancel launched import");
-            verifyBlackText(pane);
+            verifyReferenceTheme(pane);
             javafx.scene.image.WritableImage snapshot=pane.snapshot(null,null);
             java.awt.image.BufferedImage screenshot=new java.awt.image.BufferedImage((int)snapshot.getWidth(),(int)snapshot.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);
             javafx.scene.image.PixelReader reader=snapshot.getPixelReader();

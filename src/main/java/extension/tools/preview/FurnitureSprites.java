@@ -35,7 +35,7 @@ public final class FurnitureSprites {
          long remaining;while((remaining=blockedUntil.get()-System.currentTimeMillis())>0)Thread.sleep(Math.min(1000,remaining));
          HttpURLConnection connection=(HttpURLConnection)new URL(key.url()).openConnection();
          connection.setConnectTimeout(5000);connection.setReadTimeout(5000);connection.setRequestProperty("Accept","image/png");
-         connection.setRequestProperty("User-Agent","G-Presets/1.5.2 (furniture preview)");
+         connection.setRequestProperty("User-Agent","G-Presets/1.5.3 (furniture preview)");
          try {
             int status=connection.getResponseCode();
             if(status==429 || status==503) {
