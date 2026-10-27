@@ -10,7 +10,8 @@ import java.util.function.Function;
 
 /** Immutable, local placement plan. No game messages or inventory operations. */
 public final class PresetPreviewModel {
-   public record Footprint(int width,int depth) {
+   public record Footprint(int width,int depth,int revision) {
+      public Footprint(int width,int depth){this(width,depth,0);}
       public Footprint { if(width<1 || depth<1 || width>128 || depth>128) throw new IllegalArgumentException("Invalid furniture footprint"); }
    }
    public record Item(int id,String className,String name,double x,double y,double z,int rotation,
@@ -18,6 +19,7 @@ public final class PresetPreviewModel {
       @Override public String toString() { return (wall?"[Wall] ":wired?"[WIRED] ":"")+name; }
    }
    public final List<Item> items;
+   public final Map<String,Integer> revisions;
    public final int floorCount,wallCount,wiredCount,reusedCount,configurationCount,approximateCount;
    public final double minX,minY,maxX,maxY,maxZ;
 
@@ -25,10 +27,11 @@ public final class PresetPreviewModel {
       // applyPostConfig works on a private copy; opening the preview never edits the selected preset.
       PresetConfig effective=new PresetConfig(source.toJsonObject());
       reusedCount=effective.applyPostConfig(new PostConfig(postConfig)).size();
-      List<Item> entries=new ArrayList<>();int uncertain=0;
+      List<Item> entries=new ArrayList<>();int uncertain=0;Map<String,Integer> assetRevisions=new HashMap<>();
       for(PresetFurni f:effective.getFurniture()) {
          Footprint size=footprints.apply(f.getClassName());boolean approximate=size==null;
          if(size==null)size=new Footprint(1,1);
+         if(size.revision()>0)assetRevisions.put(f.getClassName(),size.revision());
          int rotation=Math.floorMod(f.getRotation(),8);
          int w=size.width(),d=size.depth();
          if(rotation==2 || rotation==6) { int swap=w;w=d;d=swap; }
@@ -45,6 +48,7 @@ public final class PresetPreviewModel {
          entries.add(new Item(f.getFurniId(),f.getClassName(),displayName(f.getFurniName(),f.getClassName()),x,y,z,f.getLocation().getDirection()=='l'?2:4,1,1,true,false,false,f.getState(),f.getLocation().toFullString()));
       }
       entries.sort(Comparator.comparingDouble((Item i)->i.x()+i.y()).thenComparingDouble(Item::z).thenComparingInt(Item::id));
+      revisions=Map.copyOf(assetRevisions);
       items=List.copyOf(entries);approximateCount=uncertain;
       floorCount=effective.getFurniture().size();wallCount=effective.getWallFurniture().size();
       wiredCount=(int)items.stream().filter(Item::wired).count();

@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.6.1",
+   Version = "1.6.2",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -463,7 +463,7 @@ public class GPresets extends ExtensionForm {
          try {
             PresetPreviewModel model=new PresetPreviewModel(session.preset(),session.options(),name->{
                FloorItemDetails details=this.furniDataReady()?this.furniDataTools.getFloorItemDetails(name):null;
-               return details==null || details.xDim<1 || details.yDim<1 || details.xDim>128 || details.yDim>128?null:new PresetPreviewModel.Footprint(details.xDim,details.yDim);
+               return details==null || details.xDim<1 || details.yDim<1 || details.xDim>128 || details.yDim>128?null:new PresetPreviewModel.Footprint(details.xDim,details.yDim,details.revision);
             });
             if(this.previewStage!=null)this.previewStage.close();
             Stage stage=new Stage();this.previewStage=stage;
@@ -586,7 +586,7 @@ public class GPresets extends ExtensionForm {
          if(preset==null)throw new IllegalArgumentException("Preset cannot be loaded");
          PresetPreviewModel model=new PresetPreviewModel(preset,new PostConfig(),classname->{
             FloorItemDetails item=this.furniDataReady()?furniDataTools.getFloorItemDetails(classname):null;
-            return item==null || item.xDim<1 || item.yDim<1 || item.xDim>128 || item.yDim>128?null:new PresetPreviewModel.Footprint(item.xDim,item.yDim);
+            return item==null || item.xDim<1 || item.yDim<1 || item.xDim>128 || item.yDim>128?null:new PresetPreviewModel.Footprint(item.xDim,item.yDim,item.revision);
          });
          extension.tools.sharing.PresetShareDialog.show(this.primaryStage,preset,model,name);
       }catch(Exception error){this.logger.log("Cannot share preset: "+error.getMessage(),"red");}

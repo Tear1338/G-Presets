@@ -73,7 +73,7 @@ public final class UiResourceSmoke {
             PresetPreviewPane warmPane=new PresetPreviewPane(new PresetPreviewModel(cachedPreset,new PostConfig(),name->new PresetPreviewModel.Footprint(1,1)),"Cached",null,null);
             new Scene(warmPane,1040,720);warmPane.applyCss();warmPane.layout();
             var progress=(javafx.scene.control.Label)warmPane.lookup("#imageProgress");
-            if(progress==null || !progress.getText().equals("Images: 1/1"))throw new AssertionError("Warm sprite was not available on first frame");
+            if(progress==null || !progress.getText().startsWith("Images: 1/1"))throw new AssertionError("Warm sprite was not available on first frame");
             warmPane.close();
 
             PresetFurni f=new PresetFurni(1,"wf_act_send_message",new HPoint(1,2,0.5),2,null);f.setFurniName("wired[0]");
@@ -119,6 +119,7 @@ public final class UiResourceSmoke {
             for(int y=0;y<screenshot.getHeight();y++)for(int x=0;x<screenshot.getWidth();x++)screenshot.setRGB(x,y,reader.getArgb(x,y));
             javax.imageio.ImageIO.write(screenshot,"png",new java.io.File("target/preview-ui-smoke.png"));
             pane.close();
+            PreviewRenderingTests.run();
             PreviewImportFlow.run();
             System.out.println("PASS: preview canvas/layout, selection, launch availability, confirm and cancel");
             System.out.println("PASS: packaged JavaFX FXML, controller bindings and CSS; no hotel connection");

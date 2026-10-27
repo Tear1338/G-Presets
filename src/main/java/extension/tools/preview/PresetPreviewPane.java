@@ -29,6 +29,28 @@ public final class PresetPreviewPane extends BorderPane {
    private final CheckBox heights=new CheckBox("Show heights");
    private final List<Hit> hits=new ArrayList<>();
    private final Map<String,Image> sprites=new HashMap<>();
+   private final Map<String,FurnitureAssetGeometry> geometry=new HashMap<>();
+   private final Set<String> requestedGeometry=new HashSet<>();
+   private record SpriteBox(double left,double top,double width,double height,boolean exact,boolean background) { }
+   private Optional<FurnitureAssetGeometry.Anchor> anchor(PresetPreviewModel.Item item,Image image) {
+      FurnitureAssetGeometry asset=geometry.get(item.className());if(asset==null || image==null || item.wall())return Optional.empty();
+      var key=spriteRequest(item);if(key==null)return Optional.empty();return asset.anchor(key.direction(),Integer.parseInt(key.state()),(int)image.getWidth(),(int)image.getHeight());
+   }
+   private SpriteBox spriteBox(PresetPreviewModel.Item item,Image image) {
+      var exact=anchor(item,image);
+      if(exact.isPresent()) {
+         var point=PreviewGeometry.assetOrigin(item.x(),item.y(),item.z(),item.width(),item.depth(),viewTurns,heights.isSelected());var origin=exact.get();
+         return new SpriteBox(point.x()-origin.x(),point.y()-origin.y(),image.getWidth(),image.getHeight(),true,origin.background());
+      }
+      Point center=project(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,item.z());
+      return new SpriteBox(center.x()-image.getWidth()/2,center.y()+8*(item.width()+item.depth())-image.getHeight(),image.getWidth(),image.getHeight(),false,false);
+   }
+   private void requestGeometry(PresetPreviewModel.Item item) {
+      int revision=model.revisions.getOrDefault(item.className(),0);if(item.wall() || revision<1 || !requestedGeometry.add(item.className()))return;
+      var future=FurnitureGeometryStore.load(item.className(),revision);if(future.isDone() && !future.isCompletedExceptionally()){geometry.put(item.className(),future.getNow(null));return;}
+      java.lang.ref.WeakReference<PresetPreviewPane> owner=new java.lang.ref.WeakReference<>(this);
+      future.whenComplete((asset,error)->{var pane=owner.get();if(pane==null || pane.closed || error!=null)return;Platform.runLater(()->{if(!pane.closed){pane.geometry.put(item.className(),asset);pane.draw();}});});
+   }
    private final Set<String> requestedSprites=new HashSet<>();
    private final FurnitureSpriteStore<Image> spriteStore=FurnitureSprites.shared();
    private final Set<String> unavailableSprites=new HashSet<>();
@@ -67,7 +89,9 @@ public final class PresetPreviewPane extends BorderPane {
    private Runnable availabilityAction;
    private Runnable compatibilityAction;
    private record Point(double x,double y) { }
-   private record Hit(PresetPreviewModel.Item item,double[] x,double[] y) { }
+   private record Hit(PresetPreviewModel.Item item,double[] x,double[] y,Image sprite) {
+      Hit(PresetPreviewModel.Item item,double[] x,double[] y){this(item,x,y,null);}
+   }
 
    public PresetPreviewPane(PresetPreviewModel model,String name,Integer originX,Integer originY) {
       this.model=model;this.originX=originX;this.originY=originY;
@@ -82,7 +106,7 @@ public final class PresetPreviewPane extends BorderPane {
       Label counts=new Label(model.floorCount+" floor items  \u00b7  "+model.wallCount+" wall items  \u00b7  "+model.wiredCount+" WIRED  \u00b7  "+model.configurationCount+" configurations");
       String origin=originX==null?"Origin: choose in Habbo after confirmation.":"Requested origin: ("+originX+", "+originY+").";
       Label scope=originScope;scope.setText(origin+"  "+model.reusedCount+" existing items reused without moving.");scope.setWrapText(true);
-      Label note=new Label("Furniture images: HabboAssets. Positions and wall items are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("");
+      Label note=new Label("Furniture images: HabboAssets. Official image anchors are used when available; wall markers and unsupported images are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("");
       VBox header=new VBox(5,title,counts,scope,note);header.setPadding(new Insets(0,0,14,0));setTop(header);
       StackPane surface=new StackPane(canvas);surface.setMinSize(280,200);surface.setPrefSize(680,440);
       canvas.widthProperty().bind(surface.widthProperty());canvas.heightProperty().bind(surface.heightProperty());
@@ -178,22 +202,22 @@ public final class PresetPreviewPane extends BorderPane {
       double width=canvas.getWidth(),height=canvas.getHeight();if(closed || width<2 || height<2)return;
       // Hydrate warm sprites before fitting the view, so the first frame includes their full bounds.
       if(showSprites.isSelected())for(var item:model.items) {
-         var request=spriteRequest(item);if(request==null)continue;
+         requestGeometry(item);var request=spriteRequest(item);if(request==null)continue;
          String key=request.url();if(!sprites.containsKey(key)){Image cached=spriteStore.peek(request);if(cached!=null)sprites.put(key,cached);}
       }
       GraphicsContext g=canvas.getGraphicsContext2D();g.setFill(Color.web("#333333"));g.fillRect(0,0,width,height);hits.clear();
       if(model.items.isEmpty()){g.setFill(Color.web("#f0f0f0"));g.setFont(Font.font(15));g.fillText(model.reusedCount>0?"Existing furniture only: positions preserved.":"No furniture in this preset.",22,40);return;}
       double lowX=Double.POSITIVE_INFINITY,lowY=Double.POSITIVE_INFINITY,highX=Double.NEGATIVE_INFINITY,highY=Double.NEGATIVE_INFINITY;
       for(PresetPreviewModel.Item item:model.items)for(int corner=0;corner<4;corner++) {
-         double x=item.x()+((corner==1 || corner==2)?item.width():0),y=item.y()+(corner>=2?item.depth():0);
+         double x=item.x()-0.5+((corner==1 || corner==2)?item.width():0),y=item.y()-0.5+(corner>=2?item.depth():0);
          for(double z:new double[]{0,item.z()}){Point p=project(x,y,z);lowX=Math.min(lowX,p.x());highX=Math.max(highX,p.x());lowY=Math.min(lowY,p.y());highY=Math.max(highY,p.y());}
       }
       if(showSprites.isSelected()) for(PresetPreviewModel.Item item:model.items) {
          Image sprite=sprites.get(spriteKey(item));
          if(sprite!=null) {
-            Point center=project(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
-            lowX=Math.min(lowX,center.x()-sprite.getWidth()/2); highX=Math.max(highX,center.x()+sprite.getWidth()/2);
-            lowY=Math.min(lowY,center.y()-sprite.getHeight()+16); highY=Math.max(highY,center.y()+16);
+            SpriteBox box=spriteBox(item,sprite);
+            lowX=Math.min(lowX,box.left());highX=Math.max(highX,box.left()+box.width());
+            lowY=Math.min(lowY,box.top());highY=Math.max(highY,box.top()+box.height());
          }
       }
       scale=Math.max(0.00001,Math.min((width-64)/Math.max(64,highX-lowX),(height-64)/Math.max(48,highY-lowY)))*zoom.getValue();
@@ -201,32 +225,34 @@ public final class PresetPreviewPane extends BorderPane {
       g.setLineWidth(1);g.setStroke(Color.web("#505050"));
       double spanX=model.maxX-model.minX,spanY=model.maxY-model.minY;
       if(spanX<=120 && spanY<=120) {
-         for(double x=Math.floor(model.minX);x<=Math.ceil(model.maxX);x++){Point a=screen(x,model.minY,0),b=screen(x,model.maxY,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
-         for(double y=Math.floor(model.minY);y<=Math.ceil(model.maxY);y++){Point a=screen(model.minX,y,0),b=screen(model.maxX,y,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
+         for(double x=Math.floor(model.minX);x<=Math.ceil(model.maxX);x++){Point a=screen(x-0.5,model.minY-0.5,0),b=screen(x-0.5,model.maxY-0.5,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
+         for(double y=Math.floor(model.minY);y<=Math.ceil(model.maxY);y++){Point a=screen(model.minX-0.5,y-0.5,0),b=screen(model.maxX-0.5,y-0.5,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
       }
       PresetPreviewModel.Item selected=items.getSelectionModel().getSelectedItem();
       List<PresetPreviewModel.Item> ordered=new ArrayList<>(model.items);
-      ordered.sort(Comparator.comparingDouble((PresetPreviewModel.Item i)->PreviewGeometry.depth(i.x()+i.width()/2.0,i.y()+i.depth()/2.0,viewTurns)).thenComparingDouble(PresetPreviewModel.Item::z));
+      ordered.sort(Comparator.comparingInt((PresetPreviewModel.Item i)->anchor(i,sprites.get(spriteKey(i))).map(a->a.background()?0:1).orElse(1))
+         .thenComparingDouble(i->PreviewGeometry.depth(i.x()+(i.width()-1)/2.0,i.y()+(i.depth()-1)/2.0,viewTurns))
+         .thenComparingDouble(PresetPreviewModel.Item::z).thenComparingInt(PresetPreviewModel.Item::id));
       for(PresetPreviewModel.Item item:ordered) {
          if(item.z()>layer.getValue()+0.001 || (isolate.isSelected() && item!=selected))continue;
          double[] xs=new double[4],ys=new double[4];
-         for(int c=0;c<4;c++){Point p=screen(item.x()+((c==1 || c==2)?item.width():0),item.y()+(c>=2?item.depth():0),item.z());xs[c]=p.x();ys[c]=p.y();}
-         if(heights.isSelected() && item.z()!=0){Point a=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,0),b=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());g.setStroke(Color.web("#64748b"));g.setLineWidth(1);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
+         for(int c=0;c<4;c++){Point p=screen(item.x()-0.5+((c==1 || c==2)?item.width():0),item.y()-0.5+(c>=2?item.depth():0),item.z());xs[c]=p.x();ys[c]=p.y();}
+         if(heights.isSelected() && item.z()!=0){Point a=screen(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,0),b=screen(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,item.z());g.setStroke(Color.web("#64748b"));g.setLineWidth(1);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
          Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
          Image sprite=showSprites.isSelected()?spriteFor(item):null;
          g.setFill(fill.deriveColor(0,1,1,sprite!=null?0.15:item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
          g.setStroke(!item.wall() && placementIssues.containsKey(item.id())?Color.web("#ff5555"):item==selected?Color.web("#56c0e0"):fill.brighter());g.setLineWidth(item==selected || (!item.wall() && placementIssues.containsKey(item.id()))?3:1);g.strokePolygon(xs,ys,4);
          if(showSprites.isSelected()) {
             if(sprite!=null) {
-               Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
-               double imageWidth=sprite.getWidth()*scale, imageHeight=sprite.getHeight()*scale;
-               double left=center.x()-imageWidth/2,top=center.y()-imageHeight+16*scale;
+               SpriteBox box=spriteBox(item,sprite);
+               double imageWidth=box.width()*scale,imageHeight=box.height()*scale;
+               double left=offsetX+box.left()*scale,top=offsetY+box.top()*scale;
                g.drawImage(sprite,left,top,imageWidth,imageHeight);
-               hits.add(new Hit(item,new double[]{left,left+imageWidth,left+imageWidth,left},new double[]{top,top,top+imageHeight,top+imageHeight}));
+               hits.add(new Hit(item,new double[]{left,left+imageWidth,left+imageWidth,left},new double[]{top,top,top+imageHeight,top+imageHeight},sprite));
             }
          }
          hits.add(new Hit(item,xs,ys));
-         if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f0f0f0"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
+         if(sprite==null && scale>0.30){Point center=screen(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+(item.width()-1)/2.0+Math.sin(angle)*0.30,item.y()+(item.depth()-1)/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f0f0f0"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
       }
       updateImageStatus();
    }
@@ -254,9 +280,16 @@ public final class PresetPreviewPane extends BorderPane {
    private void updateImageStatus() {
       Set<String> wanted=model.items.stream().map(this::spriteKey).filter(Objects::nonNull).collect(Collectors.toSet());
       long loaded=wanted.stream().filter(sprites::containsKey).count(),failed=wanted.stream().filter(unavailableSprites::contains).count();
-      imageStatus.setText("Images: "+loaded+"/"+wanted.size()+(failed>0?" ("+failed+" unavailable)":"")+(wanted.size()>256?"; up to 256 variants per view":""));
+      long approximate=model.items.stream().filter(i->sprites.containsKey(spriteKey(i)) && anchor(i,sprites.get(spriteKey(i))).isEmpty()).count();
+      imageStatus.setText("Images: "+loaded+"/"+wanted.size()+(approximate>0?"; "+approximate+" approximate anchors":"")+(failed>0?" ("+failed+" unavailable)":"")+(wanted.size()>256?"; up to 256 variants per view":""));
    }
    private static boolean contains(Hit h,double x,double y) {
+      if(h.sprite()!=null) {
+         double width=h.x()[1]-h.x()[0],height=h.y()[2]-h.y()[0];
+         if(width<=0 || height<=0 || x<h.x()[0] || y<h.y()[0] || x>=h.x()[1] || y>=h.y()[2])return false;
+         int px=Math.min((int)h.sprite().getWidth()-1,(int)((x-h.x()[0])/width*h.sprite().getWidth())),py=Math.min((int)h.sprite().getHeight()-1,(int)((y-h.y()[0])/height*h.sprite().getHeight()));
+         if(h.sprite().getPixelReader()==null || (h.sprite().getPixelReader().getArgb(px,py)>>>24)<24)return false;
+      }
       boolean inside=false;for(int i=0,j=3;i<4;j=i++)if((h.y()[i]>y)!=(h.y()[j]>y) && x<(h.x()[j]-h.x()[i])*(y-h.y()[i])/(h.y()[j]-h.y()[i])+h.x()[i])inside=!inside;return inside;
    }
 }

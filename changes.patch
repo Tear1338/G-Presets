@@ -81,7 +81,7 @@
 +@ExtensionInfo(
 +   Title = "G-Presets",
 +   Description = "edit by 1desirable1337",
-+   Version = "1.6.1",
++   Version = "1.6.2",
 +   Author = "sirjonasxx & 1desirable1337"
 +)
 +public class GPresets extends ExtensionForm {
@@ -466,7 +466,7 @@
 +         try {
 +            PresetPreviewModel model=new PresetPreviewModel(session.preset(),session.options(),name->{
 +               FloorItemDetails details=this.furniDataReady()?this.furniDataTools.getFloorItemDetails(name):null;
-+               return details==null || details.xDim<1 || details.yDim<1 || details.xDim>128 || details.yDim>128?null:new PresetPreviewModel.Footprint(details.xDim,details.yDim);
++               return details==null || details.xDim<1 || details.yDim<1 || details.xDim>128 || details.yDim>128?null:new PresetPreviewModel.Footprint(details.xDim,details.yDim,details.revision);
 +            });
 +            if(this.previewStage!=null)this.previewStage.close();
 +            Stage stage=new Stage();this.previewStage=stage;
@@ -589,7 +589,7 @@
 +         if(preset==null)throw new IllegalArgumentException("Preset cannot be loaded");
 +         PresetPreviewModel model=new PresetPreviewModel(preset,new PostConfig(),classname->{
 +            FloorItemDetails item=this.furniDataReady()?furniDataTools.getFloorItemDetails(classname):null;
-+            return item==null || item.xDim<1 || item.yDim<1 || item.xDim>128 || item.yDim>128?null:new PresetPreviewModel.Footprint(item.xDim,item.yDim);
++            return item==null || item.xDim<1 || item.yDim<1 || item.xDim>128 || item.yDim>128?null:new PresetPreviewModel.Footprint(item.xDim,item.yDim,item.revision);
 +         });
 +         extension.tools.sharing.PresetShareDialog.show(this.primaryStage,preset,model,name);
 +      }catch(Exception error){this.logger.log("Cannot share preset: "+error.getMessage(),"red");}
@@ -9812,6 +9812,162 @@
 +      return lowestPoint;
 +   }
 +}
+--- a/src/main/java/extension/tools/preview/FurnitureAssetGeometry.java
++++ b/src/main/java/extension/tools/preview/FurnitureAssetGeometry.java
+@@ -0,0 +1,103 @@
++package extension.tools.preview;
++
++import java.io.*;
++import java.util.*;
++import java.util.zip.InflaterInputStream;
++import javax.imageio.ImageIO;
++import javax.xml.parsers.DocumentBuilderFactory;
++import org.w3c.dom.*;
++
++/** Read geometry only from official SWF assets; never load or execute ActionScript. */
++public final class FurnitureAssetGeometry {
++   public record Anchor(double x,double y,boolean background) { }
++   private record Size(int width,int height) { }
++   private record Asset(String name,String source,int x,int y,boolean flipX,boolean flipY) { }
++   private final Map<String,Asset> assets=new HashMap<>();
++   private final Map<String,Size> sizes=new HashMap<>();
++   private Element visualization;
++   private String classname;
++   private FurnitureAssetGeometry() { }
++   private static int u16(byte[] b,int i){return (b[i]&255)|((b[i+1]&255)<<8);}
++   private static int u32(byte[] b,int i){return u16(b,i)|(u16(b,i+2)<<16);}
++   private static List<Element> children(Element parent,String tag) {
++      List<Element> result=new ArrayList<>();if(parent!=null)for(Node n=parent.getFirstChild();n!=null;n=n.getNextSibling())if(n instanceof Element e && e.getTagName().equals(tag))result.add(e);return result;
++   }
++   private static Element child(Element parent,String tag){return children(parent,tag).stream().findFirst().orElse(null);}
++   private static int number(Element e,String key,int fallback){return e==null || !e.hasAttribute(key)?fallback:Integer.parseInt(e.getAttribute(key));}
++   private static Element identified(Element parent,String tag,int id){return children(parent,tag).stream().filter(e->number(e,"id",-1)==id).findFirst().orElse(null);}
++   public static FurnitureAssetGeometry parse(String classname,byte[] input) throws Exception {
++      if(input.length<12 || input.length>8_000_000 || input[1]!='W' || input[2]!='S')throw new IOException("Invalid furniture SWF");
++      int declared=u32(input,4);if(declared<12 || declared>24_000_000)throw new IOException("Furniture SWF exceeds geometry limits");
++      byte[] data;
++      if(input[0]=='C') {
++         try(var stream=new InflaterInputStream(new ByteArrayInputStream(input,8,input.length-8));var out=new ByteArrayOutputStream()) {
++            out.write(input,0,8);byte[] body=stream.readNBytes(declared-7);if(body.length!=declared-8)throw new IOException("Invalid compressed geometry size");out.write(body);data=out.toByteArray();
++         }
++      }else if(input[0]=='F' && input.length==declared)data=input;else throw new IOException("Unsupported furniture compression");
++      int rectBits=(data[8]&255)>>3,offset=8+(5+4*rectBits+7)/8+4;
++      Map<Integer,List<String>> symbols=new HashMap<>();Map<Integer,Size> bitmapSizes=new HashMap<>();List<byte[]> documents=new ArrayList<>();int tags=0;
++      while(offset+2<=data.length && ++tags<50000) {
++         int header=u16(data,offset);offset+=2;int tag=header>>6,length=header&63;
++         if(length==63){if(offset+4>data.length)throw new IOException("Truncated SWF tag");length=u32(data,offset);offset+=4;}
++         if(length<0 || length>data.length-offset)throw new IOException("Invalid SWF tag length");int end=offset+length;
++         if((tag==76 || tag==56) && length>=2) {
++            int count=u16(data,offset),cursor=offset+2;
++            for(int i=0;i<count;i++) {
++               if(cursor+2>end)throw new IOException("Invalid asset symbols");int id=u16(data,cursor);cursor+=2;int start=cursor;
++               while(cursor<end && data[cursor]!=0)cursor++;if(cursor==end)throw new IOException("Unterminated asset symbol");
++               symbols.computeIfAbsent(id,k->new ArrayList<>()).add(new String(data,start,cursor-start,java.nio.charset.StandardCharsets.UTF_8));cursor++;
++            }
++         }else if((tag==20 || tag==36) && length>=7)bitmapSizes.put(u16(data,offset),new Size(u16(data,offset+3),u16(data,offset+5)));
++         else if((tag==21 || tag==35 || tag==90) && length>=8) {
++            int start=offset+(tag==21?2:tag==35?6:8),imageEnd=tag==21?end:start+u32(data,offset+2);
++            if(imageEnd<=end && imageEnd>start)try(var stream=ImageIO.createImageInputStream(new ByteArrayInputStream(data,start,imageEnd-start))) {
++               var readers=ImageIO.getImageReaders(stream);if(readers.hasNext()){var reader=readers.next();try{reader.setInput(stream);bitmapSizes.put(u16(data,offset),new Size(reader.getWidth(0),reader.getHeight(0)));}finally{reader.dispose();}}
++            }catch(IOException ignored){ }
++         }else if(tag==87 && length>6) {
++            byte[] payload=Arrays.copyOfRange(data,offset+6,end);
++            if(payload.length<2_000_000 && payload[0]=='<')documents.add(payload);
++         }
++         offset=end;if(tag==0)break;
++      }
++      FurnitureAssetGeometry geometry=new FurnitureAssetGeometry();geometry.classname=classname;
++      for(var entry:bitmapSizes.entrySet())for(String symbol:symbols.getOrDefault(entry.getKey(),List.of())) {
++         String name=symbol,prefix=classname+"_";if(name.startsWith(prefix))name=name.substring(prefix.length());geometry.sizes.put(name,entry.getValue());
++      }
++
++      DocumentBuilderFactory factory=DocumentBuilderFactory.newInstance();factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl",true);factory.setFeature("http://xml.org/sax/features/external-general-entities",false);factory.setFeature("http://xml.org/sax/features/external-parameter-entities",false);factory.setXIncludeAware(false);factory.setExpandEntityReferences(false);
++      for(byte[] xml:documents) {
++         Element root=factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml)).getDocumentElement();
++         if(root.getTagName().equals("assets"))for(Element asset:children(root,"asset")) {
++            String name=asset.getAttribute("name");geometry.assets.put(name,new Asset(name,asset.getAttribute("source"),number(asset,"x",0),number(asset,"y",0),number(asset,"flipH",0)==1,number(asset,"flipV",0)==1));
++         }
++         if(root.getTagName().equals("visualizationData"))for(Element view:children(child(root,"graphics"),"visualization"))if(number(view,"size",0)==64)geometry.visualization=view;
++      }
++      return geometry;
++   }
++   private Size assetSize(Asset asset,Set<String> seen) {
++      if(asset==null || !seen.add(asset.name()))return null;Size size=sizes.get(asset.name());return size!=null?size:assetSize(assets.get(asset.source()),seen);
++   }
++   private static boolean visible(Element global,Element directional) {return number(global,"alpha",255)>0 && number(directional,"alpha",number(global,"alpha",255))>0;}
++   public Optional<Anchor> anchor(int requestedDirection,int state,int imageWidth,int imageHeight) {
++      if(visualization==null)return Optional.empty();
++      int direction=Math.floorMod(requestedDirection,8);Element directions=child(visualization,"directions");
++      Element dir=identified(directions,"direction",direction);if(dir==null){direction=0;dir=identified(directions,"direction",0);}
++      Element animation=identified(child(visualization,"animations"),"animation",state);if(animation==null)animation=identified(child(visualization,"animations"),"animation",0);
++      int left=Integer.MAX_VALUE,top=Integer.MAX_VALUE,right=Integer.MIN_VALUE,bottom=Integer.MIN_VALUE,maxZ=Integer.MIN_VALUE;
++      List<String> layers=new ArrayList<>();layers.add("sd");for(int i=0;i<number(visualization,"layerCount",0) && i<26;i++)layers.add(Character.toString((char)('a'+i)));
++      for(String name:layers) {
++         int layer=name.equals("sd")?-1:name.charAt(0)-'a';Element global=identified(child(visualization,"layers"),"layer",layer),directional=identified(dir,"layer",layer);
++         if(!visible(global,directional))continue;
++         Element animated=identified(animation,"animationLayer",layer),sequence=child(animated,"frameSequence"),frame=child(sequence,"frame");int frameId=number(frame,"id",0);
++         Asset asset=assets.get(classname+"_64_"+name+"_"+direction+"_"+frameId);
++         if(asset==null)asset=assets.get(classname+"_64_"+name+"_"+direction+"_0");
++         if(asset==null)continue;Size size=assetSize(asset,new HashSet<>());if(size==null || size.width()<1 || size.height()<1)return Optional.empty();
++         int x=asset.flipX()?size.width()-asset.x():asset.x(),y=asset.flipY()?size.height()-asset.y():asset.y();
++         left=Math.min(left,-x);top=Math.min(top,-y);right=Math.max(right,size.width()-x);bottom=Math.max(bottom,size.height()-y);
++         if(layer>=0)maxZ=Math.max(maxZ,number(directional,"z",number(global,"z",0)));
++      }
++      // Cropped, unsupported or animated variants with different bounds stay explicitly approximate.
++      if(left==Integer.MAX_VALUE || right-left!=imageWidth || bottom-top!=imageHeight)return Optional.empty();
++      return Optional.of(new Anchor(-left,-top,maxZ<0));
++   }
++}
+--- a/src/main/java/extension/tools/preview/FurnitureGeometryStore.java
++++ b/src/main/java/extension/tools/preview/FurnitureGeometryStore.java
+@@ -0,0 +1,47 @@
++package extension.tools.preview;
++
++import extension.tools.presetconfig.PresetConfigUtils;
++import java.io.*;
++import java.net.*;
++import java.nio.file.*;
++import java.util.*;
++import java.util.concurrent.*;
++
++/** Small, independent background budget for pinned official furniture geometry. */
++public final class FurnitureGeometryStore {
++   private FurnitureGeometryStore() { }
++   private static final Map<String,CompletableFuture<FurnitureAssetGeometry>> entries=new ConcurrentHashMap<>();
++   private static final ThreadPoolExecutor workers=new ThreadPoolExecutor(2,2,30,TimeUnit.SECONDS,new ArrayBlockingQueue<>(256),r->{Thread t=new Thread(r,"gpresets-furniture-geometry");t.setDaemon(true);return t;});
++   static {workers.allowCoreThreadTimeOut(true);}
++   public static CompletableFuture<FurnitureAssetGeometry> load(String classname,int revision) {
++      if(classname==null || !classname.matches("[A-Za-z0-9_.*-]{1,120}") || revision<1)return CompletableFuture.failedFuture(new IOException("Furniture revision unavailable"));
++      String base=classname.split("\\*",2)[0],key=base+"-"+revision;
++      CompletableFuture<FurnitureAssetGeometry> future=new CompletableFuture<>(),existing=entries.putIfAbsent(key,future);if(existing!=null)return existing;
++      if(entries.size()>512){entries.remove(key,future);future.completeExceptionally(new IOException("Geometry cache budget reached"));return future;}
++      try {workers.execute(()->{
++         try {
++            Path directory=Path.of(PresetConfigUtils.baseDir(),"cache","geometry-v1"),file=directory.resolve(key+".swf");byte[] bytes=null;
++            if(Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS) && Files.size(file)<=8_000_000)bytes=Files.readAllBytes(file);
++            FurnitureAssetGeometry geometry=null;
++            if(bytes!=null)try{geometry=FurnitureAssetGeometry.parse(base,bytes);}catch(Exception invalid){bytes=null;}
++            if(bytes==null) {
++               HttpURLConnection connection=(HttpURLConnection)new URL("https://images.habbo.com/dcr/hof_furni/"+revision+"/"+base+".swf").openConnection();
++               connection.setConnectTimeout(5000);connection.setReadTimeout(5000);connection.setRequestProperty("User-Agent","G-Presets/1.6.2 (preview geometry)");
++               try {if(connection.getResponseCode()!=200 || connection.getContentLengthLong()>8_000_000)throw new IOException("Furniture geometry unavailable");try(InputStream in=connection.getInputStream()){bytes=in.readNBytes(8_000_001);}}finally{connection.disconnect();}
++               geometry=FurnitureAssetGeometry.parse(base,bytes);
++               try {Files.createDirectories(directory);
++               // Keep this optional cache within a fixed disk budget. Geometry remains usable if caching fails.
++               try(var files=Files.list(directory)) {
++                  List<Path> cached=files.filter(f->f.getFileName().toString().endsWith(".swf")).sorted(Comparator.comparingLong(f->{try{return Files.getLastModifiedTime(f).toMillis();}catch(IOException e){return 0L;}})).toList();
++                  long total=0;for(Path f:cached)total+=Files.size(f);
++                  for(Path f:cached){if(total+bytes.length<=32L*1024*1024)break;long length=Files.size(f);Files.deleteIfExists(f);total-=length;}
++               }
++               Path temporary=Files.createTempFile(directory,"geometry-",".tmp");try{Files.write(temporary,bytes);Files.move(temporary,file,StandardCopyOption.REPLACE_EXISTING);}finally{Files.deleteIfExists(temporary);}
++               }catch(IOException cacheUnavailable){ /* Optional disk cache; keep parsed geometry. */ }
++            }
++            future.complete(geometry);
++         }catch(Exception error){future.completeExceptionally(error);}
++      });}catch(RejectedExecutionException full){entries.remove(key,future);future.completeExceptionally(full);}
++      return future;
++   }
++}
 --- a/src/main/java/extension/tools/preview/FurnitureSprites.java
 +++ b/src/main/java/extension/tools/preview/FurnitureSprites.java
 @@ -0,0 +1,51 @@
@@ -10025,7 +10181,7 @@
 +}
 --- a/src/main/java/extension/tools/preview/PresetPreviewModel.java
 +++ b/src/main/java/extension/tools/preview/PresetPreviewModel.java
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,67 @@
 +package extension.tools.preview;
 +
 +import extension.tools.postconfig.PostConfig;
@@ -10038,7 +10194,8 @@
 +
 +/** Immutable, local placement plan. No game messages or inventory operations. */
 +public final class PresetPreviewModel {
-+   public record Footprint(int width,int depth) {
++   public record Footprint(int width,int depth,int revision) {
++      public Footprint(int width,int depth){this(width,depth,0);}
 +      public Footprint { if(width<1 || depth<1 || width>128 || depth>128) throw new IllegalArgumentException("Invalid furniture footprint"); }
 +   }
 +   public record Item(int id,String className,String name,double x,double y,double z,int rotation,
@@ -10046,6 +10203,7 @@
 +      @Override public String toString() { return (wall?"[Wall] ":wired?"[WIRED] ":"")+name; }
 +   }
 +   public final List<Item> items;
++   public final Map<String,Integer> revisions;
 +   public final int floorCount,wallCount,wiredCount,reusedCount,configurationCount,approximateCount;
 +   public final double minX,minY,maxX,maxY,maxZ;
 +
@@ -10053,10 +10211,11 @@
 +      // applyPostConfig works on a private copy; opening the preview never edits the selected preset.
 +      PresetConfig effective=new PresetConfig(source.toJsonObject());
 +      reusedCount=effective.applyPostConfig(new PostConfig(postConfig)).size();
-+      List<Item> entries=new ArrayList<>();int uncertain=0;
++      List<Item> entries=new ArrayList<>();int uncertain=0;Map<String,Integer> assetRevisions=new HashMap<>();
 +      for(PresetFurni f:effective.getFurniture()) {
 +         Footprint size=footprints.apply(f.getClassName());boolean approximate=size==null;
 +         if(size==null)size=new Footprint(1,1);
++         if(size.revision()>0)assetRevisions.put(f.getClassName(),size.revision());
 +         int rotation=Math.floorMod(f.getRotation(),8);
 +         int w=size.width(),d=size.depth();
 +         if(rotation==2 || rotation==6) { int swap=w;w=d;d=swap; }
@@ -10073,6 +10232,7 @@
 +         entries.add(new Item(f.getFurniId(),f.getClassName(),displayName(f.getFurniName(),f.getClassName()),x,y,z,f.getLocation().getDirection()=='l'?2:4,1,1,true,false,false,f.getState(),f.getLocation().toFullString()));
 +      }
 +      entries.sort(Comparator.comparingDouble((Item i)->i.x()+i.y()).thenComparingDouble(Item::z).thenComparingInt(Item::id));
++      revisions=Map.copyOf(assetRevisions);
 +      items=List.copyOf(entries);approximateCount=uncertain;
 +      floorCount=effective.getFurniture().size();wallCount=effective.getWallFurniture().size();
 +      wiredCount=(int)items.stream().filter(Item::wired).count();
@@ -10091,7 +10251,7 @@
 +}
 --- a/src/main/java/extension/tools/preview/PresetPreviewPane.java
 +++ b/src/main/java/extension/tools/preview/PresetPreviewPane.java
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,295 @@
 +package extension.tools.preview;
 +
 +import java.util.*;
@@ -10123,6 +10283,28 @@
 +   private final CheckBox heights=new CheckBox("Show heights");
 +   private final List<Hit> hits=new ArrayList<>();
 +   private final Map<String,Image> sprites=new HashMap<>();
++   private final Map<String,FurnitureAssetGeometry> geometry=new HashMap<>();
++   private final Set<String> requestedGeometry=new HashSet<>();
++   private record SpriteBox(double left,double top,double width,double height,boolean exact,boolean background) { }
++   private Optional<FurnitureAssetGeometry.Anchor> anchor(PresetPreviewModel.Item item,Image image) {
++      FurnitureAssetGeometry asset=geometry.get(item.className());if(asset==null || image==null || item.wall())return Optional.empty();
++      var key=spriteRequest(item);if(key==null)return Optional.empty();return asset.anchor(key.direction(),Integer.parseInt(key.state()),(int)image.getWidth(),(int)image.getHeight());
++   }
++   private SpriteBox spriteBox(PresetPreviewModel.Item item,Image image) {
++      var exact=anchor(item,image);
++      if(exact.isPresent()) {
++         var point=PreviewGeometry.assetOrigin(item.x(),item.y(),item.z(),item.width(),item.depth(),viewTurns,heights.isSelected());var origin=exact.get();
++         return new SpriteBox(point.x()-origin.x(),point.y()-origin.y(),image.getWidth(),image.getHeight(),true,origin.background());
++      }
++      Point center=project(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,item.z());
++      return new SpriteBox(center.x()-image.getWidth()/2,center.y()+8*(item.width()+item.depth())-image.getHeight(),image.getWidth(),image.getHeight(),false,false);
++   }
++   private void requestGeometry(PresetPreviewModel.Item item) {
++      int revision=model.revisions.getOrDefault(item.className(),0);if(item.wall() || revision<1 || !requestedGeometry.add(item.className()))return;
++      var future=FurnitureGeometryStore.load(item.className(),revision);if(future.isDone() && !future.isCompletedExceptionally()){geometry.put(item.className(),future.getNow(null));return;}
++      java.lang.ref.WeakReference<PresetPreviewPane> owner=new java.lang.ref.WeakReference<>(this);
++      future.whenComplete((asset,error)->{var pane=owner.get();if(pane==null || pane.closed || error!=null)return;Platform.runLater(()->{if(!pane.closed){pane.geometry.put(item.className(),asset);pane.draw();}});});
++   }
 +   private final Set<String> requestedSprites=new HashSet<>();
 +   private final FurnitureSpriteStore<Image> spriteStore=FurnitureSprites.shared();
 +   private final Set<String> unavailableSprites=new HashSet<>();
@@ -10161,7 +10343,9 @@
 +   private Runnable availabilityAction;
 +   private Runnable compatibilityAction;
 +   private record Point(double x,double y) { }
-+   private record Hit(PresetPreviewModel.Item item,double[] x,double[] y) { }
++   private record Hit(PresetPreviewModel.Item item,double[] x,double[] y,Image sprite) {
++      Hit(PresetPreviewModel.Item item,double[] x,double[] y){this(item,x,y,null);}
++   }
 +
 +   public PresetPreviewPane(PresetPreviewModel model,String name,Integer originX,Integer originY) {
 +      this.model=model;this.originX=originX;this.originY=originY;
@@ -10176,7 +10360,7 @@
 +      Label counts=new Label(model.floorCount+" floor items  \u00b7  "+model.wallCount+" wall items  \u00b7  "+model.wiredCount+" WIRED  \u00b7  "+model.configurationCount+" configurations");
 +      String origin=originX==null?"Origin: choose in Habbo after confirmation.":"Requested origin: ("+originX+", "+originY+").";
 +      Label scope=originScope;scope.setText(origin+"  "+model.reusedCount+" existing items reused without moving.");scope.setWrapText(true);
-+      Label note=new Label("Furniture images: HabboAssets. Positions and wall items are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("");
++      Label note=new Label("Furniture images: HabboAssets. Official image anchors are used when available; wall markers and unsupported images are approximate. Nothing is placed before confirmation.");note.setWrapText(true);note.setStyle("");
 +      VBox header=new VBox(5,title,counts,scope,note);header.setPadding(new Insets(0,0,14,0));setTop(header);
 +      StackPane surface=new StackPane(canvas);surface.setMinSize(280,200);surface.setPrefSize(680,440);
 +      canvas.widthProperty().bind(surface.widthProperty());canvas.heightProperty().bind(surface.heightProperty());
@@ -10272,22 +10456,22 @@
 +      double width=canvas.getWidth(),height=canvas.getHeight();if(closed || width<2 || height<2)return;
 +      // Hydrate warm sprites before fitting the view, so the first frame includes their full bounds.
 +      if(showSprites.isSelected())for(var item:model.items) {
-+         var request=spriteRequest(item);if(request==null)continue;
++         requestGeometry(item);var request=spriteRequest(item);if(request==null)continue;
 +         String key=request.url();if(!sprites.containsKey(key)){Image cached=spriteStore.peek(request);if(cached!=null)sprites.put(key,cached);}
 +      }
 +      GraphicsContext g=canvas.getGraphicsContext2D();g.setFill(Color.web("#333333"));g.fillRect(0,0,width,height);hits.clear();
 +      if(model.items.isEmpty()){g.setFill(Color.web("#f0f0f0"));g.setFont(Font.font(15));g.fillText(model.reusedCount>0?"Existing furniture only: positions preserved.":"No furniture in this preset.",22,40);return;}
 +      double lowX=Double.POSITIVE_INFINITY,lowY=Double.POSITIVE_INFINITY,highX=Double.NEGATIVE_INFINITY,highY=Double.NEGATIVE_INFINITY;
 +      for(PresetPreviewModel.Item item:model.items)for(int corner=0;corner<4;corner++) {
-+         double x=item.x()+((corner==1 || corner==2)?item.width():0),y=item.y()+(corner>=2?item.depth():0);
++         double x=item.x()-0.5+((corner==1 || corner==2)?item.width():0),y=item.y()-0.5+(corner>=2?item.depth():0);
 +         for(double z:new double[]{0,item.z()}){Point p=project(x,y,z);lowX=Math.min(lowX,p.x());highX=Math.max(highX,p.x());lowY=Math.min(lowY,p.y());highY=Math.max(highY,p.y());}
 +      }
 +      if(showSprites.isSelected()) for(PresetPreviewModel.Item item:model.items) {
 +         Image sprite=sprites.get(spriteKey(item));
 +         if(sprite!=null) {
-+            Point center=project(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
-+            lowX=Math.min(lowX,center.x()-sprite.getWidth()/2); highX=Math.max(highX,center.x()+sprite.getWidth()/2);
-+            lowY=Math.min(lowY,center.y()-sprite.getHeight()+16); highY=Math.max(highY,center.y()+16);
++            SpriteBox box=spriteBox(item,sprite);
++            lowX=Math.min(lowX,box.left());highX=Math.max(highX,box.left()+box.width());
++            lowY=Math.min(lowY,box.top());highY=Math.max(highY,box.top()+box.height());
 +         }
 +      }
 +      scale=Math.max(0.00001,Math.min((width-64)/Math.max(64,highX-lowX),(height-64)/Math.max(48,highY-lowY)))*zoom.getValue();
@@ -10295,32 +10479,34 @@
 +      g.setLineWidth(1);g.setStroke(Color.web("#505050"));
 +      double spanX=model.maxX-model.minX,spanY=model.maxY-model.minY;
 +      if(spanX<=120 && spanY<=120) {
-+         for(double x=Math.floor(model.minX);x<=Math.ceil(model.maxX);x++){Point a=screen(x,model.minY,0),b=screen(x,model.maxY,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
-+         for(double y=Math.floor(model.minY);y<=Math.ceil(model.maxY);y++){Point a=screen(model.minX,y,0),b=screen(model.maxX,y,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
++         for(double x=Math.floor(model.minX);x<=Math.ceil(model.maxX);x++){Point a=screen(x-0.5,model.minY-0.5,0),b=screen(x-0.5,model.maxY-0.5,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
++         for(double y=Math.floor(model.minY);y<=Math.ceil(model.maxY);y++){Point a=screen(model.minX-0.5,y-0.5,0),b=screen(model.maxX-0.5,y-0.5,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
 +      }
 +      PresetPreviewModel.Item selected=items.getSelectionModel().getSelectedItem();
 +      List<PresetPreviewModel.Item> ordered=new ArrayList<>(model.items);
-+      ordered.sort(Comparator.comparingDouble((PresetPreviewModel.Item i)->PreviewGeometry.depth(i.x()+i.width()/2.0,i.y()+i.depth()/2.0,viewTurns)).thenComparingDouble(PresetPreviewModel.Item::z));
++      ordered.sort(Comparator.comparingInt((PresetPreviewModel.Item i)->anchor(i,sprites.get(spriteKey(i))).map(a->a.background()?0:1).orElse(1))
++         .thenComparingDouble(i->PreviewGeometry.depth(i.x()+(i.width()-1)/2.0,i.y()+(i.depth()-1)/2.0,viewTurns))
++         .thenComparingDouble(PresetPreviewModel.Item::z).thenComparingInt(PresetPreviewModel.Item::id));
 +      for(PresetPreviewModel.Item item:ordered) {
 +         if(item.z()>layer.getValue()+0.001 || (isolate.isSelected() && item!=selected))continue;
 +         double[] xs=new double[4],ys=new double[4];
-+         for(int c=0;c<4;c++){Point p=screen(item.x()+((c==1 || c==2)?item.width():0),item.y()+(c>=2?item.depth():0),item.z());xs[c]=p.x();ys[c]=p.y();}
-+         if(heights.isSelected() && item.z()!=0){Point a=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,0),b=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());g.setStroke(Color.web("#64748b"));g.setLineWidth(1);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
++         for(int c=0;c<4;c++){Point p=screen(item.x()-0.5+((c==1 || c==2)?item.width():0),item.y()-0.5+(c>=2?item.depth():0),item.z());xs[c]=p.x();ys[c]=p.y();}
++         if(heights.isSelected() && item.z()!=0){Point a=screen(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,0),b=screen(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,item.z());g.setStroke(Color.web("#64748b"));g.setLineWidth(1);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
 +         Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
 +         Image sprite=showSprites.isSelected()?spriteFor(item):null;
 +         g.setFill(fill.deriveColor(0,1,1,sprite!=null?0.15:item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
 +         g.setStroke(!item.wall() && placementIssues.containsKey(item.id())?Color.web("#ff5555"):item==selected?Color.web("#56c0e0"):fill.brighter());g.setLineWidth(item==selected || (!item.wall() && placementIssues.containsKey(item.id()))?3:1);g.strokePolygon(xs,ys,4);
 +         if(showSprites.isSelected()) {
 +            if(sprite!=null) {
-+               Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
-+               double imageWidth=sprite.getWidth()*scale, imageHeight=sprite.getHeight()*scale;
-+               double left=center.x()-imageWidth/2,top=center.y()-imageHeight+16*scale;
++               SpriteBox box=spriteBox(item,sprite);
++               double imageWidth=box.width()*scale,imageHeight=box.height()*scale;
++               double left=offsetX+box.left()*scale,top=offsetY+box.top()*scale;
 +               g.drawImage(sprite,left,top,imageWidth,imageHeight);
-+               hits.add(new Hit(item,new double[]{left,left+imageWidth,left+imageWidth,left},new double[]{top,top,top+imageHeight,top+imageHeight}));
++               hits.add(new Hit(item,new double[]{left,left+imageWidth,left+imageWidth,left},new double[]{top,top,top+imageHeight,top+imageHeight},sprite));
 +            }
 +         }
 +         hits.add(new Hit(item,xs,ys));
-+         if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f0f0f0"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
++         if(sprite==null && scale>0.30){Point center=screen(item.x()+(item.width()-1)/2.0,item.y()+(item.depth()-1)/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+(item.width()-1)/2.0+Math.sin(angle)*0.30,item.y()+(item.depth()-1)/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f0f0f0"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
 +      }
 +      updateImageStatus();
 +   }
@@ -10348,9 +10534,16 @@
 +   private void updateImageStatus() {
 +      Set<String> wanted=model.items.stream().map(this::spriteKey).filter(Objects::nonNull).collect(Collectors.toSet());
 +      long loaded=wanted.stream().filter(sprites::containsKey).count(),failed=wanted.stream().filter(unavailableSprites::contains).count();
-+      imageStatus.setText("Images: "+loaded+"/"+wanted.size()+(failed>0?" ("+failed+" unavailable)":"")+(wanted.size()>256?"; up to 256 variants per view":""));
++      long approximate=model.items.stream().filter(i->sprites.containsKey(spriteKey(i)) && anchor(i,sprites.get(spriteKey(i))).isEmpty()).count();
++      imageStatus.setText("Images: "+loaded+"/"+wanted.size()+(approximate>0?"; "+approximate+" approximate anchors":"")+(failed>0?" ("+failed+" unavailable)":"")+(wanted.size()>256?"; up to 256 variants per view":""));
 +   }
 +   private static boolean contains(Hit h,double x,double y) {
++      if(h.sprite()!=null) {
++         double width=h.x()[1]-h.x()[0],height=h.y()[2]-h.y()[0];
++         if(width<=0 || height<=0 || x<h.x()[0] || y<h.y()[0] || x>=h.x()[1] || y>=h.y()[2])return false;
++         int px=Math.min((int)h.sprite().getWidth()-1,(int)((x-h.x()[0])/width*h.sprite().getWidth())),py=Math.min((int)h.sprite().getHeight()-1,(int)((y-h.y()[0])/height*h.sprite().getHeight()));
++         if(h.sprite().getPixelReader()==null || (h.sprite().getPixelReader().getArgb(px,py)>>>24)<24)return false;
++      }
 +      boolean inside=false;for(int i=0,j=3;i<4;j=i++)if((h.y()[i]>y)!=(h.y()[j]>y) && x<(h.x()[j]-h.x()[i])*(y-h.y()[i])/(h.y()[j]-h.y()[i])+h.x()[i])inside=!inside;return inside;
 +   }
 +}
@@ -10397,7 +10590,7 @@
 +}
 --- a/src/main/java/extension/tools/preview/PreviewGeometry.java
 +++ b/src/main/java/extension/tools/preview/PreviewGeometry.java
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,21 @@
 +package extension.tools.preview;
 +
 +/** Habbo large-room projection: 64px tiles, 32px per height unit. */
@@ -10408,6 +10601,14 @@
 +      double a=x,b=y;
 +      switch(Math.floorMod(turns,4)){case 1:a=-y;b=x;break;case 2:a=-x;b=-y;break;case 3:a=y;b=-x;break;default:break;}
 +      return new Point((a-b)*32,(a+b)*16-(heights?z*32:0));
++   }
++   /** Native image origin is the first cell center of the rotated footprint. */
++   public static Point assetOrigin(double x,double y,double z,int width,int depth,int turns,boolean heights) {
++      double cx=x+(width-1)/2.0,cy=y+(depth-1)/2.0;
++      Point center=project(cx,cy,z,turns,heights);
++      int w=Math.floorMod(turns,2)==0?width:depth,d=Math.floorMod(turns,2)==0?depth:width;
++      Point delta=project((w-1)/2.0,(d-1)/2.0,0,0,false);
++      return new Point(center.x()-delta.x(),center.y()-delta.y());
 +   }
 +   public static double depth(double x,double y,int turns){return project(x,y,0,turns,false).y();}
 +}
@@ -13678,6 +13879,63 @@
 +  System.out.println("PASS: "+checks+" preset tools assertions (undo guards/native payload, privacy, history, comparison, substitutions, placement)");return checks;
 + }
 +}
+--- a/tests/PreviewGeometryTests.java
++++ b/tests/PreviewGeometryTests.java
+@@ -0,0 +1,54 @@
++package tests;
++
++import extension.tools.preview.*;
++import java.io.*;
++import java.nio.charset.StandardCharsets;
++import java.util.*;
++import java.util.zip.DeflaterOutputStream;
++
++/** Synthetic SWF envelopes with measured official asset geometry, no client code or private presets. */
++public final class PreviewGeometryTests {
++ private static int checks;
++ private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);checks++;}
++ private static void u16(ByteArrayOutputStream b,int value){b.write(value&255);b.write(value>>8&255);}
++ private static void u32(ByteArrayOutputStream b,int value){u16(b,value);u16(b,value>>16);}
++ private static void tag(ByteArrayOutputStream b,int type,byte[] data)throws IOException{u16(b,(type<<6)|63);u32(b,data.length);b.write(data);}
++ private static byte[] bitmap(int id,int w,int h){var b=new ByteArrayOutputStream();u16(b,id);b.write(5);u16(b,w);u16(b,h);return b.toByteArray();}
++ private static byte[] xml(int id,String text)throws IOException{var b=new ByteArrayOutputStream();u16(b,id);u32(b,0);b.write(text.getBytes(StandardCharsets.UTF_8));return b.toByteArray();}
++ static byte[] fixture(String cls,int w,int h,int ax,int ay,boolean background,boolean alias,boolean compressed)throws IOException {
++  var body=new ByteArrayOutputStream();body.write(new byte[5]);tag(body,36,bitmap(1,w,h));
++  var symbols=new ByteArrayOutputStream();u16(symbols,alias?2:1);u16(symbols,1);symbols.write((cls+"_"+cls+"_64_a_0_0").getBytes(StandardCharsets.UTF_8));symbols.write(0);
++  if(alias){u16(symbols,1);symbols.write((cls+"_"+cls+"_64_a_4_0").getBytes(StandardCharsets.UTF_8));symbols.write(0);}tag(body,76,symbols.toByteArray());
++  String assets="<assets><asset name='"+cls+"_64_a_0_0' x='"+ax+"' y='"+ay+"'/><asset name='"+cls+"_64_a_2_0' source='"+cls+"_64_a_0_0' flipH='1' x='"+ax+"' y='"+ay+"'/><asset name='"+cls+"_64_a_4_0' x='"+ax+"' y='"+ay+"'/></assets>";
++  tag(body,87,xml(2,assets));tag(body,87,xml(3,"<visualizationData><graphics><visualization size='64' layerCount='1'><layers><layer id='0' z='"+(background?-9000:0)+"'/></layers><directions><direction id='0'/><direction id='2'/><direction id='4'/></directions></visualization></graphics></visualizationData>"));tag(body,0,new byte[0]);
++  var swf=new ByteArrayOutputStream();swf.write((compressed?"CWS":"FWS").getBytes(StandardCharsets.US_ASCII));swf.write(10);u32(swf,body.size()+8);
++  if(compressed){try(var zip=new DeflaterOutputStream(swf)){zip.write(body.toByteArray());}}else swf.write(body.toByteArray());return swf.toByteArray();
++ }
++ public static int run()throws Exception {
++  checks=0;
++  var sand=FurnitureAssetGeometry.parse("sand",fixture("sand",129,70,64,21,true,true,true));
++  check(sand.anchor(0,0,129,70).orElseThrow().equals(new FurnitureAssetGeometry.Anchor(64,21,true)),"2x2 sand uses its native anchor rather than constant bottom offset");
++  check(sand.anchor(4,0,129,70).isPresent(),"shared bitmap symbols retain every direction alias");
++  check(sand.anchor(0,0,128,70).isEmpty(),"different/cropped image bounds cannot claim exact alignment");
++  var water=FurnitureAssetGeometry.parse("water",fixture("water",209,105,104,37,true,false,false));
++  check(water.anchor(0,0,209,105).orElseThrow().y()==37,"water overhang is positioned from official image origin");
++  var tree=FurnitureAssetGeometry.parse("tree",fixture("tree",82,163,41,146,false,false,true));
++  check(tree.anchor(0,0,82,163).orElseThrow().y()==146,"tall furniture is not placed using the image bottom");
++  var stage=FurnitureAssetGeometry.parse("stage",fixture("stage",98,59,65,26,false,false,false));
++  check(stage.anchor(2,0,98,59).orElseThrow().x()==33,"horizontal aliases mirror the native anchor around bitmap width");
++  check(stage.anchor(6,0,98,59).orElseThrow().x()==65,"unsupported imager direction uses the documented direction-zero fallback");
++  for(int turn=0;turn<4;turn++) {
++   int w=1,d=2;var origin=PreviewGeometry.assetOrigin(3,4,2,w,d,turn,true);
++   // Rotate the first-cell centers and choose their minimum X/Y to get the room object's new origin.
++   double a=3,b=4;if(turn==1){a=-5;b=3;}if(turn==2){a=-3;b=-5;}if(turn==3){a=4;b=-3;}
++   var expected=PreviewGeometry.project(a,b,2,0,true);
++   check(origin.equals(expected),"rectangular footprint keeps native origin in camera quarter-turn "+turn);
++  }
++  var base=PreviewGeometry.assetOrigin(0,0,0,2,2,0,true);var higher=PreviewGeometry.assetOrigin(0,0,1.5,2,2,0,true);
++  check(base.y()-higher.y()==48,"stacked item height uses the same room projection as its footprint");
++  check(PreviewGeometry.assetOrigin(0,0,1.5,2,2,0,false).equals(base),"hiding heights removes only the height shift");
++  byte[] broken=fixture("bad",1,1,0,0,false,false,false);broken[4]=(byte)255;
++  try{FurnitureAssetGeometry.parse("bad",broken);throw new AssertionError("malformed declared length accepted");}catch(IOException expected){checks++;}
++  return checks;
++ }
++}
 --- a/tests/PreviewImportFlow.java
 +++ b/tests/PreviewImportFlow.java
 @@ -0,0 +1,156 @@
@@ -13837,9 +14095,81 @@
 +   }
 +
 +}
+--- a/tests/PreviewRenderingTests.java
++++ b/tests/PreviewRenderingTests.java
+@@ -0,0 +1,69 @@
++package tests;
++
++import extension.tools.preview.*;
++import extension.tools.presetconfig.*;
++import extension.tools.presetconfig.furni.*;
++import extension.tools.presetconfig.wired.*;
++import extension.tools.postconfig.PostConfig;
++import gearth.extensions.parsers.HPoint;
++import javafx.scene.Scene;
++import javafx.scene.image.Image;
++import org.json.*;
++import java.util.*;
++import java.util.concurrent.TimeUnit;
++
++/** Exercise actual JavaFX fitting and sprite placement with tall, rectangular and overhanging assets. */
++public final class PreviewRenderingTests {
++ private static void check(boolean ok,String message){if(!ok)throw new AssertionError(message);}
++ private static Object field(Object owner,String name)throws Exception{var f=owner.getClass().getDeclaredField(name);f.setAccessible(true);return f.get(owner);}
++ private static Object call(Object owner,String name)throws Exception{var m=owner.getClass().getDeclaredMethod(name);m.setAccessible(true);return m.invoke(owner);}
++ private static double number(Object owner,String name)throws Exception{return ((Number)call(owner,name)).doubleValue();}
++ public static void run()throws Exception {
++  String[] names={"gpresets_anchor_tree","gpresets_anchor_sand","gpresets_anchor_water","gpresets_anchor_stage"};
++  int[][] dimensions={{82,163,41,146,1,1},{129,70,64,21,2,2},{209,105,104,37,2,2},{98,59,65,26,1,2}};
++  Map<String,FurnitureAssetGeometry> geometries=new HashMap<>();var cache=FurnitureSprites.shared();
++  for(int i=0;i<names.length;i++) {
++   int[] d=dimensions[i];byte[] geometryBytes=PreviewGeometryTests.fixture(names[i],d[0],d[1],d[2],d[3],i==1 || i==2,true,true);
++   var geometryCache=java.nio.file.Path.of(PresetConfigUtils.baseDir(),"cache","geometry-v1",names[i]+"-1.swf");java.nio.file.Files.createDirectories(geometryCache.getParent());java.nio.file.Files.write(geometryCache,geometryBytes);
++   var loaded=FurnitureGeometryStore.load(names[i],1);check(loaded==FurnitureGeometryStore.load(names[i],1),"duplicate geometry requests share one background operation");
++   geometries.put(names[i],loaded.get(5,TimeUnit.SECONDS));
++   var png=new java.awt.image.BufferedImage(d[0],d[1],java.awt.image.BufferedImage.TYPE_INT_ARGB);
++   for(int y=0;y<d[1];y++)for(int x=d[0]/2-2;x<=d[0]/2+2;x++)png.setRGB(x,y,0xffdf593d);
++   for(int direction:new int[]{0,2,4,6}) {
++    var key=new FurnitureSpriteStore.Key(names[i],direction,"0");java.nio.file.Files.createDirectories(cache.cacheFile(key).getParent());javax.imageio.ImageIO.write(png,"png",cache.cacheFile(key).toFile());cache.load(key).get(5,TimeUnit.SECONDS);
++   }
++  }
++  List<PresetFurni> furniture=new ArrayList<>();
++  for(int i=0;i<names.length;i++){var f=new PresetFurni(i+1,names[i],new HPoint(i*3,i*2,i==3?1:0),0,"0");f.setFurniName(names[i]);furniture.add(f);}
++  var upper=new PresetFurni(5,names[0],new HPoint(0,0,2),0,"0");upper.setFurniName("stacked tree");furniture.add(upper);
++  var preset=new PresetConfig(furniture,new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
++  var model=new PresetPreviewModel(preset,new PostConfig(),name->{int i=List.of(names).indexOf(name);return new PresetPreviewModel.Footprint(dimensions[i][4],dimensions[i][5]);});
++  var pane=new PresetPreviewPane(model,"Geometry regression",null,null);new Scene(pane,1040,720);pane.applyCss();pane.layout();
++  ((Map<String,FurnitureAssetGeometry>)field(pane,"geometry")).putAll(geometries);
++  var draw=PresetPreviewPane.class.getDeclaredMethod("draw");draw.setAccessible(true);
++  var boxMethod=PresetPreviewPane.class.getDeclaredMethod("spriteBox",PresetPreviewModel.Item.class,Image.class);boxMethod.setAccessible(true);
++  var turn=(javafx.scene.control.Button)pane.lookup("#turnView");
++  for(int quarter=0;quarter<4;quarter++) {
++   draw.invoke(pane);double scale=((Number)field(pane,"scale")).doubleValue(),ox=((Number)field(pane,"offsetX")).doubleValue(),oy=((Number)field(pane,"offsetY")).doubleValue();
++   for(var item:model.items) {
++    Image image=cache.peek(new FurnitureSpriteStore.Key(item.className(),quarter*2,"0"));Object box=boxMethod.invoke(pane,item,image);
++    check((Boolean)call(box,"exact"),"actual pane must use confirmed native anchor");
++    var origin=PreviewGeometry.assetOrigin(item.x(),item.y(),item.z(),item.width(),item.depth(),quarter,true);
++    var anchor=geometries.get(item.className()).anchor(quarter*2,0,(int)image.getWidth(),(int)image.getHeight()).orElseThrow();
++    check(Math.abs(number(box,"left")-(origin.x()-anchor.x()))<0.001 && Math.abs(number(box,"top")-(origin.y()-anchor.y()))<0.001,"actual pane sprite placement must retain native origin at every camera rotation");
++    double left=ox+number(box,"left")*scale,top=oy+number(box,"top")*scale;
++    check(left>=31 && top>=31 && left+number(box,"width")*scale<=pane.getCanvas().getWidth()-31 && top+number(box,"height")*scale<=pane.getCanvas().getHeight()-31,"fit includes the complete native image bounds");
++   }
++   turn.fire();
++  }
++  draw.invoke(pane);var hits=(List<?>)field(pane,"hits");
++  for(Object hit:hits)if(call(hit,"sprite")!=null) {
++   var contains=PresetPreviewPane.class.getDeclaredMethod("contains",hit.getClass(),double.class,double.class);contains.setAccessible(true);double[] x=(double[])call(hit,"x"),y=(double[])call(hit,"y");
++   check(!(Boolean)contains.invoke(null,hit,x[0]+0.01,y[0]+0.01),"transparent sprite margins must not steal clicks");
++   check((Boolean)contains.invoke(null,hit,(x[0]+x[1])/2,(y[0]+y[2])/2),"visible sprite pixels remain selectable");
++  }
++  javax.imageio.ImageIO.write(toImage(pane.getCanvas().snapshot(null,null)),"png",new java.io.File("target/preview-geometry-ui-smoke.png"));pane.close();
++  System.out.println("PASS: actual preview native anchors, complete image bounds, four camera rotations, height and transparent click selection");
++ }
++ private static java.awt.image.BufferedImage toImage(javafx.scene.image.WritableImage source){var result=new java.awt.image.BufferedImage((int)source.getWidth(),(int)source.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);for(int y=0;y<result.getHeight();y++)for(int x=0;x<result.getWidth();x++)result.setRGB(x,y,source.getPixelReader().getArgb(x,y));return result;}
++}
 --- a/tests/RegressionTests.java
 +++ b/tests/RegressionTests.java
-@@ -0,0 +1,619 @@
+@@ -0,0 +1,620 @@
 +package tests;
 +
 +import extension.parsers.*;
@@ -14429,6 +14759,7 @@
 +   public static void main(String[] args) throws Exception {
 +      passed+=PresetToolsTests.run();
 +      passed+=PartialImportTests.run();
++      passed+=PreviewGeometryTests.run();
 +      pauseGateTests();
 +      imageCacheTests();
 +      release150Tests();
@@ -14461,7 +14792,7 @@
 +}
 --- a/tests/UiResourceSmoke.java
 +++ b/tests/UiResourceSmoke.java
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,133 @@
 +package tests;
 +import extension.GPresets;
 +import extension.tools.preview.*;
@@ -14537,7 +14868,7 @@
 +            PresetPreviewPane warmPane=new PresetPreviewPane(new PresetPreviewModel(cachedPreset,new PostConfig(),name->new PresetPreviewModel.Footprint(1,1)),"Cached",null,null);
 +            new Scene(warmPane,1040,720);warmPane.applyCss();warmPane.layout();
 +            var progress=(javafx.scene.control.Label)warmPane.lookup("#imageProgress");
-+            if(progress==null || !progress.getText().equals("Images: 1/1"))throw new AssertionError("Warm sprite was not available on first frame");
++            if(progress==null || !progress.getText().startsWith("Images: 1/1"))throw new AssertionError("Warm sprite was not available on first frame");
 +            warmPane.close();
 +
 +            PresetFurni f=new PresetFurni(1,"wf_act_send_message",new HPoint(1,2,0.5),2,null);f.setFurniName("wired[0]");
@@ -14583,6 +14914,7 @@
 +            for(int y=0;y<screenshot.getHeight();y++)for(int x=0;x<screenshot.getWidth();x++)screenshot.setRGB(x,y,reader.getArgb(x,y));
 +            javax.imageio.ImageIO.write(screenshot,"png",new java.io.File("target/preview-ui-smoke.png"));
 +            pane.close();
++            PreviewRenderingTests.run();
 +            PreviewImportFlow.run();
 +            System.out.println("PASS: preview canvas/layout, selection, launch availability, confirm and cancel");
 +            System.out.println("PASS: packaged JavaFX FXML, controller bindings and CSS; no hotel connection");

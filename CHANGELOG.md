@@ -1,3 +1,11 @@
+## 1.6.2
+
+- Align preview sprites using official revisioned furniture asset origins and bitmap bounds instead of one fixed bottom offset. Correct sand, overhanging water, rectangular platforms and tall decorations; retain explicit approximate anchors for unsupported or mismatched variants.
+- Align footprint overlays with room cell centers, preserve rectangular object origins through camera quarter-turns, fit complete sprite bounds, keep background layers behind furniture and ignore transparent margins during picking.
+- Load geometry on two bounded background workers with shared requests and a 32 MiB disk cache. Parse geometry only, without executing SWF code. Keep existing bounded image caching; wall markers and unsupported animation/layer semantics remain approximate.
+- Add geometry parser, shared-symbol, mirrored-origin, camera, height, real JavaFX placement/bounds/selection and cache regression checks. Verify four official furniture asset origins locally; do not distribute diagnostic assets or personal presets.
+- Preserve all previous releases and the 1.6.1 partial-import fixes.
+
 ## 1.6.1
 
 - Finish remaining import stages when Allow building without all furni is enabled. Report unavailable floor/wall furniture and skip configuration with missing owners, selected furniture, snapshots or preset variable dependencies; continue independent WIRED, auxiliary settings and valid object properties.
