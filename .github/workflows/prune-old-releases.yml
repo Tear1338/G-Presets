@@ -1,0 +1,35 @@
+name: One-time previous release cleanup
+on:
+  push:
+    branches: [master]
+    paths: ['.github/workflows/prune-old-releases.yml']
+permissions:
+  contents: read
+jobs:
+  cleanup:
+    if: github.repository == 'Tear1338/G-Presets'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Keep verified v1.5.3 and remove superseded v1.5.2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json, os, urllib.request
+          base = "https://api.github.com/repos/Tear1338/G-Presets"
+          headers = {"Authorization": "Bearer " + os.environ["GH_TOKEN"], "Accept": "application/vnd.github+json"}
+          def api(path, method="GET"):
+              with urllib.request.urlopen(urllib.request.Request(base + path, headers=headers, method=method), timeout=30) as response:
+                  body = response.read()
+                  return json.loads(body) if body else None
+          latest = api("/releases/latest")
+          assert latest["id"] == 425553380 and latest["tag_name"] == "v1.5.3", "Latest release changed"
+          assert any(a["name"] == "GPresets-1.5.3.jar" and a["size"] > 0 for a in latest["assets"]), "Latest JAR missing"
+          old = api("/releases/424959820")
+          assert old["tag_name"] == "v1.5.2", "Old release identity mismatch"
+          api("/releases/424959820", "DELETE")
+          remaining = api("/releases?per_page=100")
+          assert len(remaining) == 1 and remaining[0]["id"] == latest["id"], "Unexpected releases remain"
+          print("Only v1.5.3 remains; git tags and history are preserved.")
