@@ -25,6 +25,7 @@ public final class UiResourceSmoke {
       }
    }
    public static void main(String[] args) throws Exception {
+      System.setProperty("gpresets.dataDir",java.nio.file.Path.of("target","ui-smoke-data").toAbsolutePath().toString());
       CountDownLatch done=new CountDownLatch(1);AtomicReference<Throwable> failure=new AtomicReference<>();
       Platform.startup(()->{
          try {
@@ -45,6 +46,21 @@ public final class UiResourceSmoke {
             if(box.getMinY()<0 || box.getMaxY()>mainScene.getHeight())throw new AssertionError("Preview setting is clipped: "+box);
             verifyBlackText(root);
             if(!controller.previewBeforeImportCbx.getText().equals("Preview before import (:ip)"))throw new AssertionError("Preview setting label");
+
+            // A reopened share/preview must paint a warm sprite in its very first frame.
+            var cacheKey=new FurnitureSpriteStore.Key("gpresets_test_cached",0,"0");
+            var cache=FurnitureSprites.shared();
+            java.nio.file.Files.createDirectories(cache.cacheFile(cacheKey).getParent());
+            var cachedPng=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            javax.imageio.ImageIO.write(cachedPng,"png",cache.cacheFile(cacheKey).toFile());
+            cache.load(cacheKey).get(5,TimeUnit.SECONDS);
+            PresetFurni cachedItem=new PresetFurni(99,"gpresets_test_cached",new HPoint(0,0,0),0,"0");cachedItem.setFurniName("cached[0]");
+            PresetConfig cachedPreset=new PresetConfig(new ArrayList<>(List.of(cachedItem)),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
+            PresetPreviewPane warmPane=new PresetPreviewPane(new PresetPreviewModel(cachedPreset,new PostConfig(),name->new PresetPreviewModel.Footprint(1,1)),"Cached",null,null);
+            new Scene(warmPane,1040,720);warmPane.applyCss();warmPane.layout();
+            var progress=(javafx.scene.control.Label)warmPane.lookup("#imageProgress");
+            if(progress==null || !progress.getText().equals("Images: 1/1"))throw new AssertionError("Warm sprite was not available on first frame");
+            warmPane.close();
 
             PresetFurni f=new PresetFurni(1,"wf_act_send_message",new HPoint(1,2,0.5),2,null);f.setFurniName("wired[0]");
             PresetFurni table=new PresetFurni(2,"table",new HPoint(2,3,0),2,"0");table.setFurniName("table[0]");

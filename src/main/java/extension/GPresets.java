@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.5.1",
+   Version = "1.5.2",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -110,6 +110,7 @@ public class GPresets extends ExtensionForm {
    public CheckBox previewBeforeImportCbx;
    private Stage previewStage;
    private String selectedPresetName;
+   private final javafx.animation.PauseTransition imagePreloadDelay=new javafx.animation.PauseTransition(Duration.millis(250));
    public Button selfDonateBtn;
    public Button currentPresetBtn;
    public CheckBox allowIncompleteBuildsCbx;
@@ -282,6 +283,9 @@ public class GPresets extends ExtensionForm {
    private void selectPreset(PresetConfig preset, String name) {
       this.logger.log(String.format("Selected \"%s\" preset", name), "green");
       this.selectedPresetName=name;
+      this.imagePreloadDelay.stop();
+      this.imagePreloadDelay.setOnFinished(e->extension.tools.preview.FurnitureSprites.preload(preset));
+      this.imagePreloadDelay.playFromStart();
       this.importer.setPresetConfig(preset);
       HPoint dim = PresetUtils.presetDimensions(preset);
       this.logger.log(String.format("Preset dimensions: %dx%d", dim.getX(), dim.getY()), "green");

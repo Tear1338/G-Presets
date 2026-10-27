@@ -1,3 +1,12 @@
+## 1.5.2
+
+- Replace serialized image fetching and its 1.1-second per-image delay with four concurrent background downloads.
+- Share one image cache between preview and sharing windows; deduplicate concurrent requests, furniture directions and states.
+- Preload images after preset selection and reuse decoded images on the first frame when reopening a window.
+- Keep a seven-day disk cache across restarts, bounded to 128 MiB / 2048 files, and a decoded memory cache bounded to 64 MiB. Repair corrupt cache entries and honor server Retry-After backoff.
+- Show loaded/unavailable image counts and coalesce image redraws; closing a window leaves cache warming without updating the closed view.
+- Verify parallel downloads, deduplication, persistent/offline cache behavior and first-frame warm rendering. Cold-cache latency still depends on the image provider.
+
 ## 1.5.1
 
 - Use black text on light backgrounds throughout the extension, preview, sharing dialogs and reports, including when G-Earth uses a dark theme.

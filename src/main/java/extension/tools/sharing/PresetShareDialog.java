@@ -16,7 +16,7 @@ public final class PresetShareDialog {
       TextArea description=new TextArea(previous==null?"":previous.description());description.setPrefRowCount(2);description.setWrapText(true);
       PresetPreviewPane preview=new PresetPreviewPane(model,defaultName,null,null);preview.setShareMode();
       preview.setPrefSize(850,430);
-      Label info=new Label("Adjust the view and wait for furniture images, then save. The file includes the name, description, preview image and preset.");info.setWrapText(true);
+      Label info=new Label("Adjust the view and let any new images finish loading, then save. The file includes the name, description, preview image and preset.");info.setWrapText(true);
       Label error=new Label();error.setWrapText(true);
       VBox content=new VBox(8,new Label("Name"),name,new Label("Description"),description,preview,info,error);VBox.setVgrow(preview,Priority.ALWAYS);
       dialog.getDialogPane().setContent(content);dialog.getDialogPane().getButtonTypes().addAll(ButtonType.CANCEL,ButtonType.OK);

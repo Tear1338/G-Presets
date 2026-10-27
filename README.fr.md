@@ -75,3 +75,10 @@ Les rapports se trouvent dans `target/build-report.json`, `target/test-results.t
 - **Aperçu** : **Rotate view**, **Max height** et **Selected item only** aident à examiner les empilements. Zoom, panoramique et recentrage restent disponibles. Les images proviennent de l'imager public HabboAssets avec orientation et état demandés.
 
 Le rendu des images reste approximatif (ancrages, variantes absentes, murs et animations). La rotation de l'aperçu ne modifie pas le preset ni les coordonnées d'import. Les images indisponibles restent représentées par leur empreinte. Les contrôles locaux et confirmations de sauvegarde ne valident pas les comportements WIRED en jeu ; un cycle réel export/import reste nécessaire.
+
+
+### Chargement des images — 1.5.2
+
+Les images sont préchargées dès la sélection d'un preset et partagées entre l'aperçu et **Share preset**. Les mobis déjà décodés réapparaissent dès la première image ; un cache sur disque évite de tout retélécharger au redémarrage. Les variantes d'orientation et d'état sont conservées séparément. Les nouveaux téléchargements se font à quatre en parallèle, sans la pause de 1,1 seconde entre chaque mobi.
+
+Le compteur indique les images chargées et indisponibles. Au tout premier chargement, le délai dépend encore du réseau et du serveur HabboAssets ; ses demandes de temporisation sont respectées. Le cache expire après sept jours et reste limité en taille. Aucune donnée de connexion Habbo n'est envoyée au serveur d'images.

@@ -14,11 +14,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.image.Image;
 import javafx.application.Platform;
-import java.net.URL;
-import java.net.URLConnection;
-import java.io.InputStream;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
 
 /** Isometric footprint preview; intentionally independent of all hotel/network APIs. */
 public final class PresetPreviewPane extends BorderPane {
@@ -35,7 +30,10 @@ public final class PresetPreviewPane extends BorderPane {
    private final List<Hit> hits=new ArrayList<>();
    private final Map<String,Image> sprites=new HashMap<>();
    private final Set<String> requestedSprites=new HashSet<>();
-   private final ExecutorService spriteLoader=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"gpresets-preview-images");t.setDaemon(true);return t;});
+   private final FurnitureSpriteStore<Image> spriteStore=FurnitureSprites.shared();
+   private final Set<String> unavailableSprites=new HashSet<>();
+   private volatile boolean closed;
+   private boolean redrawPending;
    private int viewTurns;
    private final CheckBox isolate=new CheckBox("Selected item only");
    private final Slider layer=new Slider();
@@ -51,6 +49,7 @@ public final class PresetPreviewPane extends BorderPane {
 
    public PresetPreviewPane(PresetPreviewModel model,String name,Integer originX,Integer originY) {
       this.model=model;this.originX=originX;this.originY=originY;
+      imageStatus.setId("imageProgress");
       extension.ui.ReadableTheme.apply(this);
       cancel.setCancelButton(true);
       setStyle("-fx-background-color:#f3f5f9; -fx-font-family:'Segoe UI'; -fx-font-size:12px;");
@@ -106,7 +105,7 @@ public final class PresetPreviewPane extends BorderPane {
       draw();
    }
    public void setShareMode() {
-      setBottom(new Label("The image captures this view. Furniture images may take time to load; missing images remain as footprints."));
+      setBottom(new Label("The image captures this view. Cached furniture appears immediately; new images load in the background."));
    }
    public void setSharedMetadata(extension.tools.sharing.PresetMetadata metadata) {
       setPresetDescription(metadata.description());
@@ -130,7 +129,7 @@ public final class PresetPreviewPane extends BorderPane {
    public void setAvailabilityAction(Runnable action) { availabilityAction=action; }
    public void setCompatibilityAction(Runnable action) { compatibilityAction=action; }
    public void setAvailabilitySummary(String summary) { availability.setText(summary); }
-   public void close() { spriteLoader.shutdownNow(); }
+   public void close() { closed=true; }
    public Canvas getCanvas() { return canvas; }
    public ListView<PresetPreviewModel.Item> getItemList() { return items; }
    public Button getLaunchButton() { return launch; }
@@ -154,7 +153,12 @@ public final class PresetPreviewPane extends BorderPane {
    private Point project(double x,double y,double z) { var p=PreviewGeometry.project(x,y,z,viewTurns,heights.isSelected());return new Point(p.x(),p.y()); }
    private Point screen(double x,double y,double z) {Point p=project(x,y,z);return new Point(offsetX+p.x()*scale,offsetY+p.y()*scale);}
    private void draw() {
-      double width=canvas.getWidth(),height=canvas.getHeight();if(width<2 || height<2)return;
+      double width=canvas.getWidth(),height=canvas.getHeight();if(closed || width<2 || height<2)return;
+      // Hydrate warm sprites before fitting the view, so the first frame includes their full bounds.
+      if(showSprites.isSelected())for(var item:model.items) {
+         var request=spriteRequest(item);if(request==null)continue;
+         String key=request.url();if(!sprites.containsKey(key)){Image cached=spriteStore.peek(request);if(cached!=null)sprites.put(key,cached);}
+      }
       GraphicsContext g=canvas.getGraphicsContext2D();g.setFill(Color.web("#edf0f4"));g.fillRect(0,0,width,height);hits.clear();
       if(model.items.isEmpty()){g.setFill(Color.BLACK);g.setFont(Font.font(15));g.fillText(model.reusedCount>0?"Existing furniture only: positions preserved.":"No furniture in this preset.",22,40);return;}
       double lowX=Double.POSITIVE_INFINITY,lowY=Double.POSITIVE_INFINITY,highX=Double.NEGATIVE_INFINITY,highY=Double.NEGATIVE_INFINITY;
@@ -202,29 +206,33 @@ public final class PresetPreviewPane extends BorderPane {
          hits.add(new Hit(item,xs,ys));
          if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#111111"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
       }
+      updateImageStatus();
    }
-   private String spriteKey(PresetPreviewModel.Item item) { return item.className()+"|"+Math.floorMod(item.rotation()+viewTurns*2,8)+"|"+(item.state()==null?"":item.state()); }
+   private FurnitureSpriteStore.Key spriteRequest(PresetPreviewModel.Item item) {
+      try{return new FurnitureSpriteStore.Key(item.className(),item.rotation()+viewTurns*2,item.state());}
+      catch(IllegalArgumentException invalid){return null;}
+   }
+   private String spriteKey(PresetPreviewModel.Item item) {var request=spriteRequest(item);return request==null?null:request.url();}
    private Image spriteFor(PresetPreviewModel.Item item) {
-      String classname=item.className();
-      if(classname==null || !classname.matches("[A-Za-z0-9_.*-]{1,120}"))return null;
-      String key=spriteKey(item);
-      Image image=sprites.get(key);
-      if(image==null && !spriteLoader.isShutdown() && requestedSprites.size()<256 && requestedSprites.add(key)) {
-         final int direction=Math.floorMod(item.rotation()+viewTurns*2,8);
-         spriteLoader.submit(()->{
-            try {
-               String state=item.state()!=null && item.state().matches("[0-9]{1,3}")?"&state="+item.state():"";
-               String url="https://www.habboassets.com/imaging/furniture/"+classname+".png?size=64&direction="+direction+state;
-               URLConnection connection=new URL(url).openConnection();connection.setConnectTimeout(5000);connection.setReadTimeout(5000);
-               byte[] bytes;try(InputStream stream=connection.getInputStream()){bytes=stream.readNBytes(2_000_001);}
-               if(bytes.length>2_000_000)throw new IllegalArgumentException("Image too large");
-               Image loaded=new Image(new java.io.ByteArrayInputStream(bytes));
-               if(!loaded.isError() && loaded.getWidth()>0 && loaded.getWidth()<=2048 && loaded.getHeight()<=2048)Platform.runLater(()->{if(!spriteLoader.isShutdown()){sprites.put(key,loaded);imageStatus.setText(sprites.size()+" images loaded");draw();}});
-            } catch(Exception ignored) { /* The footprint remains visible offline. */ }
-            try {Thread.sleep(1100);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
+      var request=spriteRequest(item);if(request==null)return null;
+      String key=request.url();Image image=sprites.get(key);
+      if(image==null && !closed && requestedSprites.size()<256 && requestedSprites.add(key)) {
+         java.lang.ref.WeakReference<PresetPreviewPane> owner=new java.lang.ref.WeakReference<>(this);
+         spriteStore.load(request).whenComplete((loaded,error)->{
+            PresetPreviewPane pane=owner.get();if(pane==null || pane.closed)return;
+            Platform.runLater(()->{
+               if(pane.closed)return;
+               if(error==null)pane.sprites.put(key,loaded);else pane.unavailableSprites.add(key);
+               if(!pane.redrawPending){pane.redrawPending=true;Platform.runLater(()->{pane.redrawPending=false;pane.draw();});}
+            });
          });
       }
       return image;
+   }
+   private void updateImageStatus() {
+      Set<String> wanted=model.items.stream().map(this::spriteKey).filter(Objects::nonNull).collect(Collectors.toSet());
+      long loaded=wanted.stream().filter(sprites::containsKey).count(),failed=wanted.stream().filter(unavailableSprites::contains).count();
+      imageStatus.setText("Images: "+loaded+"/"+wanted.size()+(failed>0?" ("+failed+" unavailable)":"")+(wanted.size()>256?"; up to 256 variants per view":""));
    }
    private static boolean contains(Hit h,double x,double y) {
       boolean inside=false;for(int i=0,j=3;i<4;j=i++)if((h.y()[i]>y)!=(h.y()[j]>y) && x<(h.x()[j]-h.x()[i])*(y-h.y()[i])/(h.y()[j]-h.y()[i])+h.x()[i])inside=!inside;return inside;

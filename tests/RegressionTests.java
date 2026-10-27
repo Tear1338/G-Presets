@@ -467,6 +467,54 @@ public final class RegressionTests {
       fails(()->new PresetPreviewModel.Footprint(0,1),"invalid furniture dimensions rejected");
    }
 
+   private static void imageCacheTests() throws Exception {
+      var pngImage=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_ARGB);
+      var output=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(pngImage,"png",output);byte[] png=output.toByteArray();
+      Path directory=Files.createTempDirectory(Path.of("target"),"image-cache-tests-");
+      var downloads=new java.util.concurrent.atomic.AtomicInteger();var active=new java.util.concurrent.atomic.AtomicInteger();var peak=new java.util.concurrent.atomic.AtomicInteger();
+      var firstWave=new java.util.concurrent.CountDownLatch(4);var release=new java.util.concurrent.CountDownLatch(1);
+      var key=new FurnitureSpriteStore.Key("throne",0,null);
+      check(key.equals(new FurnitureSpriteStore.Key("throne",8,"00")),"equivalent directions and states share a cache key");
+      try(var cache=new FurnitureSpriteStore<byte[]>(directory,request->{
+         downloads.incrementAndGet();int n=active.incrementAndGet();peak.accumulateAndGet(n,Math::max);firstWave.countDown();
+         try{if(!release.await(5,java.util.concurrent.TimeUnit.SECONDS))throw new java.io.IOException("Test worker timeout");return png;}finally{active.decrementAndGet();}
+      },bytes->bytes)) {
+         var initial=cache.load(key);
+         check(cache.load(key)==initial,"concurrent consumers share one download");
+         java.util.List<java.util.concurrent.CompletableFuture<byte[]>> requests=new ArrayList<>();requests.add(initial);
+         for(int i=1;i<8;i++)requests.add(cache.load(new FurnitureSpriteStore.Key("item_"+i,0,"0")));
+         check(firstWave.await(5,java.util.concurrent.TimeUnit.SECONDS),"four image downloads overlap instead of serializing");
+         check(peak.get()==4,"download concurrency bounded at four");release.countDown();
+         for(var request:requests)check(Arrays.equals(request.get(5,java.util.concurrent.TimeUnit.SECONDS),png),"downloaded image bytes preserved");
+         int total=downloads.get();
+         check(cache.peek(key)!=null && cache.load(key).isDone(),"warm memory image available synchronously");
+         check(downloads.get()==total && total==8,"warm image reuse sends no network request");
+      }finally{release.countDown();}
+      var diskDownloads=new java.util.concurrent.atomic.AtomicInteger();
+      try(var reopened=new FurnitureSpriteStore<byte[]>(directory,request->{diskDownloads.incrementAndGet();return png;},bytes->bytes)) {
+         check(Arrays.equals(reopened.load(key).get(5,java.util.concurrent.TimeUnit.SECONDS),png),"image cache persists across store restarts");
+         check(diskDownloads.get()==0,"disk cache avoids redownloading after restart");
+         var variant=new FurnitureSpriteStore.Key("throne",2,"1");reopened.load(variant).get(5,java.util.concurrent.TimeUnit.SECONDS);
+         check(!reopened.cacheFile(key).equals(reopened.cacheFile(variant)),"different direction/state variants use distinct files");
+         Files.writeString(reopened.cacheFile(key),"corrupt cache");
+      }
+      try(var repaired=new FurnitureSpriteStore<byte[]>(directory,request->{diskDownloads.incrementAndGet();return png;},bytes->bytes)) {
+         int before=diskDownloads.get();repaired.load(key).get(5,java.util.concurrent.TimeUnit.SECONDS);
+         check(diskDownloads.get()==before+1,"corrupt disk image is fetched again");
+         check(Arrays.equals(Files.readAllBytes(repaired.cacheFile(key)),png),"corrupt cache repaired atomically");
+      }
+      var failedFetches=new java.util.concurrent.atomic.AtomicInteger();
+      try(var offline=new FurnitureSpriteStore<byte[]>(directory.resolve("offline"),request->{failedFetches.incrementAndGet();throw new java.io.IOException("offline");},bytes->bytes)) {
+         check(offline.load(key).handle((value,error)->error!=null).get(5,java.util.concurrent.TimeUnit.SECONDS),"offline image failure is explicit");
+         check(offline.load(key).handle((value,error)->error!=null).get(5,java.util.concurrent.TimeUnit.SECONDS),"offline retries retain footprint fallback");
+         check(failedFetches.get()==1,"short failure cache prevents repeated requests");
+      }
+      check(FurnitureSprites.retryDelayMillis("12",0)==12000,"provider Retry-After seconds honored");
+      check(FurnitureSprites.retryDelayMillis("9223372036854775807",0)==300000,"Retry-After bounded without integer overflow");
+      check(FurnitureSprites.retryDelayMillis("Thu, 01 Jan 1970 00:00:10 GMT",0)==10000,"provider Retry-After HTTP date honored");
+      check(FurnitureSprites.retryDelayMillis(null,0)==30000,"provider backoff uses default when header absent");
+   }
+
    private static void release150Tests() throws Exception {
       var point=extension.tools.preview.PreviewGeometry.project(1,0,0,0,true);
       check(point.x()==32 && point.y()==16,"64px isometric tile projection");
@@ -538,6 +586,7 @@ public final class RegressionTests {
 
    public static void main(String[] args) throws Exception {
       pauseGateTests();
+      imageCacheTests();
       release150Tests();
       byte[] wireBytes = new byte[256]; for (int i=0;i<256;i++) wireBytes[i]=(byte)i;
       String wireString = new String(wireBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
