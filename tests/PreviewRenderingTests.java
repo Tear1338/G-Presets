@@ -21,7 +21,8 @@ public final class PreviewRenderingTests {
  public static void run()throws Exception {
   String[] names={"gpresets_anchor_tree","gpresets_anchor_sand","gpresets_anchor_water","gpresets_anchor_stage"};
   int[][] dimensions={{82,163,41,146,1,1},{129,70,64,21,2,2},{209,105,104,37,2,2},{98,59,65,26,1,2}};
-  Map<String,FurnitureAssetGeometry> geometries=new HashMap<>();var cache=FurnitureSprites.shared();
+  Map<String,FurnitureAssetGeometry> geometries=new HashMap<>();
+  var cache=new FurnitureSpriteStore<Image>(java.nio.file.Path.of(PresetConfigUtils.baseDir(),"geometry-test-images"),key->{throw new java.io.IOException("Unexpected image download in isolated geometry test");},bytes->new Image(new java.io.ByteArrayInputStream(bytes)));
   for(int i=0;i<names.length;i++) {
    int[] d=dimensions[i];byte[] geometryBytes=PreviewGeometryTests.fixture(names[i],d[0],d[1],d[2],d[3],i==1 || i==2,true,true);
    var geometryCache=java.nio.file.Path.of(PresetConfigUtils.baseDir(),"cache","geometry-v1",names[i]+"-1.swf");java.nio.file.Files.createDirectories(geometryCache.getParent());java.nio.file.Files.write(geometryCache,geometryBytes);
@@ -38,7 +39,7 @@ public final class PreviewRenderingTests {
   var upper=new PresetFurni(5,names[0],new HPoint(0,0,2),0,"0");upper.setFurniName("stacked tree");furniture.add(upper);
   var preset=new PresetConfig(furniture,new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
   var model=new PresetPreviewModel(preset,new PostConfig(),name->{int i=List.of(names).indexOf(name);return new PresetPreviewModel.Footprint(dimensions[i][4],dimensions[i][5]);});
-  var pane=new PresetPreviewPane(model,"Geometry regression",null,null);new Scene(pane,1040,720);pane.applyCss();pane.layout();
+  var pane=new PresetPreviewPane(model,"Geometry regression",null,null,cache);new Scene(pane,1040,720);pane.applyCss();pane.layout();
   ((Map<String,FurnitureAssetGeometry>)field(pane,"geometry")).putAll(geometries);
   var draw=PresetPreviewPane.class.getDeclaredMethod("draw");draw.setAccessible(true);
   var boxMethod=PresetPreviewPane.class.getDeclaredMethod("spriteBox",PresetPreviewModel.Item.class,Image.class);boxMethod.setAccessible(true);
@@ -62,7 +63,7 @@ public final class PreviewRenderingTests {
    check(!(Boolean)contains.invoke(null,hit,x[0]+0.01,y[0]+0.01),"transparent sprite margins must not steal clicks");
    check((Boolean)contains.invoke(null,hit,(x[0]+x[1])/2,(y[0]+y[2])/2),"visible sprite pixels remain selectable");
   }
-  javax.imageio.ImageIO.write(toImage(pane.getCanvas().snapshot(null,null)),"png",new java.io.File("target/preview-geometry-ui-smoke.png"));pane.close();
+  javax.imageio.ImageIO.write(toImage(pane.getCanvas().snapshot(null,null)),"png",new java.io.File("target/preview-geometry-ui-smoke.png"));pane.close();cache.close();
   System.out.println("PASS: actual preview native anchors, complete image bounds, four camera rotations, height and transparent click selection");
  }
  private static java.awt.image.BufferedImage toImage(javafx.scene.image.WritableImage source){var result=new java.awt.image.BufferedImage((int)source.getWidth(),(int)source.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);for(int y=0;y<result.getHeight();y++)for(int x=0;x<result.getWidth();x++)result.setRGB(x,y,source.getPixelReader().getArgb(x,y));return result;}

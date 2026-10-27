@@ -52,7 +52,7 @@ public final class PresetPreviewPane extends BorderPane {
       future.whenComplete((asset,error)->{var pane=owner.get();if(pane==null || pane.closed || error!=null)return;Platform.runLater(()->{if(!pane.closed){pane.geometry.put(item.className(),asset);pane.draw();}});});
    }
    private final Set<String> requestedSprites=new HashSet<>();
-   private final FurnitureSpriteStore<Image> spriteStore=FurnitureSprites.shared();
+   private final FurnitureSpriteStore<Image> spriteStore;
    private final Set<String> unavailableSprites=new HashSet<>();
    private volatile boolean closed;
    private boolean redrawPending;
@@ -94,6 +94,10 @@ public final class PresetPreviewPane extends BorderPane {
    }
 
    public PresetPreviewPane(PresetPreviewModel model,String name,Integer originX,Integer originY) {
+      this(model,name,originX,originY,FurnitureSprites.shared());
+   }
+   public PresetPreviewPane(PresetPreviewModel model,String name,Integer originX,Integer originY,FurnitureSpriteStore<Image> spriteStore) {
+      this.spriteStore=Objects.requireNonNull(spriteStore);
       this.model=model;this.originX=originX;this.originY=originY;
       imageStatus.setId("imageProgress");
       extension.ui.ReadableTheme.apply(this);
