@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javafx.application.Platform;
@@ -76,7 +77,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.4",
+   Version = "1.4.5",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -442,7 +443,7 @@ public class GPresets extends ExtensionForm {
             if(this.primaryStage!=null){stage.initOwner(this.primaryStage);stage.initModality(Modality.WINDOW_MODAL);}
             stage.setTitle("G-Presets - Preset Preview");
             PresetPreviewPane pane=new PresetPreviewPane(model,this.selectedPresetName,session.rootX,session.rootY);
-            pane.setActions(confirm,stage::close);pane.updateLaunchAvailability(canConfirm.getAsBoolean());
+            pane.setActions(confirm,stage::close);pane.setAvailabilityAction(()->pane.setAvailabilitySummary(previewAvailability(session)));pane.updateLaunchAvailability(canConfirm.getAsBoolean());
             Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
             refresh.setCycleCount(Timeline.INDEFINITE);
             stage.setOnHidden(e->{refresh.stop();pane.close();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
@@ -454,6 +455,27 @@ public class GPresets extends ExtensionForm {
             cancel.run();this.logger.log("Cannot open preset preview: "+error.getMessage(),"red");
          }
       });
+   }
+
+   private String previewAvailability(PresetPreviewSession session) {
+      if(!furniDataReady() || inventory.getState()!=Inventory.InventoryState.LOADED)
+         return "Availability unknown: load furnidata and inventory first.";
+      if(useRoomFurni()) return "Availability unknown: room furniture must be selected during import. Use Check Availability in the main window for details.";
+      try {
+         PresetConfig preset=session.preset(); PostConfig options=session.options(); preset.applyPostConfig(options);
+         List<FurniDropInfo> drops=new ArrayList<>(); List<String> unknown=new ArrayList<>();
+         for(PresetFurni f:preset.getFurniture()) {
+            Integer id=furniDataTools.getFloorTypeId(f.getClassName());
+            if(id==null || furniDataTools.getFloorItemDetails(f.getClassName())==null) {unknown.add(f.getClassName());continue;}
+            drops.add(new FurniDropInfo(-1,-1,id,options.getItemSource(),-1));
+         }
+         Map<String,Integer> missing=AvailabilityChecker.missingItems(drops,inventory,furniDataTools,floorState,false);
+         if(missing==null)return "Availability unknown: inventory or furnidata is not ready.";
+         String result=missing.isEmpty()?"Known floor items: available with current source settings.":"Missing floor items: "+missing.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e->e.getKey()+" x"+e.getValue()).collect(Collectors.joining(", "));
+         if(!unknown.isEmpty())result+=" | Unknown furniture: "+String.join(", ",new java.util.LinkedHashSet<>(unknown));
+         if(!preset.getWallFurniture().isEmpty())result+=" | Wall furniture not checked; use Check Availability in the main window.";
+         return result;
+      } catch(RuntimeException error) {return "Availability unknown: "+error.getMessage();}
    }
 
    public void availabilityBtnClick(ActionEvent actionEvent) {

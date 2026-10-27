@@ -1,3 +1,7 @@
+## 1.4.5
+
+- Add an on-demand floor-furniture availability check to the preview. Unknown items and wall items are identified separately.
+
 ## 1.4.4
 
 - Improve assembled furniture preview and fit loaded images in view.

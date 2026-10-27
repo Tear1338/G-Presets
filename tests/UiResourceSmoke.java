@@ -44,6 +44,11 @@ public final class UiResourceSmoke {
             pane.getItemList().getSelectionModel().select(0);
             int[] confirmations={0},closes={0};
             pane.setActions(()->{confirmations[0]++;return true;},()->closes[0]++);
+            int[] availabilityChecks={0}; pane.setAvailabilityAction(()->{availabilityChecks[0]++;pane.setAvailabilitySummary("Test summary");});
+            javafx.scene.control.Button check=(javafx.scene.control.Button)pane.lookup("#checkAvailability");
+            if(check==null)throw new AssertionError("Availability button missing");
+            check.fire(); if(availabilityChecks[0]!=1)throw new AssertionError("Availability action missing");
+
             pane.updateLaunchAvailability(false);pane.getLaunchButton().fire();
             if(confirmations[0]!=0)throw new AssertionError("Disabled preview launched");
             pane.updateLaunchAvailability(true);pane.getLaunchButton().fire();

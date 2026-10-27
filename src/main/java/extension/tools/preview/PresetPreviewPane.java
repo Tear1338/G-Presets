@@ -27,6 +27,7 @@ public final class PresetPreviewPane extends BorderPane {
    private final ListView<PresetPreviewModel.Item> items=new ListView<>();
    private final Label details=new Label("Select an item to see its coordinates.");
    private final Label status=new Label();
+   private final Label availability=new Label("Availability: not checked. Select Check availability.");
    private final Button launch=new Button("Continue to import");
    private final Button cancel=new Button("Cancel");
    private final Slider zoom=new Slider(0.5,4,1);
@@ -39,6 +40,7 @@ public final class PresetPreviewPane extends BorderPane {
    private double panX,panY,dragX,dragY,dragDistance;
    private double scale,offsetX,offsetY;
    private final Integer originX,originY;
+   private Runnable availabilityAction;
    private record Point(double x,double y) { }
    private record Hit(PresetPreviewModel.Item item,double[] x,double[] y) { }
 
@@ -80,13 +82,18 @@ public final class PresetPreviewPane extends BorderPane {
       Label limitations=new Label(warning);limitations.setWrapText(true);limitations.setStyle("-fx-text-fill:#475569;");
       launch.setStyle("-fx-background-color:#7c3aed; -fx-text-fill:white; -fx-font-weight:bold;");
       HBox actions=new HBox(10,cancel,launch);actions.setAlignment(Pos.CENTER_RIGHT);
-      VBox footer=new VBox(8,limitations,status,actions);footer.setPadding(new Insets(12,0,0,0));setBottom(footer);
+      availability.setWrapText(true); availability.setStyle("-fx-text-fill:#334155;");
+      Button checkAvailability=new Button("Check availability"); checkAvailability.setId("checkAvailability"); checkAvailability.setOnAction(e->{if(availabilityAction!=null)availabilityAction.run();});
+      actions.getChildren().add(0,checkAvailability);
+      VBox footer=new VBox(8,limitations,availability,status,actions);footer.setPadding(new Insets(12,0,0,0));setBottom(footer);
       canvas.setOnScroll(e->{zoom.setValue(Math.max(zoom.getMin(),Math.min(zoom.getMax(),zoom.getValue()*(e.getDeltaY()>0?1.12:1/1.12))));e.consume();});
       canvas.setOnMousePressed(e->{dragX=e.getX();dragY=e.getY();dragDistance=0;});
       canvas.setOnMouseDragged(e->{double dx=e.getX()-dragX,dy=e.getY()-dragY;panX+=dx;panY+=dy;dragDistance+=Math.abs(dx)+Math.abs(dy);dragX=e.getX();dragY=e.getY();draw();});
       canvas.setOnMouseClicked(e->{if(dragDistance>5)return;for(int i=hits.size()-1;i>=0;i--){Hit h=hits.get(i);if(contains(h,e.getX(),e.getY())){items.getSelectionModel().select(h.item());items.scrollTo(h.item());break;}}});
       draw();
    }
+   public void setAvailabilityAction(Runnable action) { availabilityAction=action; }
+   public void setAvailabilitySummary(String summary) { availability.setText(summary); }
    public void close() { spriteLoader.shutdownNow(); }
    public Canvas getCanvas() { return canvas; }
    public ListView<PresetPreviewModel.Item> getItemList() { return items; }
