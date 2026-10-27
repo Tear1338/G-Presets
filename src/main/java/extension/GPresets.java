@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.5.0",
+   Version = "1.5.1",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -585,6 +585,7 @@ public class GPresets extends ExtensionForm {
       String selected=this.presetListView.getSelectionModel().getSelectedItem();
       if(selected==null){this.logger.log("Select a preset first", "orange");return;}
       javafx.scene.control.TextInputDialog dialog=new javafx.scene.control.TextInputDialog();
+      extension.ui.ReadableTheme.apply(dialog.getDialogPane());
       dialog.initOwner(this.primaryStage); dialog.setTitle("Organize presets");
       dialog.setHeaderText("Move the selected preset to a folder");dialog.setContentText("Folder name:");
       dialog.showAndWait().ifPresent(folder->{

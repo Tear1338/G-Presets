@@ -16,6 +16,14 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 /** Loads the packaged FXML and CSS without a visible window or a hotel connection. */
 public final class UiResourceSmoke {
+   private static void verifyBlackText(Parent root) {
+      root.applyCss();root.layout();
+      for(javafx.scene.Node node:root.lookupAll("*")) {
+         javafx.scene.paint.Paint fill=null;
+         if(node instanceof javafx.scene.control.Labeled labeled)fill=labeled.getTextFill();
+         if(fill!=null && !javafx.scene.paint.Color.BLACK.equals(fill))throw new AssertionError("Text is not black under the dark G-Earth theme: "+node+" "+fill);
+      }
+   }
    public static void main(String[] args) throws Exception {
       CountDownLatch done=new CountDownLatch(1);AtomicReference<Throwable> failure=new AtomicReference<>();
       Platform.startup(()->{
@@ -30,9 +38,12 @@ public final class UiResourceSmoke {
             if(GPresets.class.getResource("ui/styles.css")==null)throw new AssertionError("Missing packaged CSS");
             javafx.scene.control.TabPane tabs=(javafx.scene.control.TabPane)root;
             Scene mainScene=new Scene(root,686,380);
+            String darkTheme=GPresets.class.getResource("/gearth/ui/themes/G-Earth_Dark/styling.css").toExternalForm();
+            mainScene.getStylesheets().add(darkTheme);root.getStyleClass().add("g-dark");
             tabs.getSelectionModel().select(1);root.applyCss();root.layout();
             javafx.geometry.Bounds box=controller.previewBeforeImportCbx.localToScene(controller.previewBeforeImportCbx.getBoundsInLocal());
             if(box.getMinY()<0 || box.getMaxY()>mainScene.getHeight())throw new AssertionError("Preview setting is clipped: "+box);
+            verifyBlackText(root);
             if(!controller.previewBeforeImportCbx.getText().equals("Preview before import (:ip)"))throw new AssertionError("Preview setting label");
 
             PresetFurni f=new PresetFurni(1,"wf_act_send_message",new HPoint(1,2,0.5),2,null);f.setFurniName("wired[0]");
@@ -42,7 +53,7 @@ public final class UiResourceSmoke {
             PresetConfig sample=new PresetConfig(new ArrayList<>(List.of(f,table,flower,stacked)),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
             PresetPreviewPane pane=new PresetPreviewPane(new PresetPreviewModel(sample,new PostConfig(),name->name.equals("table")?new PresetPreviewModel.Footprint(2,1):new PresetPreviewModel.Footprint(1,1)),"Exemple",12,13);
             pane.setPresetDescription("A shared preset description");
-            Scene scene=new Scene(pane,1040,720);pane.applyCss();pane.layout();
+            Scene scene=new Scene(pane,1040,720);scene.getStylesheets().add(darkTheme);pane.getStyleClass().add("g-dark");pane.applyCss();pane.layout();
             if(pane.getCanvas().getWidth()<200 || pane.getItemList().getItems().size()!=4)throw new AssertionError("Preview layout missing");
             pane.getItemList().getSelectionModel().select(0);
             var turn=(javafx.scene.control.Button)pane.lookup("#turnView");if(turn==null)throw new AssertionError("Camera rotation button missing");turn.fire();turn.fire();turn.fire();turn.fire();
@@ -65,6 +76,7 @@ public final class UiResourceSmoke {
             pane.updateLaunchAvailability(true);pane.getLaunchButton().fire();
             if(confirmations[0]!=1 || closes[0]!=1)throw new AssertionError("Preview confirmation not routed");
             pane.getCancelButton().fire();if(confirmations[0]!=1 || closes[0]!=2)throw new AssertionError("Cancel launched import");
+            verifyBlackText(pane);
             javafx.scene.image.WritableImage snapshot=pane.snapshot(null,null);
             java.awt.image.BufferedImage screenshot=new java.awt.image.BufferedImage((int)snapshot.getWidth(),(int)snapshot.getHeight(),java.awt.image.BufferedImage.TYPE_INT_ARGB);
             javafx.scene.image.PixelReader reader=snapshot.getPixelReader();

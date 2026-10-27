@@ -10,7 +10,7 @@ import java.nio.file.*;
 public final class PresetShareDialog {
    private PresetShareDialog() { }
    public static void show(Window owner,PresetConfig preset,PresetPreviewModel model,String defaultName) {
-      Dialog<ButtonType> dialog=new Dialog<>();dialog.initOwner(owner);dialog.setTitle("Share preset");dialog.setResizable(true);
+      Dialog<ButtonType> dialog=new Dialog<>();extension.ui.ReadableTheme.apply(dialog.getDialogPane());dialog.initOwner(owner);dialog.setTitle("Share preset");dialog.setResizable(true);
       PresetMetadata previous=preset.getMetadata();
       TextField name=new TextField(previous==null?defaultName:previous.name());
       TextArea description=new TextArea(previous==null?"":previous.description());description.setPrefRowCount(2);description.setWrapText(true);

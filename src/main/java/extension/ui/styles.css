@@ -99,3 +99,100 @@
     -fx-pref-width: 11.5;
     -fx-padding: 1;
 }
+
+/* Keep every extension window readable even when G-Earth supplies a dark theme. */
+.gpresets-readable {
+    -fx-base: #f3f3f3 !important;
+    -fx-background: #f3f3f3 !important;
+    -fx-background-color: #f3f3f3 !important;
+    -fx-control-inner-background: white !important;
+    -fx-control-inner-background-alt: #f5f5f5 !important;
+    -fx-text-base-color: black !important;
+    -fx-text-background-color: black !important;
+    -fx-text-inner-color: black !important;
+    -fx-selection-bar: #c7ddf4 !important;
+    -fx-selection-bar-non-focused: #e4e4e4 !important;
+    -fx-selection-bar-text: black !important;
+    -fx-accent: #c7ddf4 !important;
+}
+.gpresets-readable .label,
+.gpresets-readable .button,
+.gpresets-readable .toggle-button,
+.gpresets-readable .check-box,
+.gpresets-readable .radio-button,
+.gpresets-readable .list-cell,
+.gpresets-readable .table-cell,
+.gpresets-readable .tree-cell,
+.gpresets-readable .tab-label,
+.gpresets-readable .menu-item .label,
+.gpresets-readable .hyperlink {
+    -fx-text-fill: black !important;
+}
+.gpresets-readable .text-input {
+    -fx-text-fill: black !important;
+    -fx-prompt-text-fill: #333333 !important;
+    -fx-highlight-text-fill: black !important;
+    -fx-highlight-fill: #c7ddf4 !important;
+    -fx-control-inner-background: white !important;
+}
+.gpresets-readable .text-area .content,
+.gpresets-readable .list-view,
+.gpresets-readable .table-view,
+.gpresets-readable .themed-background,
+.gpresets-readable .styled-text-area {
+    -fx-background-color: white !important;
+}
+.gpresets-readable .list-cell,
+.gpresets-readable .table-row-cell {
+    -fx-background-color: white !important;
+}
+.gpresets-readable .list-cell:filled:selected,
+.gpresets-readable .table-row-cell:filled:selected,
+.gpresets-readable .table-cell:filled:selected {
+    -fx-background-color: #c7ddf4 !important;
+}
+.gpresets-readable .text {
+    -fx-fill: black !important;
+}
+.gpresets-readable .caret {
+    -fx-stroke: black !important;
+}
+.gpresets-readable .lblgreen { -fx-background-color: lightgreen !important; }
+.gpresets-readable .lblred { -fx-background-color: #f28d8d !important; }
+.gpresets-readable .lblorange { -fx-background-color: #ffc485 !important; }
+.gpresets-readable .lblgrey { -fx-background-color: lightgrey !important; }
+
+.gpresets-readable .button,
+.gpresets-readable .toggle-button,
+.gpresets-readable .menu-button,
+.gpresets-readable .choice-box,
+.gpresets-readable .combo-box-base {
+    -fx-background-color: #e6e6e6 !important;
+}
+.gpresets-readable .button:hover,
+.gpresets-readable .toggle-button:hover {
+    -fx-background-color: #d7e4f2 !important;
+}
+.gpresets-readable .text-input,
+.gpresets-readable .context-menu {
+    -fx-background-color: white !important;
+}
+.gpresets-readable .tab,
+.gpresets-readable .tab-header-background,
+.gpresets-readable .table-view .column-header,
+.gpresets-readable .table-view .filler,
+.gpresets-readable .dialog-pane .header-panel {
+    -fx-background-color: #e6e6e6 !important;
+}
+.gpresets-readable .tab:selected,
+.gpresets-readable .tab-content-area {
+    -fx-background-color: #f3f3f3 !important;
+}
+.gpresets-readable .check-box .box,
+.gpresets-readable .radio-button .radio {
+    -fx-background-color: #dddddd !important;
+}
+.gpresets-readable .check-box:selected .mark,
+.gpresets-readable .radio-button:selected .dot {
+    -fx-background-color: black !important;
+}

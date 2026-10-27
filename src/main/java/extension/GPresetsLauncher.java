@@ -18,7 +18,7 @@ public class GPresetsLauncher extends ThemedExtensionFormCreator {
    }
 
    protected void initialize(Stage primaryStage) {
-      primaryStage.getScene().getStylesheets().add(this.getClass().getResource("ui/styles.css").toExternalForm());
+      extension.ui.ReadableTheme.apply(primaryStage.getScene().getRoot());
    }
 
    public static void main(String[] args) {

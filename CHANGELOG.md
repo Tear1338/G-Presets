@@ -1,3 +1,8 @@
+## 1.5.1
+
+- Use black text on light backgrounds throughout the extension, preview, sharing dialogs and reports, including when G-Earth uses a dark theme.
+- Keep selected list/table rows, text selections, input prompts and log text readable; use a light preview canvas and button.
+
 ## 1.5.0
 
 - Share a backward-compatible preset JSON containing a name, description and embedded PNG preview; show shared images when reopening a preset.

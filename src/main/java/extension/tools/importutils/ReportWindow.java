@@ -23,6 +23,7 @@ public final class ReportWindow {
          }catch(Exception ex){status.setText("Cannot save report: "+ex.getMessage());}});
          Button close=new Button("Close");close.setOnAction(e->stage.close());
          VBox content=new VBox(10,text,status,new HBox(10,save,close));content.setStyle("-fx-padding:16;");VBox.setVgrow(text,Priority.ALWAYS);
+         extension.ui.ReadableTheme.apply(content);
          stage.setScene(new Scene(content,650,500));stage.show();
       });
    }
