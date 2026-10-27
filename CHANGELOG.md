@@ -1,3 +1,7 @@
+## 1.4.6
+
+- Show import phases and processed counts while furniture and WIRED are being handled. Counts do not indicate server confirmation.
+
 ## 1.4.5
 
 - Add an on-demand floor-furniture availability check to the preview. Unknown items and wall items are identified separately.

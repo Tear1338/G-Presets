@@ -4,6 +4,7 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.RadioButton?>
 <?import javafx.scene.control.Slider?>
@@ -17,11 +18,11 @@
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.RowConstraints?>
 
-<TabPane prefHeight="350.0" prefWidth="686.0" tabClosingPolicy="UNAVAILABLE" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="extension.GPresets">
+<TabPane prefHeight="380.0" prefWidth="686.0" tabClosingPolicy="UNAVAILABLE" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="extension.GPresets">
   <tabs>
     <Tab text="Presets">
       <content>
-        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="269.0" prefWidth="569.0">
+        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="340.0" prefWidth="686.0">
                <children>
                   <BorderPane fx:id="logsBorderPane" layoutX="232.0" layoutY="13.0" prefHeight="244.0" prefWidth="283.0" style="-fx-border-color: lightgrey;">
                      <opaqueInsets>
@@ -61,6 +62,8 @@
                   <Button fx:id="selfDonateBtn" layoutX="527.0" layoutY="150.0" mnemonicParsing="false" onAction="#selfDonateBtnClick" prefHeight="25.0" prefWidth="147.0" text="Self-donate furni" visible="false" />
                   <Button fx:id="previewBtn" layoutX="527.0" layoutY="185.0" mnemonicParsing="false" onAction="#previewBtnClick" prefHeight="30.0" prefWidth="147.0" text="Preview preset" />
                   <Button fx:id="availabilityBtn" layoutX="527.0" layoutY="225.0" mnemonicParsing="false" onAction="#availabilityBtnClick" prefHeight="25.0" prefWidth="147.0" text="Check Availability" />
+                  <Label fx:id="importProgressLabel" layoutX="14.0" layoutY="275.0" text="Import: idle" />
+                  <ProgressBar fx:id="importProgressBar" layoutX="14.0" layoutY="296.0" prefWidth="660.0" progress="0.0" />
                </children>
             </AnchorPane>
       </content>

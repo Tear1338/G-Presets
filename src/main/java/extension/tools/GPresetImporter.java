@@ -727,6 +727,7 @@ public class GPresetImporter {
                this.extension.updatePreviewAvailability();
                this.extension.sendVisualChatInfo("Imported the preset successfully");
                this.extension.getLogger().log("Finished importing the preset!", "green");
+            this.extension.setImportProgress("Import complete",1,1);
             }
 
          }
@@ -1280,6 +1281,7 @@ public class GPresetImporter {
       int i = 0;
 
       while(this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE && i < moveList.size()) {
+         this.extension.setImportProgress("Sending furniture moves", i, moveList.size());
          PresetFurni moveFurni = (PresetFurni)moveList.get(i);
          ++i;
          int realFurniId = (Integer)this.realFurniIdMap.get(moveFurni.getFurniId());
@@ -1342,6 +1344,7 @@ public class GPresetImporter {
             this.extension.updatePreviewAvailability();
                this.extension.sendVisualChatInfo("Imported the preset successfully");
             this.extension.getLogger().log("Finished importing the preset!", "green");
+            this.extension.setImportProgress("Import complete",1,1);
          }
 
       }
@@ -1866,6 +1869,7 @@ public class GPresetImporter {
          int wallIndex = 0;
 
          for(PresetWallFurni wallFurni : wallFurniture) {
+            this.extension.setImportProgress("Processing wall furniture", wallIndex, wallFurniture.size());
             if (this.state != phase) {
                break;
             }
@@ -2295,6 +2299,7 @@ public class GPresetImporter {
       int i = 0;
 
       while(this.state == GPresetImporter.BuildingImportState.SETUP_WIRED && i < allWireds.size()) {
+         this.extension.setImportProgress("Configuring WIRED", i, allWireds.size());
          PresetWiredBase wiredBase = (PresetWiredBase)allWireds.get(i);
          if ((i + 1) % 50 == 0) {
             this.extension.getLogger().log(String.format("Setting up wired.. (%d/%d)", i + 1, allWireds.size()), "orange");
@@ -2411,6 +2416,7 @@ public class GPresetImporter {
       }
 
       for(int i = 0; i < furniDropInfos.size() && this.state == GPresetImporter.BuildingImportState.ADD_FURNITURE; ++i) {
+         this.extension.setImportProgress("Sending furniture placements", i, furniDropInfos.size());
          FurniDropInfo dropInfo = (FurniDropInfo)furniDropInfos.get(i);
          if ((i + 1) % 50 == 0) {
             this.extension.getLogger().log(String.format("Dropping furni.. (%d/%d)", i + 1, furniDropInfos.size()), "orange");
@@ -2562,6 +2568,7 @@ public class GPresetImporter {
       }
 
       for(int i = 0; i < furniDropInfos.size() && this.state == GPresetImporter.BuildingImportState.ADD_UNSTACKABLES; ++i) {
+         this.extension.setImportProgress("Sending unstackable placements", i, furniDropInfos.size());
          FurniDropInfo dropInfo = (FurniDropInfo)furniDropInfos.get(i);
          this.dropFurni(dropInfo);
       }
@@ -2579,6 +2586,7 @@ public class GPresetImporter {
    }
 
    public void reset() {
+      this.extension.setImportProgress("Import stopped or reset",0,1);
       PresetPreviewSession preview=this.pendingPreview;
       if(preview!=null)preview.cancel();
       this.pendingPreview=null;

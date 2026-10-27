@@ -23,11 +23,12 @@ public final class UiResourceSmoke {
             FXMLLoader loader=new FXMLLoader(GPresets.class.getResource("ui/gpresets.fxml"));
             loader.setControllerFactory(type->new GPresets(){ @Override public void initialize() { } });
             Parent root=loader.load();GPresets controller=loader.getController();
+            if(controller.importProgressLabel==null || controller.importProgressBar==null) throw new AssertionError("Import progress UI missing");
             if(root==null || controller.noExportFurniVariablesCbx==null || controller.logsBorderPane==null) throw new AssertionError("Missing FXML bindings");
             if(controller.previewBtn==null || controller.previewBeforeImportCbx==null || !controller.previewBeforeImportCbx.isSelected())throw new AssertionError("Preview controls/default missing");
             if(GPresets.class.getResource("ui/styles.css")==null)throw new AssertionError("Missing packaged CSS");
             javafx.scene.control.TabPane tabs=(javafx.scene.control.TabPane)root;
-            Scene mainScene=new Scene(root,686,350);
+            Scene mainScene=new Scene(root,686,380);
             tabs.getSelectionModel().select(1);root.applyCss();root.layout();
             javafx.geometry.Bounds box=controller.previewBeforeImportCbx.localToScene(controller.previewBeforeImportCbx.getBoundsInLocal());
             if(box.getMinY()<0 || box.getMaxY()>mainScene.getHeight())throw new AssertionError("Preview setting is clipped: "+box);

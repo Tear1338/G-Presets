@@ -54,6 +54,7 @@ import javafx.beans.binding.Bindings;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
@@ -77,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.5",
+   Version = "1.4.6",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -102,6 +103,8 @@ public class GPresets extends ExtensionForm {
    public ToggleGroup donate_tgl;
    public Button availabilityBtn;
    public Button previewBtn;
+   public Label importProgressLabel;
+   public ProgressBar importProgressBar;
    public CheckBox previewBeforeImportCbx;
    private Stage previewStage;
    private String selectedPresetName;
@@ -416,6 +419,13 @@ public class GPresets extends ExtensionForm {
       Objects.requireNonNull(postConfig);
       var10000.forEach(value -> postConfig.addFurniPostConfig((FurniPostConfig)value));
       return postConfig;
+   }
+
+   public void setImportProgress(String phase,int completed,int total) {
+      Platform.runLater(()->{
+         if(importProgressLabel!=null) importProgressLabel.setText(phase + (total>0 ? " " + completed + "/" + total : ""));
+         if(importProgressBar!=null) importProgressBar.setProgress(total>0 ? Math.min(1.0,Math.max(0.0,(double)completed/total)) : ProgressBar.INDETERMINATE_PROGRESS);
+      });
    }
 
    public void updatePreviewAvailability() {
