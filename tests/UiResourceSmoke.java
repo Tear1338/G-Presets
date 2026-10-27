@@ -26,6 +26,13 @@ public final class UiResourceSmoke {
             if(root==null || controller.noExportFurniVariablesCbx==null || controller.logsBorderPane==null) throw new AssertionError("Missing FXML bindings");
             if(controller.previewBtn==null || controller.previewBeforeImportCbx==null || !controller.previewBeforeImportCbx.isSelected())throw new AssertionError("Preview controls/default missing");
             if(GPresets.class.getResource("ui/styles.css")==null)throw new AssertionError("Missing packaged CSS");
+            javafx.scene.control.TabPane tabs=(javafx.scene.control.TabPane)root;
+            Scene mainScene=new Scene(root,686,350);
+            tabs.getSelectionModel().select(1);root.applyCss();root.layout();
+            javafx.geometry.Bounds box=controller.previewBeforeImportCbx.localToScene(controller.previewBeforeImportCbx.getBoundsInLocal());
+            if(box.getMinY()<0 || box.getMaxY()>mainScene.getHeight())throw new AssertionError("Preview setting is clipped: "+box);
+            if(!controller.previewBeforeImportCbx.getText().equals("Preview before import (:ip)"))throw new AssertionError("Preview setting label");
+
             PresetFurni f=new PresetFurni(1,"wf_act_send_message",new HPoint(1,2,0.5),2,null);f.setFurniName("wired[0]");
             PresetFurni table=new PresetFurni(2,"table",new HPoint(2,3,0),2,"0");table.setFurniName("table[0]");
             PresetFurni flower=new PresetFurni(3,"flower",new HPoint(4,2,0),0,"1");flower.setFurniName("flower[0]");

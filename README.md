@@ -11,7 +11,7 @@
 <p align="center"><strong>Exportez une création. Explorez son aperçu. Retrouvez-la dans une autre salle.</strong><br>Une version modifiée de G-Presets, maintenue par <a href="https://github.com/Tear1338">Tear1338 / Darkz</a>.</p>
 <p align="center"><a href="https://github.com/Tear1338/G-Presets/releases"><strong>Télécharger le .jar</strong></a> · <a href="#installation">Installation</a> · <a href="#un-aperçu-avant-de-construire">Aperçu</a> · <a href="COMPATIBILITE.md">Compatibilité WIRED</a> · <a href="https://github.com/Tear1338/G-Presets/issues">Signaler un problème</a></p>
 
-> **Crédits.** Le projet original est [G-Presets par sirjonasxx](https://github.com/sirjonasxx/G-Presets). Cette édition est modifiée par **Tear1338 / Darkz** à partir de la version 1.3.7 modifiée fournie. Elle est indépendante du projet original et de Habbo/Sulake. [Attributions détaillées](ATTRIBUTION.md).
+> **Crédits.** Le projet original est [G-Presets par sirjonasxx](https://github.com/sirjonasxx/G-Presets). Cette édition est modifiée par **1desirable1337** (Tear1338 / Darkz) à partir de la version 1.3.7 modifiée fournie. Elle est indépendante du projet original et de Habbo/Sulake. [Attributions détaillées](ATTRIBUTION.md).
 
 ## Construisez une fois, réutilisez vos idées
 
@@ -66,7 +66,7 @@ Pour conserver les données disponibles, laissez décochées les options **Do no
 
 ## Compatibilité et validation
 
-La version **1.4.0-rc2** dispose de **1 203 assertions de régression**, de fixtures binaires pour **188 codes de formulaires** et d'un test de chargement de l'interface JavaFX. L'inventaire de référence contient **284 classes liées aux WIRED**, dont **207 classes des six familles de configuration**.
+La version **1.4.0** dispose de **1 203 assertions de régression**, de fixtures binaires pour **188 codes de formulaires** et d'un test de chargement de l'interface JavaFX. L'inventaire de référence contient **284 classes liées aux WIRED**, dont **207 classes des six familles de configuration**.
 
 Ces chiffres vérifient le transport des données et les comportements couverts par les tests. **Aucun cycle complet export/import ni scénario WIRED en jeu n'a encore été validé.** Les prototypes `wf_test_26secret1` et `wf_test_26secret2` ont un comportement configurable inconnu. La version reste donc une **release candidate**.
 

@@ -1,11 +1,11 @@
-# G-Presets 1.4.0-rc2
+# G-Presets 1.4.0
 
-Mise à jour locale de l’extension Java G-Presets, préparée à partir de la version modifiée 1.3.7 fournie. Projet d’origine : https://github.com/sirjonasxx/G-Presets ; auteur conservé : sirjonasxx. Édition modifiée et publiée par Tear1338 / Darkz : https://github.com/Tear1338/G-Presets. Version candidate indépendante du projet original. Voir README.md pour la présentation et les téléchargements.
+Mise à jour locale de l’extension Java G-Presets, préparée à partir de la version modifiée 1.3.7 fournie. Projet d’origine : https://github.com/sirjonasxx/G-Presets ; auteur conservé : sirjonasxx. Édition modifiée et publiée par 1desirable1337 (Tear1338 / Darkz) : https://github.com/Tear1338/G-Presets. Version indépendante du projet original. Voir README.md pour la présentation et les téléchargements.
 
 ## Installation et utilisation
 
 1. Décompresser l’archive complète et conserver une copie de ses anciens presets.
-2. Charger `dist/GPresets-1.4.0-rc2.jar` dans G-Earth, avec un catalogue de noms de paquets compatible avec le client utilisé.
+2. Charger `dist/GPresets-1.4.0.jar` dans G-Earth, avec un catalogue de noms de paquets compatible avec le client utilisé.
 3. Entrer dans la salle source après le démarrage de l’extension : le snapshot des labels/régions est envoyé à l’entrée.
 4. Pour tout conserver, laisser décochées les options `Do not export wired`, `Do not export Furni Variables` et `Do not export wall items`. L’export des valeurs de variables est maintenant activé par défaut pour une nouvelle configuration ; les préférences existantes restent respectées.
 5. Utiliser `:ep all` pour exporter la salle ou `:ep` pour sélectionner une zone, puis `:ip` pour importer. `:a` interrompt une opération.

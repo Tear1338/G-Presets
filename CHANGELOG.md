@@ -1,3 +1,9 @@
+## 1.4.0
+
+- Set authors to sirjonasxx and 1desirable1337.
+- Translate the preset preview to English and fix the clipped settings control.
+- Include the standalone Windows UI dependencies and G-Earth manifest compatibility fixes.
+
 ## 1.4.0-rc4
 
 - Corrige la detection Java et la lecture du manifeste par G-Earth 1.5.4-beta-29.

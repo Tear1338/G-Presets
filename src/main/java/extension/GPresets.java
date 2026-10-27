@@ -76,8 +76,8 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "Never do anything twice mod. by TH",
-   Version = "1.4.0-rc4",
-   Author = "sirjonasxx"
+   Version = "1.4.0",
+   Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
    public BorderPane logsBorderPane;
@@ -440,13 +440,15 @@ public class GPresets extends ExtensionForm {
             if(this.previewStage!=null)this.previewStage.close();
             Stage stage=new Stage();this.previewStage=stage;
             if(this.primaryStage!=null){stage.initOwner(this.primaryStage);stage.initModality(Modality.WINDOW_MODAL);}
-            stage.setTitle("G-Presets - Aper\u00e7u avant import");
+            stage.setTitle("G-Presets - Preset Preview");
             PresetPreviewPane pane=new PresetPreviewPane(model,this.selectedPresetName,session.rootX,session.rootY);
             pane.setActions(confirm,stage::close);pane.updateLaunchAvailability(canConfirm.getAsBoolean());
             Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
             refresh.setCycleCount(Timeline.INDEFINITE);
             stage.setOnHidden(e->{refresh.stop();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
-            stage.setScene(new Scene(pane,1040,720));stage.setMinWidth(900);stage.setMinHeight(620);
+            javafx.geometry.Rectangle2D bounds=javafx.stage.Screen.getPrimary().getVisualBounds();
+            stage.setScene(new Scene(pane,Math.min(1040,bounds.getWidth()),Math.min(720,bounds.getHeight())));
+            stage.setMinWidth(Math.min(700,bounds.getWidth()));stage.setMinHeight(Math.min(480,bounds.getHeight()));
             stage.show();refresh.play();
          } catch(RuntimeException error) {
             cancel.run();this.logger.log("Cannot open preset preview: "+error.getMessage(),"red");
