@@ -467,7 +467,30 @@ public final class RegressionTests {
       fails(()->new PresetPreviewModel.Footprint(0,1),"invalid furniture dimensions rejected");
    }
 
+   private static void pauseGateTests() throws Exception {
+      extension.tools.importutils.ImportPauseGate gate = new extension.tools.importutils.ImportPauseGate();
+      java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+      java.util.concurrent.atomic.AtomicBoolean result = new java.util.concurrent.atomic.AtomicBoolean();
+      gate.requestPause();
+      Thread worker = new Thread(() -> { entered.countDown(); result.set(gate.checkpoint(() -> true)); });
+      worker.start(); entered.await(); worker.join(150);
+      check(worker.isAlive(), "pause blocks import worker");
+      gate.resume(); worker.join(2000);
+      check(!worker.isAlive() && result.get(), "resume releases import worker");
+      gate.requestPause();
+      Thread cancelled = new Thread(() -> result.set(gate.checkpoint(() -> true)));
+      cancelled.start(); Thread.sleep(100); gate.cancel(); cancelled.join(2000);
+      check(!cancelled.isAlive() && !result.get(), "cancel releases and invalidates paused import");
+      java.util.concurrent.atomic.AtomicBoolean valid = new java.util.concurrent.atomic.AtomicBoolean(true);
+      gate.requestPause();
+      Thread changed = new Thread(() -> result.set(gate.checkpoint(valid::get)));
+      changed.start(); Thread.sleep(100); valid.set(false); changed.join(2000);
+      check(!changed.isAlive() && !result.get(), "invalid session stops a paused worker");
+      gate.cancel();
+   }
+
    public static void main(String[] args) throws Exception {
+      pauseGateTests();
       byte[] wireBytes = new byte[256]; for (int i=0;i<256;i++) wireBytes[i]=(byte)i;
       String wireString = new String(wireBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
       HPacket envelope = new HPacket(1); envelope.appendLongString(wireString);

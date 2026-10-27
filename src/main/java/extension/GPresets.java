@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.8",
+   Version = "1.4.9",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -104,6 +104,7 @@ public class GPresets extends ExtensionForm {
    public ToggleGroup donate_tgl;
    public Button availabilityBtn;
    public Button previewBtn;
+   public Button pauseImportBtn;
    public Label importProgressLabel;
    public ProgressBar importProgressBar;
    public CheckBox previewBeforeImportCbx;
@@ -428,6 +429,7 @@ public class GPresets extends ExtensionForm {
 
    public void setImportProgress(String phase,int completed,int total) {
       Platform.runLater(()->{
+         if(pauseImportBtn!=null && (phase.equals("Import complete") || phase.equals("Import stopped or reset"))) pauseImportBtn.setText("Pause import");
          if(importProgressLabel!=null) importProgressLabel.setText(phase + (total>0 ? " " + completed + "/" + total : ""));
          if(importProgressBar!=null) importProgressBar.setProgress(total>0 ? Math.min(1.0,Math.max(0.0,(double)completed/total)) : ProgressBar.INDETERMINATE_PROGRESS);
       });
@@ -600,6 +602,11 @@ public class GPresets extends ExtensionForm {
          try {PresetConfigUtils.moveToFolder(selected,folder.strip());this.updateInstalledPresets();this.logger.log("Preset moved to folder", "green");}
          catch(Exception error){this.logger.log("Cannot move preset: "+error.getMessage(), "red");}
       });
+   }
+
+   public void pauseImportClick(ActionEvent event) {
+      if(this.importer==null || !this.importer.togglePause()) {this.logger.log("Pause is available during an active import", "orange");return;}
+      this.pauseImportBtn.setText(this.importer.isPauseRequested()?"Resume import":"Pause import");
    }
 
    public void reloadPresetsClick(ActionEvent actionEvent) {

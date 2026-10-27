@@ -100,6 +100,24 @@ public class GPresetImporter {
    private volatile HWiredLinkConfiguration receivedLink;
    private Map<String, LinkedList<Integer>> expectFurniDrops = null;
    private volatile BuildingImportState state;
+   private final extension.tools.importutils.ImportPauseGate pauseGate=new extension.tools.importutils.ImportPauseGate();
+   private volatile int activeImportRoomId;
+   private boolean checkpoint(BuildingImportState expected) {
+      boolean valid=pauseGate.checkpoint(()->this.state==expected && this.extension.getFloorState().getRoomId()==activeImportRoomId);
+      if(!valid && this.state==expected) {
+         this.extension.getLogger().log("Import stopped: room or connection changed during pause.","red");
+         this.reset();
+      }
+      return valid;
+   }
+   public boolean togglePause() {
+      BuildingImportState current=this.state;
+      if(current!=BuildingImportState.ADD_UNSTACKABLES && current!=BuildingImportState.ADD_FURNITURE && current!=BuildingImportState.SETUP_ADS && current!=BuildingImportState.SETUP_WIRED && current!=BuildingImportState.MOVE_FURNITURE) return false;
+      if(pauseGate.isPaused()) {pauseGate.resume();this.extension.getLogger().log("Import resumed", "blue");}
+      else {pauseGate.requestPause();this.extension.getLogger().log("Pause requested; current operation will finish first", "orange");}
+      return true;
+   }
+   public boolean isPauseRequested() { return pauseGate.isPaused(); }
    private volatile int confirmedWiredCount;
    private volatile int mainStackTile;
    private volatile int mainStackDimensions;
@@ -479,6 +497,7 @@ public class GPresetImporter {
    }
 
    private void beginImport(HPoint root,PresetConfig preset,PostConfig options) {
+      this.pauseGate.cancel();this.activeImportRoomId=this.extension.getFloorState().getRoomId();
       try { this.prepare(root!=null,preset,options); } finally { this.extension.updatePreviewAvailability(); }
       if(this.state==BuildingImportState.NONE)return;
       if(root!=null) { this.rootLocation=root;this.computeImportZDelta(); }
@@ -731,6 +750,7 @@ public class GPresetImporter {
                this.extension.sendVisualChatInfo("Imported the preset successfully");
                this.extension.getLogger().log("Finished importing the preset!", "green");
             this.reportImport("Import finished");
+            this.pauseGate.cancel();
             this.extension.setImportProgress("Import complete",1,1);
             }
 
@@ -1263,6 +1283,7 @@ public class GPresetImporter {
    }
 
    private void moveFurniture() {
+      if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
       FurniDataTools furniData = this.extension.getFurniDataTools();
       List<PresetFurni> moveList = new ArrayList();
       synchronized(this.lock) {
@@ -1288,6 +1309,7 @@ public class GPresetImporter {
       }
 
       for(PresetFurni movedFurni : moveList) {
+         if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
          if (this.state != GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
             break;
          }
@@ -1303,6 +1325,7 @@ public class GPresetImporter {
       int i = 0;
 
       while(this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE && i < moveList.size()) {
+         if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
          this.extension.setImportProgress("Sending furniture moves", i, moveList.size());
          PresetFurni moveFurni = (PresetFurni)moveList.get(i);
          ++i;
@@ -1367,6 +1390,7 @@ public class GPresetImporter {
                this.extension.sendVisualChatInfo("Imported the preset successfully");
             this.extension.getLogger().log("Finished importing the preset!", "green");
             this.reportImport("Import finished");
+            this.pauseGate.cancel();
             this.extension.setImportProgress("Import complete",1,1);
          }
 
@@ -1414,6 +1438,7 @@ public class GPresetImporter {
 
    private boolean applyContracts() {
       for(PresetWiredContract original:this.workingPresetConfig.getContracts()) {
+         if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
          if(this.state!=BuildingImportState.SETUP_WIRED) return false;
          Integer id=this.realFurniIdMap.get(original.furniId);
          if(id==null) return failWiredImport("Missing contract furniture " + original.furniId);
@@ -1432,6 +1457,7 @@ public class GPresetImporter {
 
    private void applyObjectVariables() {
       for(PresetObjectVariables original:this.workingPresetConfig.getObjectVariables()) {
+         if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
          if(this.state!=BuildingImportState.MOVE_FURNITURE) return;
          try {
             PresetObjectVariables mapped=original.translate(this.rootLocation.getX(),this.rootLocation.getY()).remap(this.realFurniIdMap,this.realVariableIdMap);
@@ -1450,6 +1476,7 @@ public class GPresetImporter {
 
    private boolean applyRoomLinks() {
       for(PresetRoomLink original:this.workingPresetConfig.getRoomLinks()) {
+         if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
          if(this.state!=BuildingImportState.SETUP_WIRED) return false;
          Integer id=this.realFurniIdMap.get(original.furniId);
          if(id==null) return failWiredImport("Missing room linker " + original.furniId);
@@ -1463,6 +1490,7 @@ public class GPresetImporter {
 
    private boolean applyChests() {
       for(PresetChest original:this.workingPresetConfig.getChests()) {
+         if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
          Integer id=this.realFurniIdMap.get(original.furniId);
          if(id==null) return failWiredImport("Missing chest furniture " + original.furniId);
          PresetChest mapped=original.withFurniId(id);
@@ -1514,6 +1542,7 @@ public class GPresetImporter {
 
    private boolean applyWiredLinks() {
       for (PresetWiredLink original : this.workingPresetConfig.getWiredLinks()) {
+         if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
          if (this.state != BuildingImportState.SETUP_WIRED) return false;
          Integer id = this.realFurniIdMap.get(original.furniId);
          if (id == null) continue;
@@ -1553,6 +1582,7 @@ public class GPresetImporter {
          return;
       }
       for (PresetFurniLabel original : this.workingPresetConfig.getFurnitureLabels()) {
+         if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
          if (this.state != BuildingImportState.MOVE_FURNITURE) return;
          Integer id = this.realFurniIdMap.get(original.furniId);
          if (id == null) continue;
@@ -1892,6 +1922,7 @@ public class GPresetImporter {
          int wallIndex = 0;
 
          for(PresetWallFurni wallFurni : wallFurniture) {
+            if(!checkpoint(phase))return;
             this.extension.setImportProgress("Processing wall furniture", wallIndex, wallFurniture.size());
             if (this.state != phase) {
                break;
@@ -2259,6 +2290,7 @@ public class GPresetImporter {
          this.extension.sendVisualChatInfo(String.format("Placing %d stack tile(s)...", presetStackTiles.size()));
 
          for(PresetFurni stackTileFurni : presetStackTiles) {
+         if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
             if (this.state != GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
                break;
             }
@@ -2284,6 +2316,7 @@ public class GPresetImporter {
    }
 
    private void setupWired() {
+      if(!checkpoint(BuildingImportState.SETUP_WIRED))return;
       this.placeWallItems(BuildingImportState.SETUP_WIRED);
       if (this.state != BuildingImportState.SETUP_WIRED) return;
       for(PresetFurni item:this.workingPresetConfig.getFurniture()) if(!this.realFurniIdMap.containsKey(item.getFurniId())) { failWiredImport("Furniture was not placed: " + item.getFurniName());return; }
@@ -2322,6 +2355,7 @@ public class GPresetImporter {
       int i = 0;
 
       while(this.state == GPresetImporter.BuildingImportState.SETUP_WIRED && i < allWireds.size()) {
+         if(!checkpoint(BuildingImportState.SETUP_WIRED))return;
          this.extension.setImportProgress("Configuring WIRED", i, allWireds.size());
          PresetWiredBase wiredBase = (PresetWiredBase)allWireds.get(i);
          if ((i + 1) % 50 == 0) {
@@ -2440,6 +2474,7 @@ public class GPresetImporter {
       }
 
       for(int i = 0; i < furniDropInfos.size() && this.state == GPresetImporter.BuildingImportState.ADD_FURNITURE; ++i) {
+         if(!checkpoint(BuildingImportState.ADD_FURNITURE))return;
          this.extension.setImportProgress("Sending furniture placements", i, furniDropInfos.size());
          FurniDropInfo dropInfo = (FurniDropInfo)furniDropInfos.get(i);
          if ((i + 1) % 50 == 0) {
@@ -2480,11 +2515,13 @@ public class GPresetImporter {
    }
 
    private void setupAds() {
+      if(!checkpoint(BuildingImportState.SETUP_ADS))return;
       List<PresetAdsBackground> adsBackgrounds = this.workingPresetConfig.getAdsBackgrounds();
       if (!adsBackgrounds.isEmpty()) {
          this.extension.sendVisualChatInfo("Setting up ads backgrounds..");
 
          for(int index = 0; index < adsBackgrounds.size() && this.state == GPresetImporter.BuildingImportState.SETUP_ADS; ++index) {
+            if(!checkpoint(BuildingImportState.SETUP_ADS))return;
             PresetAdsBackground adsBackground = (PresetAdsBackground)adsBackgrounds.get(index);
             synchronized(this.lock) {
                if (this.state == GPresetImporter.BuildingImportState.SETUP_ADS && this.realFurniIdMap.containsKey(adsBackground.getFurniId())) {
@@ -2592,6 +2629,7 @@ public class GPresetImporter {
       }
 
       for(int i = 0; i < furniDropInfos.size() && this.state == GPresetImporter.BuildingImportState.ADD_UNSTACKABLES; ++i) {
+         if(!checkpoint(BuildingImportState.ADD_UNSTACKABLES))return;
          this.extension.setImportProgress("Sending unstackable placements", i, furniDropInfos.size());
          FurniDropInfo dropInfo = (FurniDropInfo)furniDropInfos.get(i);
          this.dropFurni(dropInfo);
@@ -2610,6 +2648,7 @@ public class GPresetImporter {
    }
 
    public void reset() {
+      this.pauseGate.cancel();
       this.extension.setImportProgress("Import stopped or reset",0,1);
       PresetPreviewSession preview=this.pendingPreview;
       if(preview!=null)preview.cancel();

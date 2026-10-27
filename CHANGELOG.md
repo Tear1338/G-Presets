@@ -1,3 +1,7 @@
+## 1.4.9
+
+- Pause and resume import between operations; abort if the room changes while paused.
+
 ## 1.4.8
 
 - Organize presets into one-level folders without overwriting existing presets.
