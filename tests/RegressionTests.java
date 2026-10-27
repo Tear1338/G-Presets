@@ -411,6 +411,13 @@ public final class RegressionTests {
       check(!PresetConfigUtils.savePreset("regression",null),"failed serialization returns failure");
       check(Files.readString(file).equals(original),"failed serialization preserves existing export");
       fails(() -> PresetConfigUtils.resolvePresetFile("../outside"),"preset path stays inside preset directory");
+      PresetConfigUtils.moveToFolder("regression","Games");
+      check(PresetConfigUtils.listPresets().contains("Games/regression"),"folder preset listed");
+      check(PresetConfigUtils.loadPreset("Games/regression")!=null,"folder preset loads");
+      check(PresetConfigUtils.savePreset("regression",preset),"new source saved");
+      fails(() -> { try { PresetConfigUtils.moveToFolder("regression","Games"); } catch(java.io.IOException e) { throw new IllegalStateException(e); } },"folder move does not overwrite");
+      check(Files.exists(PresetConfigUtils.resolvePresetFile("regression")),"source preserved on conflict");
+      fails(() -> { try { PresetConfigUtils.moveToFolder("regression","../escape"); } catch(java.io.IOException e) { throw new IllegalStateException(e); } },"folder traversal rejected");
       Files.writeString(file,"{invalid");
       check(PresetConfigUtils.loadPreset("regression")==null,"malformed JSON handled without crashing UI");
    }

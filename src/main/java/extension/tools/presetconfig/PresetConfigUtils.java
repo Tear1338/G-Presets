@@ -113,37 +113,55 @@ public class PresetConfigUtils {
    }
 
    public static List<String> listPresets() {
-      List<String> presets = new ArrayList();
-      File presetsDir = new File(presetPath());
-      if (!presetsDir.isDirectory()) {
-         return presets;
-      } else {
-         File[] files = presetsDir.listFiles();
-         if (files != null) {
-            for(File presetFile : files) {
-               if (presetFile.isFile()) {
-                  String name = presetFile.getName();
-                  if (name.endsWith(".json")) {
-                     name = name.substring(0, name.length() - ".json".length());
-                     presets.add(name);
+      List<String> presets=new ArrayList<>();
+      Path directory=Paths.get(presetPath());
+      try (var stream=Files.list(directory)) {
+         for(Path path:(Iterable<Path>)stream::iterator) {
+            if(Files.isRegularFile(path,java.nio.file.LinkOption.NOFOLLOW_LINKS) && path.getFileName().toString().endsWith(PRESET_EXT)) {
+               String n=path.getFileName().toString();presets.add(n.substring(0,n.length()-PRESET_EXT.length()));
+            } else if(Files.isDirectory(path,java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+               try(var children=Files.list(path)) {
+                  for(Path child:(Iterable<Path>)children::iterator) {
+                     String n=child.getFileName().toString();
+                     if(Files.isRegularFile(child,java.nio.file.LinkOption.NOFOLLOW_LINKS) && n.endsWith(PRESET_EXT))
+                        presets.add(path.getFileName().toString()+"/"+n.substring(0,n.length()-PRESET_EXT.length()));
                   }
                }
             }
          }
+      } catch(IOException error) {System.err.println("Cannot list presets: "+error.getMessage());}
+      return presets;
+   }
 
-         return presets;
-      }
+   private static void validateComponent(String name) {
+      if(name==null || name.isBlank() || name.contains("/") || name.equals(".") || name.equals("..") || name.matches(".*[\\\\:*?\"<>|\\p{Cntrl}].*"))
+         throw new IllegalArgumentException("Invalid preset name");
    }
 
    public static Path resolvePresetFile(String name) {
-      if (name == null || name.isBlank() || name.equals(".") || name.equals("..") ||
-          name.matches(".*[\\\\/:*?\"<>|\\p{Cntrl}].*")) {
-         throw new IllegalArgumentException("Invalid preset name");
+      if(name==null)throw new IllegalArgumentException("Invalid preset name");
+      String[] parts=name.split("/",-1);
+      if(parts.length<1 || parts.length>2)throw new IllegalArgumentException("Invalid preset path");
+      for(String part:parts)validateComponent(part);
+      Path directory=Paths.get(presetPath()).toAbsolutePath().normalize();
+      if(parts.length==2) {
+         directory=directory.resolve(parts[0]);
+         if(!Files.isDirectory(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new IllegalArgumentException("Preset folder not found");
       }
-      Path directory = Paths.get(presetPath()).toAbsolutePath().normalize();
-      Path file = directory.resolve(name + PRESET_EXT).normalize();
-      if (!file.getParent().equals(directory)) throw new IllegalArgumentException("Invalid preset path");
+      Path file=directory.resolve(parts[parts.length-1]+PRESET_EXT).normalize();
+      if(!file.getParent().equals(directory) || Files.isSymbolicLink(file))throw new IllegalArgumentException("Invalid preset path");
       return file;
+   }
+
+   public static void moveToFolder(String preset,String folder) throws IOException {
+      validateComponent(folder);
+      Path source=resolvePresetFile(preset);
+      Path root=Paths.get(presetPath()).toAbsolutePath().normalize();
+      Path directory=root.resolve(folder);
+      if(!Files.exists(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))Files.createDirectory(directory);
+      if(!Files.isDirectory(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new IOException("Invalid destination folder");
+      Path destination=directory.resolve(source.getFileName());
+      if(!source.equals(destination))Files.move(source,destination);
    }
 
    public static boolean savePreset(String name, PresetConfig config) {

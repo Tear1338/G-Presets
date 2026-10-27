@@ -1,3 +1,7 @@
+## 1.4.8
+
+- Organize presets into one-level folders without overwriting existing presets.
+
 ## 1.4.7
 
 - Search and sort local presets, and save a separate JSON copy for sharing.

@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.7",
+   Version = "1.4.8",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -578,7 +578,7 @@ public class GPresets extends ExtensionForm {
          javafx.stage.FileChooser chooser=new javafx.stage.FileChooser();
          chooser.setTitle("Save a copy of the preset");
          chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("G-Presets JSON", "*.json"));
-         chooser.setInitialFileName(name+".json");
+         chooser.setInitialFileName(source.getFileName().toString());
          File target=chooser.showSaveDialog(this.primaryStage);
          if(target==null)return;
          java.nio.file.Files.copy(source,target.toPath());
@@ -588,6 +588,18 @@ public class GPresets extends ExtensionForm {
       } catch(Exception error) {
          this.logger.log("Cannot save preset copy: "+error.getMessage(), "red");
       }
+   }
+
+   public void movePresetToFolderClick(ActionEvent event) {
+      String selected=this.presetListView.getSelectionModel().getSelectedItem();
+      if(selected==null){this.logger.log("Select a preset first", "orange");return;}
+      javafx.scene.control.TextInputDialog dialog=new javafx.scene.control.TextInputDialog();
+      dialog.initOwner(this.primaryStage); dialog.setTitle("Organize presets");
+      dialog.setHeaderText("Move the selected preset to a folder");dialog.setContentText("Folder name:");
+      dialog.showAndWait().ifPresent(folder->{
+         try {PresetConfigUtils.moveToFolder(selected,folder.strip());this.updateInstalledPresets();this.logger.log("Preset moved to folder", "green");}
+         catch(Exception error){this.logger.log("Cannot move preset: "+error.getMessage(), "red");}
+      });
    }
 
    public void reloadPresetsClick(ActionEvent actionEvent) {

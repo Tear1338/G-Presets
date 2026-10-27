@@ -71,7 +71,7 @@
     </Tab>
     <Tab text="Settings">
       <content>
-        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="310.0" prefWidth="686.0">
+        <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="340.0" prefWidth="686.0">
                <children>
                   <RadioButton layoutX="158.0" layoutY="14.0" mnemonicParsing="false" selected="true" text="2x2">
                      <toggleGroup>
@@ -112,13 +112,14 @@
                   <RadioButton fx:id="donateAll" layoutX="245.0" layoutY="111.0" mnemonicParsing="false" selected="false" text="All items in export" toggleGroup="$donate_tgl" userData="ALL_ITEMS" visible="false" />
                   <CheckBox fx:id="previewBeforeImportCbx" layoutX="187.0" layoutY="255.0" mnemonicParsing="false" selected="true" text="Preview before import (:ip)" />
                   <Button layoutX="522.0" layoutY="265.0" mnemonicParsing="false" onAction="#sharePresetClick" prefHeight="25.0" prefWidth="150.0" text="Save preset copy" />
+                  <Button layoutX="522.0" layoutY="294.0" mnemonicParsing="false" onAction="#movePresetToFolderClick" prefHeight="25.0" prefWidth="150.0" text="Move to folder" />
                   <CheckBox fx:id="useRoomFurniCbx" layoutX="14.0" layoutY="106.0" mnemonicParsing="false" text="Use room furni" />
                </children></AnchorPane>
       </content>
     </Tab>
       <Tab text="Preset configuration">
           <content>
-              <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="310.0" prefWidth="686.0">
+              <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="340.0" prefWidth="686.0">
                <children>
                   <AnchorPane layoutX="426.0" layoutY="14.0" prefHeight="244.0" prefWidth="254.0" style="-fx-border-color: #999; -fx-border-image-width: 1px; -fx-border-radius: 5px;">
                      <children>
