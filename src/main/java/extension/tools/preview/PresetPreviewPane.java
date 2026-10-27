@@ -36,6 +36,10 @@ public final class PresetPreviewPane extends BorderPane {
    private final Map<String,Image> sprites=new HashMap<>();
    private final Set<String> requestedSprites=new HashSet<>();
    private final ExecutorService spriteLoader=Executors.newSingleThreadExecutor(r->{Thread t=new Thread(r,"gpresets-preview-images");t.setDaemon(true);return t;});
+   private int viewTurns;
+   private final CheckBox isolate=new CheckBox("Selected item only");
+   private final Slider layer=new Slider();
+   private final Label imageStatus=new Label("Images loading as needed");
    private final CheckBox showSprites=new CheckBox("Furniture images");
    private double panX,panY,dragX,dragY,dragDistance;
    private double scale,offsetX,offsetY;
@@ -50,6 +54,7 @@ public final class PresetPreviewPane extends BorderPane {
       cancel.setCancelButton(true);
       setStyle("-fx-background-color:#f3f5f9; -fx-font-family:'Segoe UI'; -fx-font-size:12px;");
       setPadding(new Insets(16));
+      canvas.getGraphicsContext2D().setImageSmoothing(false);
       Label title=new Label("Preset preview"+(name==null?"":" \u00b7 "+name));
       title.setStyle("-fx-font-size:20px; -fx-font-weight:bold; -fx-text-fill:#0f172a;");
       Label counts=new Label(model.floorCount+" floor items  \u00b7  "+model.wallCount+" wall items  \u00b7  "+model.wiredCount+" WIRED  \u00b7  "+model.configurationCount+" configurations");
@@ -64,7 +69,10 @@ public final class PresetPreviewPane extends BorderPane {
       zoom.setPrefWidth(160);zoom.valueProperty().addListener(o->draw());
       Button fit=new Button("Reset view");fit.setOnAction(e->{panX=0;panY=0;zoom.setValue(1);draw();});
       showSprites.setSelected(true); showSprites.selectedProperty().addListener(o->draw());
-      HBox tools=new HBox(10,new Label("Zoom"),zoom,fit,heights,showSprites);tools.setAlignment(Pos.CENTER_LEFT);tools.setPadding(new Insets(9,0,9,0));
+      Button turn=new Button("Rotate view");turn.setId("turnView");turn.setOnAction(e->{viewTurns=(viewTurns+1)%4;draw();});
+      isolate.selectedProperty().addListener(o->draw());
+      layer.setMin(0);layer.setMax(Math.max(0,model.maxZ));layer.setValue(layer.getMax());layer.setPrefWidth(110);layer.valueProperty().addListener(o->draw());
+      FlowPane tools=new FlowPane(10,8,new Label("Zoom"),zoom,fit,turn,heights,showSprites,isolate,new Label("Max height"),layer,imageStatus);tools.setPadding(new Insets(9,0,9,0));
       Label legend=new Label("Blue: furniture  \u00b7  Purple: WIRED  \u00b7  Orange: wall items  \u00b7  Drag: pan  \u00b7  Scroll: zoom");legend.setWrapText(true);legend.setStyle("-fx-text-fill:#475569;");
       VBox view=new VBox(tools,surface,legend);VBox.setVgrow(surface,Priority.ALWAYS);setCenter(view);
       TextField search=new TextField();search.setPromptText("Search furniture or ID");
@@ -96,6 +104,28 @@ public final class PresetPreviewPane extends BorderPane {
       canvas.setOnMouseClicked(e->{if(dragDistance>5)return;for(int i=hits.size()-1;i>=0;i--){Hit h=hits.get(i);if(contains(h,e.getX(),e.getY())){items.getSelectionModel().select(h.item());items.scrollTo(h.item());break;}}});
       draw();
    }
+   public void setShareMode() {
+      setBottom(new Label("The image captures this view. Furniture images may take time to load; missing images remain as footprints."));
+   }
+   public void setSharedMetadata(extension.tools.sharing.PresetMetadata metadata) {
+      setPresetDescription(metadata.description());
+      if(metadata.imagePng().isEmpty() || !(getTop() instanceof VBox header))return;
+      Image image=new Image(new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(metadata.imagePng())));
+      if(image.isError())return;
+      javafx.scene.image.ImageView thumbnail=new javafx.scene.image.ImageView(image);thumbnail.setFitWidth(90);thumbnail.setFitHeight(50);thumbnail.setPreserveRatio(true);
+      Button view=new Button("Shared image",thumbnail);view.setOnAction(e->{
+         Dialog<ButtonType> dialog=new Dialog<>();if(getScene()!=null)dialog.initOwner(getScene().getWindow());dialog.setTitle(metadata.name());
+         javafx.scene.image.ImageView full=new javafx.scene.image.ImageView(image);full.setFitWidth(650);full.setFitHeight(440);full.setPreserveRatio(true);
+         dialog.getDialogPane().setContent(full);dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);dialog.show();
+      });
+      javafx.scene.Node title=header.getChildren().remove(0);HBox line=new HBox(12,title,view);line.setAlignment(Pos.CENTER_LEFT);header.getChildren().add(0,line);
+   }
+   public void setPresetDescription(String description) {
+      if(description!=null && !description.isBlank() && getTop() instanceof VBox header) {
+         Label descriptionLabel=new Label(description);descriptionLabel.setWrapText(true);descriptionLabel.setMaxHeight(60);
+         header.getChildren().add(descriptionLabel);
+      }
+   }
    public void setAvailabilityAction(Runnable action) { availabilityAction=action; }
    public void setCompatibilityAction(Runnable action) { compatibilityAction=action; }
    public void setAvailabilitySummary(String summary) { availability.setText(summary); }
@@ -120,7 +150,7 @@ public final class PresetPreviewPane extends BorderPane {
       String position=String.format(Locale.ROOT,"X %.2f  Y %.2f  Z preset %.2f",item.x()+(originX==null?0:originX),item.y()+(originY==null?0:originY),item.z());
       details.setText(item.name()+"\n"+item.className()+"  ["+item.id()+"]\n"+position+(originX==null?" (relative)":"")+"\nRotation "+item.rotation()+"  \u00b7  "+item.width()+"\u00d7"+item.depth()+"\n"+(item.wall()?item.wallLocation():"State: "+(item.state()==null?"default":item.state())));
    }
-   private Point project(double x,double y,double z) { return new Point((x-y)*32,(x+y)*16-(heights.isSelected()?z*16:0)); }
+   private Point project(double x,double y,double z) { var p=PreviewGeometry.project(x,y,z,viewTurns,heights.isSelected());return new Point(p.x(),p.y()); }
    private Point screen(double x,double y,double z) {Point p=project(x,y,z);return new Point(offsetX+p.x()*scale,offsetY+p.y()*scale);}
    private void draw() {
       double width=canvas.getWidth(),height=canvas.getHeight();if(width<2 || height<2)return;
@@ -133,7 +163,7 @@ public final class PresetPreviewPane extends BorderPane {
       }
       if(showSprites.isSelected()) for(PresetPreviewModel.Item item:model.items) {
          Image sprite=sprites.get(spriteKey(item));
-         if(sprite!=null && !item.wall()) {
+         if(sprite!=null) {
             Point center=project(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
             lowX=Math.min(lowX,center.x()-sprite.getWidth()/2); highX=Math.max(highX,center.x()+sprite.getWidth()/2);
             lowY=Math.min(lowY,center.y()-sprite.getHeight()+16); highY=Math.max(highY,center.y()+16);
@@ -148,41 +178,47 @@ public final class PresetPreviewPane extends BorderPane {
          for(double y=Math.floor(model.minY);y<=Math.ceil(model.maxY);y++){Point a=screen(model.minX,y,0),b=screen(model.maxX,y,0);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
       }
       PresetPreviewModel.Item selected=items.getSelectionModel().getSelectedItem();
-      for(PresetPreviewModel.Item item:model.items) {
+      List<PresetPreviewModel.Item> ordered=new ArrayList<>(model.items);
+      ordered.sort(Comparator.comparingDouble((PresetPreviewModel.Item i)->PreviewGeometry.depth(i.x()+i.width()/2.0,i.y()+i.depth()/2.0,viewTurns)).thenComparingDouble(PresetPreviewModel.Item::z));
+      for(PresetPreviewModel.Item item:ordered) {
+         if(item.z()>layer.getValue()+0.001 || (isolate.isSelected() && item!=selected))continue;
          double[] xs=new double[4],ys=new double[4];
          for(int c=0;c<4;c++){Point p=screen(item.x()+((c==1 || c==2)?item.width():0),item.y()+(c>=2?item.depth():0),item.z());xs[c]=p.x();ys[c]=p.y();}
          if(heights.isSelected() && item.z()!=0){Point a=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,0),b=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());g.setStroke(Color.web("#64748b"));g.setLineWidth(1);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
          Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
-         Image sprite=showSprites.isSelected() && !item.wall()?spriteFor(item):null;
+         Image sprite=showSprites.isSelected()?spriteFor(item):null;
          g.setFill(fill.deriveColor(0,1,1,sprite!=null?0.15:item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
          g.setStroke(item==selected?Color.web("#67e8f9"):fill.brighter());g.setLineWidth(item==selected?3:1);g.strokePolygon(xs,ys,4);
-         if(showSprites.isSelected() && !item.wall()) {
+         if(showSprites.isSelected()) {
             if(sprite!=null) {
                Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
                double imageWidth=sprite.getWidth()*scale, imageHeight=sprite.getHeight()*scale;
-               g.drawImage(sprite,center.x()-imageWidth/2,center.y()-imageHeight+16*scale,imageWidth,imageHeight);
+               double left=center.x()-imageWidth/2,top=center.y()-imageHeight+16*scale;
+               g.drawImage(sprite,left,top,imageWidth,imageHeight);
+               hits.add(new Hit(item,new double[]{left,left+imageWidth,left+imageWidth,left},new double[]{top,top,top+imageHeight,top+imageHeight}));
             }
          }
          hits.add(new Hit(item,xs,ys));
          if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f8fafc"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
       }
    }
-   private String spriteKey(PresetPreviewModel.Item item) { return item.className()+"|"+item.rotation()+"|"+(item.state()==null?"":item.state()); }
+   private String spriteKey(PresetPreviewModel.Item item) { return item.className()+"|"+Math.floorMod(item.rotation()+viewTurns*2,8)+"|"+(item.state()==null?"":item.state()); }
    private Image spriteFor(PresetPreviewModel.Item item) {
       String classname=item.className();
       if(classname==null || !classname.matches("[A-Za-z0-9_.*-]{1,120}"))return null;
       String key=spriteKey(item);
       Image image=sprites.get(key);
-      if(image==null && !spriteLoader.isShutdown() && requestedSprites.size()<1000 && requestedSprites.add(key)) {
+      if(image==null && !spriteLoader.isShutdown() && requestedSprites.size()<256 && requestedSprites.add(key)) {
+         final int direction=Math.floorMod(item.rotation()+viewTurns*2,8);
          spriteLoader.submit(()->{
             try {
                String state=item.state()!=null && item.state().matches("[0-9]{1,3}")?"&state="+item.state():"";
-               String url="https://www.habboassets.com/imaging/furniture/"+classname+".png?direction="+item.rotation()+state;
+               String url="https://www.habboassets.com/imaging/furniture/"+classname+".png?size=64&direction="+direction+state;
                URLConnection connection=new URL(url).openConnection();connection.setConnectTimeout(5000);connection.setReadTimeout(5000);
                byte[] bytes;try(InputStream stream=connection.getInputStream()){bytes=stream.readNBytes(2_000_001);}
                if(bytes.length>2_000_000)throw new IllegalArgumentException("Image too large");
                Image loaded=new Image(new java.io.ByteArrayInputStream(bytes));
-               if(!loaded.isError() && loaded.getWidth()>0)Platform.runLater(()->{sprites.put(key,loaded);draw();});
+               if(!loaded.isError() && loaded.getWidth()>0 && loaded.getWidth()<=2048 && loaded.getHeight()<=2048)Platform.runLater(()->{if(!spriteLoader.isShutdown()){sprites.put(key,loaded);imageStatus.setText(sprites.size()+" images loaded");draw();}});
             } catch(Exception ignored) { /* The footprint remains visible offline. */ }
             try {Thread.sleep(1100);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}
          });

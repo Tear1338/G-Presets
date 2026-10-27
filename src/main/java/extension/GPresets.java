@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.9",
+   Version = "1.5.0",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -460,7 +460,14 @@ public class GPresets extends ExtensionForm {
             if(this.primaryStage!=null){stage.initOwner(this.primaryStage);stage.initModality(Modality.WINDOW_MODAL);}
             stage.setTitle("G-Presets - Preset Preview");
             PresetPreviewPane pane=new PresetPreviewPane(model,this.selectedPresetName,session.rootX,session.rootY);
+            if(session.preset().getMetadata()!=null)pane.setSharedMetadata(session.preset().getMetadata());
             pane.setActions(confirm,stage::close);pane.setAvailabilityAction(()->pane.setAvailabilitySummary(previewAvailability(session)));pane.setCompatibilityAction(()->pane.setAvailabilitySummary(previewWiredCompatibility(session)));pane.updateLaunchAvailability(canConfirm.getAsBoolean());
+            try {
+               var audit=extension.tools.importutils.AvailabilityAudit.inspect(session.preset(),session.options(),furniDataTools,inventory,catalog,useRoomFurni());
+               long missing=audit.getJSONArray("items").toList().stream().filter(row->"MISSING".equals(((java.util.Map<?,?>)row).get("status"))).count();
+               long unknown=audit.getJSONArray("items").toList().stream().filter(row->String.valueOf(((java.util.Map<?,?>)row).get("status")).contains("UNKNOWN")).count();
+               pane.setAvailabilitySummary("Before import: "+missing+" furniture type(s) missing; "+unknown+" unknown. Check availability for floor/wall details and BC conditions.");
+            }catch(RuntimeException error){pane.setAvailabilitySummary("Availability unknown: "+error.getMessage());}
             Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
             refresh.setCycleCount(Timeline.INDEFINITE);
             stage.setOnHidden(e->{refresh.stop();pane.close();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
@@ -476,38 +483,27 @@ public class GPresets extends ExtensionForm {
 
    private String previewWiredCompatibility(PresetPreviewSession session) {
       try {
-         var wireds=session.preset().getPresetWireds().getAll();
-         List<String> issues=new ArrayList<>();int generated=0;
-         for(var wired:wireds) {
-            try { wired.toPacket(); generated++; }
-            catch(RuntimeException error) { issues.add("WIRED "+wired.getWiredId()+": "+error.getMessage()); }
-         }
-         String summary="WIRED format: "+generated+"/"+wireds.size()+" generated locally; not verified in Habbo.";
-         if(!issues.isEmpty()) summary+=" Unsupported or invalid: "+String.join("; ",issues);
-         summary+=" Other item types and permissions still require verification.";
-         return summary;
-      } catch(RuntimeException error) { return "WIRED compatibility unknown: "+error.getMessage(); }
+         var report=extension.tools.importutils.WiredDiagnostics.inspect(session.preset());
+         extension.tools.importutils.WiredDiagnostics.checkMessages(session.preset(),report,(direction,name)->this.getPacketInfoManager()!=null && this.getPacketInfoManager().getPacketInfoFromName(direction,name)!=null);
+         for(var contract:session.preset().getContracts())try{contract.savePacket(this.furniDataTools);}catch(RuntimeException error){report.getJSONArray("issues").put(new org.json.JSONObject().put("severity","WARNING").put("message","Contract "+contract.furniId+": "+error.getMessage()));}
+
+         String text=extension.tools.importutils.WiredDiagnostics.text(report);
+         extension.tools.importutils.ReportWindow.show(this.previewStage,"WIRED checks",text,report);
+         return "WIRED checks: "+report.getInt("serialized")+"/"+report.getInt("configurations")+" serialized. See the detailed report.";
+      }catch(RuntimeException error){return "WIRED compatibility unknown: "+error.getMessage();}
    }
 
    private String previewAvailability(PresetPreviewSession session) {
-      if(!furniDataReady() || inventory.getState()!=Inventory.InventoryState.LOADED)
-         return "Availability unknown: load furnidata and inventory first.";
-      if(useRoomFurni()) return "Availability unknown: room furniture must be selected during import. Use Check Availability in the main window for details.";
       try {
-         PresetConfig preset=session.preset(); PostConfig options=session.options(); preset.applyPostConfig(options);
-         List<FurniDropInfo> drops=new ArrayList<>(); List<String> unknown=new ArrayList<>();
-         for(PresetFurni f:preset.getFurniture()) {
-            Integer id=furniDataTools.getFloorTypeId(f.getClassName());
-            if(id==null || furniDataTools.getFloorItemDetails(f.getClassName())==null) {unknown.add(f.getClassName());continue;}
-            drops.add(new FurniDropInfo(-1,-1,id,options.getItemSource(),-1));
-         }
-         Map<String,Integer> missing=AvailabilityChecker.missingItems(drops,inventory,furniDataTools,floorState,false);
-         if(missing==null)return "Availability unknown: inventory or furnidata is not ready.";
-         String result=missing.isEmpty()?"Known floor items: available with current source settings.":"Missing floor items: "+missing.entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e->e.getKey()+" x"+e.getValue()).collect(Collectors.joining(", "));
-         if(!unknown.isEmpty())result+=" | Unknown furniture: "+String.join(", ",new java.util.LinkedHashSet<>(unknown));
-         if(!preset.getWallFurniture().isEmpty())result+=" | Wall furniture not checked; use Check Availability in the main window.";
-         return result;
-      } catch(RuntimeException error) {return "Availability unknown: "+error.getMessage();}
+         var report=extension.tools.importutils.AvailabilityAudit.inspect(session.preset(),session.options(),furniDataTools,inventory,catalog,useRoomFurni());
+         extension.tools.importutils.ReportWindow.show(this.previewStage,"Before import",extension.tools.importutils.AvailabilityAudit.text(report),report);
+         return "Floor and wall furniture checked. See the detailed report; unknown availability needs verification.";
+      }catch(RuntimeException error){return "Availability unknown: "+error.getMessage();}
+   }
+   public void showImportReport(org.json.JSONObject report) {
+      String text=extension.tools.importutils.ImportReport.text(report);
+      this.logger.log(text,"blue");
+      extension.tools.importutils.ReportWindow.show(this.primaryStage,"Import report",text,report);
    }
 
    public void availabilityBtnClick(ActionEvent actionEvent) {
@@ -575,21 +571,14 @@ public class GPresets extends ExtensionForm {
       String name=this.presetListView.getSelectionModel().getSelectedItem();
       if(name==null){this.logger.log("Select a preset first", "orange");return;}
       try {
-         java.nio.file.Path source=PresetConfigUtils.resolvePresetFile(name);
-         if(!java.nio.file.Files.isRegularFile(source)){this.logger.log("Preset file not found", "red");return;}
-         javafx.stage.FileChooser chooser=new javafx.stage.FileChooser();
-         chooser.setTitle("Save a copy of the preset");
-         chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("G-Presets JSON", "*.json"));
-         chooser.setInitialFileName(source.getFileName().toString());
-         File target=chooser.showSaveDialog(this.primaryStage);
-         if(target==null)return;
-         java.nio.file.Files.copy(source,target.toPath());
-         this.logger.log("Preset copy saved", "green");
-      } catch(java.nio.file.FileAlreadyExistsException exists) {
-         this.logger.log("File already exists; choose a different name", "orange");
-      } catch(Exception error) {
-         this.logger.log("Cannot save preset copy: "+error.getMessage(), "red");
-      }
+         PresetConfig preset=PresetConfigUtils.loadPreset(name);
+         if(preset==null)throw new IllegalArgumentException("Preset cannot be loaded");
+         PresetPreviewModel model=new PresetPreviewModel(preset,new PostConfig(),classname->{
+            FloorItemDetails item=this.furniDataReady()?furniDataTools.getFloorItemDetails(classname):null;
+            return item==null || item.xDim<1 || item.yDim<1 || item.xDim>128 || item.yDim>128?null:new PresetPreviewModel.Footprint(item.xDim,item.yDim);
+         });
+         extension.tools.sharing.PresetShareDialog.show(this.primaryStage,preset,model,name);
+      }catch(Exception error){this.logger.log("Cannot share preset: "+error.getMessage(),"red");}
    }
 
    public void movePresetToFolderClick(ActionEvent event) {

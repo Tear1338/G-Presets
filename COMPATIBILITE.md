@@ -35,3 +35,16 @@ SHA-256 du client de référence :
 `8C098CF290F3637D310235D735F6BD7EDC90581A2E9480BF1518F715663AAEF3`
 
 Le code dépend des noms de messages résolus par G-Earth pour le client connecté. Aucun en-tête numérique de paquets n’est figé dans cette mise à jour.
+
+
+## Vérifications 1.5.0
+
+Le contrôle WIRED recherche les doublons d'identifiants, les cycles de variables, les références hors du preset, les charges utiles non prises en charge et les messages requis absents du catalogue G-Earth. Il ne prouve pas la sémantique des formulaires ni le comportement en jeu. Les références externes sont des avertissements, pas des suppressions automatiques.
+
+Le bilan avant import couvre le sol, le mur et les variantes d'affiches. Il distingue inventaire, offre BC, manque et données inconnues. Les quotas BC, droits et réutilisations de salle restent à vérifier au moment de l'import.
+
+Le rapport après import observe le sol et le mur dans la salle active et conserve deux espaces d'identifiants pour son suivi. Il compare les coordonnées, rotations, états et décalages muraux quand ils sont lisibles. Une altitude murale absente des réponses reste inconnue. Les confirmations des configurations auxiliaires sont comptées après la vérification déjà effectuée par l'importeur. Aucun achat automatique de capacité de coffre n'est ajouté. Les propriétés supplémentaires non comparées par ce rapport restent à contrôler en jeu.
+
+L'aperçu a été enrichi, mais ne contient pas le moteur complet de rendu Habbo : les ancrages d'images, les animations et certains placements muraux ne sont pas garantis identiques au jeu. Les images et leurs variantes dépendent de la disponibilité de l'imager public HabboAssets. Documentation utilisée : https://www.habboassets.com/api (imaging, direction, state, size).
+
+La session connectée observée le 27 octobre 2026 ne contenait aucun mobi au sol ou au mur. Aucun cycle complet d'export/import ni test de gameplay n'a été réalisé pour cette version.

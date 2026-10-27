@@ -24,6 +24,9 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class PresetConfig implements PresetJsonConfigurable {
+   private extension.tools.sharing.PresetMetadata metadata;
+   public extension.tools.sharing.PresetMetadata getMetadata() { return metadata; }
+   public void setMetadata(extension.tools.sharing.PresetMetadata value) { metadata=value; }
    private List<PresetObjectVariables> objectVariables = new ArrayList<>();
    private PresetWiredRoomSettings wiredRoomSettings;
    private List<PresetRoomLink> roomLinks = new ArrayList<>();
@@ -48,6 +51,7 @@ public class PresetConfig implements PresetJsonConfigurable {
    }
 
    public PresetConfig(JSONObject object) {
+      if(object.has("metadata")) metadata=new extension.tools.sharing.PresetMetadata(object.getJSONObject("metadata"));
       if(object.has("objectVariables")) for(Object item:object.getJSONArray("objectVariables")) objectVariables.add(new PresetObjectVariables((JSONObject)item));
       if(object.has("wiredRoomSettings")) wiredRoomSettings=new PresetWiredRoomSettings(object.getJSONObject("wiredRoomSettings"));
       if (object.has("roomLinks")) for(Object item:object.getJSONArray("roomLinks")) roomLinks.add(new PresetRoomLink((JSONObject)item));
@@ -78,6 +82,7 @@ public class PresetConfig implements PresetJsonConfigurable {
 
    public JSONObject toJsonObject() {
       JSONObject object = new JSONObject();
+      if(metadata!=null)object.put("metadata",metadata.toJsonObject());
       JSONArray jsonFurni = new JSONArray((Collection)this.furniture.stream().map(PresetFurni::toJsonObject).collect(Collectors.toList()));
       JSONArray jsonBindings = new JSONArray((Collection)this.bindings.stream().map(PresetWiredFurniBinding::toJsonObject).collect(Collectors.toList()));
       object.put("furni", jsonFurni);

@@ -97,3 +97,14 @@ python scripts/package.py
 Chaque changement de version poussé sur `master` déclenche le build et les tests sous Windows, puis crée une release avec **le nouveau `.jar`, l'archive complète, les sommes SHA-256 et le rapport de build**. Les versions candidates sont publiées comme préversions. Le workflow peut aussi être relancé manuellement. Voir [RELEASING.md](RELEASING.md).
 
 <p align="center"><sub>Original par <a href="https://github.com/sirjonasxx/G-Presets">sirjonasxx</a> · Modifié par <a href="https://github.com/Tear1338">Tear1338 / Darkz</a> · Créé pour les passionnés de constructions Habbo</sub></p>
+
+
+## Nouveautés 1.5.0
+
+- **Share preset** : nom, description et image de la vue actuelle dans un fichier JSON compatible avec les presets existants. Attendez le chargement des images avant de sauvegarder. L'original est conservé.
+- **Avant import** : le résumé apparaît dans l'aperçu. **Check availability** détaille les objets au sol et au mur, les variantes d'affiches, l'inventaire et les offres BC. Une offre BC ne garantit ni le quota ni les droits de placement.
+- **Check WIRED** : format, doublons, dépendances de variables et catalogue de messages G-Earth. Les références externes sont signalées ; elles peuvent être intentionnelles et doivent être vérifiées dans la salle de destination.
+- **Après import** : fenêtre avec positions/états observés, objets non observés et confirmations de configurations. **Save report** exporte un JSON sans écraser un fichier existant. Les réponses serveur tardives peuvent modifier l'état réel après cette photographie.
+- **Aperçu** : **Rotate view**, **Max height** et **Selected item only** aident à examiner les empilements. Zoom, panoramique et recentrage restent disponibles. Les images proviennent de l'imager public HabboAssets avec orientation et état demandés.
+
+Le rendu des images reste approximatif (ancrages, variantes absentes, murs et animations). La rotation de l'aperçu ne modifie pas le preset ni les coordonnées d'import. Les images indisponibles restent représentées par leur empreinte. Les contrôles locaux et confirmations de sauvegarde ne valident pas les comportements WIRED en jeu ; un cycle réel export/import reste nécessaire.

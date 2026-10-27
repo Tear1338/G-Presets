@@ -64,3 +64,14 @@ python scripts/package.py
 Le build recompile tous les sources applicatifs et la classe HPacket adaptée. `lib/gpresets-runtime.jar` fournit les autres classes G-Earth et dépendances récupérées ; `lib/dependencies` contient les bibliothèques d’interface nécessaires. Le contrôle UI utilise les natives Windows de l’archive ; sans interface/native compatible, reconstruire sans `--ui-smoke`.
 
 Les rapports se trouvent dans `target/build-report.json`, `target/test-results.txt` et `target/ui-test-results.txt`. `changes.patch` et `target/changed-files.json` permettent de relire les modifications ; `target/baseline-sources.zip` conserve les sources applicatives initiales.
+
+
+## Nouveautés 1.5.0
+
+- **Share preset** : nom, description et image de la vue actuelle dans un fichier JSON compatible avec les presets existants. Attendez le chargement des images avant de sauvegarder. L'original est conservé.
+- **Avant import** : le résumé apparaît dans l'aperçu. **Check availability** détaille les objets au sol et au mur, les variantes d'affiches, l'inventaire et les offres BC. Une offre BC ne garantit ni le quota ni les droits de placement.
+- **Check WIRED** : format, doublons, dépendances de variables et catalogue de messages G-Earth. Les références externes sont signalées ; elles peuvent être intentionnelles et doivent être vérifiées dans la salle de destination.
+- **Après import** : fenêtre avec positions/états observés, objets non observés et confirmations de configurations. **Save report** exporte un JSON sans écraser un fichier existant. Les réponses serveur tardives peuvent modifier l'état réel après cette photographie.
+- **Aperçu** : **Rotate view**, **Max height** et **Selected item only** aident à examiner les empilements. Zoom, panoramique et recentrage restent disponibles. Les images proviennent de l'imager public HabboAssets avec orientation et état demandés.
+
+Le rendu des images reste approximatif (ancrages, variantes absentes, murs et animations). La rotation de l'aperçu ne modifie pas le preset ni les coordonnées d'import. Les images indisponibles restent représentées par leur empreinte. Les contrôles locaux et confirmations de sauvegarde ne valident pas les comportements WIRED en jeu ; un cycle réel export/import reste nécessaire.

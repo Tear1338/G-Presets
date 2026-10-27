@@ -467,6 +467,53 @@ public final class RegressionTests {
       fails(()->new PresetPreviewModel.Footprint(0,1),"invalid furniture dimensions rejected");
    }
 
+   private static void release150Tests() throws Exception {
+      var point=extension.tools.preview.PreviewGeometry.project(1,0,0,0,true);
+      check(point.x()==32 && point.y()==16,"64px isometric tile projection");
+      var raised=extension.tools.preview.PreviewGeometry.project(1,0,1,0,true);
+      check(raised.y()==-16,"height unit uses 32px projection");
+      var rotated=extension.tools.preview.PreviewGeometry.project(1,0,0,1,true);
+      check(rotated.x()==-32 && rotated.y()==16,"camera quarter turn preserves geometry");
+      check(extension.tools.preview.PreviewGeometry.project(1,0,7,4,false).equals(point),"four turns and hidden heights preserve base position");
+      var metadata=new extension.tools.sharing.PresetMetadata("A shared preset","Description with accents: \u00e9","");
+      PresetConfig preset=emptyPreset();preset.setMetadata(metadata);
+      PresetConfig restored=new PresetConfig(preset.toJsonObject());
+      check(restored.getMetadata().equals(metadata),"shared metadata survives load and serialization");
+      fails(()->new extension.tools.sharing.PresetMetadata(" ","",""),"empty sharing title rejected");
+      fails(()->new extension.tools.sharing.PresetMetadata("Name","x".repeat(4001),""),"description size bound");
+      fails(()->new extension.tools.sharing.PresetMetadata("Name","","aGVsbG8="),"non-image preview rejected");
+      var png=new java.awt.image.BufferedImage(2,2,java.awt.image.BufferedImage.TYPE_INT_ARGB);
+      var stream=new java.io.ByteArrayOutputStream();javax.imageio.ImageIO.write(png,"png",stream);
+      String encoded=Base64.getEncoder().encodeToString(stream.toByteArray());
+      check(new extension.tools.sharing.PresetMetadata("Name","",encoded).imagePng().equals(encoded),"embedded PNG retained losslessly");
+      for(var source:extension.tools.postconfig.ItemSource.values()) {
+         String result=extension.tools.importutils.AvailabilityAudit.evaluate(2,0,null,source);
+         check(result.equals(source==extension.tools.postconfig.ItemSource.ONLY_INVENTORY?"MISSING":"UNKNOWN"),"unloaded BC cannot imply availability: "+source);
+      }
+      check(extension.tools.importutils.AvailabilityAudit.evaluate(2,2,false,extension.tools.postconfig.ItemSource.ONLY_BC).equals("MISSING"),"BC-only never consumes inventory");
+      check(extension.tools.importutils.AvailabilityAudit.evaluate(2,0,true,extension.tools.postconfig.ItemSource.PREFER_INVENTORY).equals("CATALOG_OFFER"),"catalog availability distinguishes offer from confirmed placement");
+      check(extension.tools.importutils.AvailabilityAudit.evaluate(2,2,null,extension.tools.postconfig.ItemSource.ONLY_INVENTORY).equals("AVAILABLE"),"inventory-only independent of BC readiness");
+      check(extension.tools.importutils.ImportReport.floorMatches(1,2,3,2,1,2,3.001,2),"report allows server height rounding");
+      check(!extension.tools.importutils.ImportReport.floorMatches(1,2,3,2,1,2,3,4),"report detects incorrect furniture direction");
+      check(!extension.tools.importutils.ImportReport.floorMatches(1,2,3,2,1,3,3,2),"report detects incorrect floor position");
+      check(extension.tools.importutils.ImportReport.wallMatches(new WallPosition(1,2,3,4,'l',0),new WallPosition(1,2,3,4,'l',100)),"wall position check independent of unreported altitude");
+      check(!extension.tools.importutils.ImportReport.wallMatches(new WallPosition(1,2,3,4,'l',0),new WallPosition(1,2,3,5,'l',0)),"report detects wall pixel-offset mismatch");
+      PresetConfig messagePreset=new PresetConfig(emptyPreset().toJsonObject());
+      messagePreset.getPresetWireds().getEffects().add(new PresetWiredEffect(definition().put("delay",0)));
+      JSONObject catalogReport=extension.tools.importutils.WiredDiagnostics.inspect(messagePreset);
+      extension.tools.importutils.WiredDiagnostics.checkMessages(messagePreset,catalogReport,(direction,name)->!name.equals("UpdateAction"));
+      check(catalogReport.getJSONArray("messages").length()==3,"WIRED check includes save message, acknowledgement and rejection");
+      check(catalogReport.getJSONArray("issues").toString().contains("UpdateAction"),"missing packet catalog entry appears in diagnostics");
+      var diagnostic=extension.tools.importutils.WiredDiagnostics.inspect(emptyPreset());
+      check(diagnostic.getString("gameplay").equals("NOT_TESTED"),"local diagnostics never claim gameplay verified");
+      PresetConfig bad=new PresetConfig(emptyPreset().toJsonObject());var a=new PresetFurni(7,"table",new HPoint(1,2,0),0,null);a.setFurniName("table[0]");bad.getFurniture().add(a);bad.getFurniture().add(a);
+      check(extension.tools.importutils.WiredDiagnostics.inspect(bad).getJSONArray("issues").length()>0,"duplicate furniture IDs diagnosed");
+      PresetConfig wallPreset=new PresetConfig(emptyPreset().toJsonObject());var wall=new PresetWallFurni(7,"poster",new WallPosition(1,2,3,4,'l',0),"1");wall.setFurniName("poster[0]");wallPreset.getWallFurniture().add(wall);wallPreset.getFurniture().add(a);
+      var unloaded=extension.tools.importutils.AvailabilityAudit.inspect(wallPreset,new PostConfig(),null,null,null,false);
+      check(unloaded.getJSONArray("items").length()==2,"preflight keeps floor and wall ID spaces separate");
+      check(extension.tools.importutils.AvailabilityAudit.text(unloaded).contains("UNKNOWN"),"unloaded inventory represented explicitly");
+   }
+
    private static void pauseGateTests() throws Exception {
       extension.tools.importutils.ImportPauseGate gate = new extension.tools.importutils.ImportPauseGate();
       java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
@@ -491,6 +538,7 @@ public final class RegressionTests {
 
    public static void main(String[] args) throws Exception {
       pauseGateTests();
+      release150Tests();
       byte[] wireBytes = new byte[256]; for (int i=0;i<256;i++) wireBytes[i]=(byte)i;
       String wireString = new String(wireBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
       HPacket envelope = new HPacket(1); envelope.appendLongString(wireString);

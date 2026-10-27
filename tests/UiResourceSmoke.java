@@ -41,9 +41,18 @@ public final class UiResourceSmoke {
             PresetFurni stacked=new PresetFurni(4,"wf_trg_says_something",new HPoint(1,2,1.5),0,null);stacked.setFurniName("wired[1]");
             PresetConfig sample=new PresetConfig(new ArrayList<>(List.of(f,table,flower,stacked)),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
             PresetPreviewPane pane=new PresetPreviewPane(new PresetPreviewModel(sample,new PostConfig(),name->name.equals("table")?new PresetPreviewModel.Footprint(2,1):new PresetPreviewModel.Footprint(1,1)),"Exemple",12,13);
+            pane.setPresetDescription("A shared preset description");
             Scene scene=new Scene(pane,1040,720);pane.applyCss();pane.layout();
             if(pane.getCanvas().getWidth()<200 || pane.getItemList().getItems().size()!=4)throw new AssertionError("Preview layout missing");
             pane.getItemList().getSelectionModel().select(0);
+            var turn=(javafx.scene.control.Button)pane.lookup("#turnView");if(turn==null)throw new AssertionError("Camera rotation button missing");turn.fire();turn.fire();turn.fire();turn.fire();
+            String png=extension.tools.sharing.PreviewImages.png(pane.getCanvas());
+            var shared=new extension.tools.sharing.PresetMetadata("UI snapshot","Description",png);
+            sample.setMetadata(shared);
+            pane.setSharedMetadata(shared);
+            pane.applyCss();pane.layout();
+            if(!new PresetConfig(sample.toJsonObject()).getMetadata().equals(shared))throw new AssertionError("Shared image round trip failed");
+
             int[] confirmations={0},closes={0};
             pane.setActions(()->{confirmations[0]++;return true;},()->closes[0]++);
             int[] availabilityChecks={0}; pane.setAvailabilityAction(()->{availabilityChecks[0]++;pane.setAvailabilitySummary("Test summary");});
@@ -61,6 +70,7 @@ public final class UiResourceSmoke {
             javafx.scene.image.PixelReader reader=snapshot.getPixelReader();
             for(int y=0;y<screenshot.getHeight();y++)for(int x=0;x<screenshot.getWidth();x++)screenshot.setRGB(x,y,reader.getArgb(x,y));
             javax.imageio.ImageIO.write(screenshot,"png",new java.io.File("target/preview-ui-smoke.png"));
+            pane.close();
             PreviewImportFlow.run();
             System.out.println("PASS: preview canvas/layout, selection, launch availability, confirm and cancel");
             System.out.println("PASS: packaged JavaFX FXML, controller bindings and CSS; no hotel connection");

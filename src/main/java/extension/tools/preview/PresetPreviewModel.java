@@ -42,7 +42,7 @@ public final class PresetPreviewModel {
          // Wall offsets are pixels and cannot be converted into floor tile footprints.
          double x=f.getLocation().getX(),y=f.getLocation().getY(),z=f.getLocation().getAltitude()/100.0;
          requireFinite(x,y,z);
-         entries.add(new Item(f.getFurniId(),f.getClassName(),displayName(f.getFurniName(),f.getClassName()),x,y,z,0,1,1,true,false,false,f.getState(),f.getLocation().toString()));
+         entries.add(new Item(f.getFurniId(),f.getClassName(),displayName(f.getFurniName(),f.getClassName()),x,y,z,f.getLocation().getDirection()=='l'?2:4,1,1,true,false,false,f.getState(),f.getLocation().toFullString()));
       }
       entries.sort(Comparator.comparingDouble((Item i)->i.x()+i.y()).thenComparingDouble(Item::z).thenComparingInt(Item::id));
       items=List.copyOf(entries);approximateCount=uncertain;

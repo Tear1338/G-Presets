@@ -7,6 +7,8 @@ import extension.parsers.HVariableDiff;
 import extension.parsers.HWiredLinkConfiguration;
 import extension.parsers.HWiredVariablesForObject;
 import extension.tools.importutils.AvailabilityChecker;
+import extension.tools.importutils.ImportReport;
+import extension.tools.importutils.WiredDiagnostics;
 import extension.tools.importutils.FurniDropInfo;
 import extension.tools.importutils.FurniMoveInfo;
 import extension.tools.importutils.StackTileInfo;
@@ -118,7 +120,11 @@ public class GPresetImporter {
       return true;
    }
    public boolean isPauseRequested() { return pauseGate.isPaused(); }
+   private final Map<String,Integer> reportOtherCounts=new java.util.concurrent.ConcurrentHashMap<>();
    private volatile int confirmedWiredCount;
+   private final Map<Integer,Integer> reportWallIds=new java.util.concurrent.ConcurrentHashMap<>();
+   private final Map<Integer,Integer> reportFloorIds=new java.util.concurrent.ConcurrentHashMap<>();
+   private final Set<Integer> reportWiredIds=java.util.concurrent.ConcurrentHashMap.newKeySet();
    private volatile int mainStackTile;
    private volatile int mainStackDimensions;
    private HPoint useRoomFurniRectCorner1;
@@ -516,11 +522,18 @@ public class GPresetImporter {
          this.workingPresetConfig = new PresetConfig(source.toJsonObject());
          this.wallFurniturePlaced = false;
          this.confirmedWiredCount=0;
+         this.reportWallIds.clear();this.reportFloorIds.clear();this.reportWiredIds.clear();this.reportOtherCounts.clear();
          this.realVariableIdMap.clear();
          this.variableSnapshot.clear();
          this.variableReadError = null;
          this.realFurniIdMap = this.workingPresetConfig.applyPostConfig(this.importPostConfig());
+         this.rootLocation=null;this.importZDelta=0;
          try {
+            var checks=WiredDiagnostics.inspect(source);
+            for(Object value:checks.getJSONArray("issues")) {
+               org.json.JSONObject issue=(org.json.JSONObject)value;
+               if(issue.getString("severity").equals("ERROR"))throw new IllegalArgumentException(issue.getString("message"));
+            }
             if (!this.workingPresetConfig.getWiredLinks().isEmpty() &&
                 (this.extension.getPacketInfoManager().getPacketInfoFromName(HMessage.Direction.TOSERVER, "WiredLinkGetConfiguration") == null ||
                  this.extension.getPacketInfoManager().getPacketInfoFromName(HMessage.Direction.TOSERVER, "WiredLinkSaveConfiguration") == null ||
@@ -1032,6 +1045,7 @@ public class GPresetImporter {
             if (!this.extension.allowIncompleteBuilds()) {
                this.state = GPresetImporter.BuildingImportState.NONE;
                this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find the item '%s' in BC warehouse.. aborting", className));
+               this.reportImport("Import incomplete: required furniture unavailable");
             } else {
                this.extension.sendVisualChatInfo(String.format("Couldn't find the item '%s' in BC warehouse.. continuing", className));
             }
@@ -1046,6 +1060,7 @@ public class GPresetImporter {
             if (!this.extension.allowIncompleteBuilds()) {
                this.state = GPresetImporter.BuildingImportState.NONE;
                this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find '%s' in inventory.. aborting", className));
+               this.reportImport("Import incomplete: required furniture unavailable");
             } else {
                this.extension.sendVisualChatInfo(String.format("Couldn't find '%s' in inventory.. continuing", className));
             }
@@ -1068,6 +1083,7 @@ public class GPresetImporter {
                this.state = GPresetImporter.BuildingImportState.NONE;
                this.extension.getLogger().log(String.format("[UseRoomFurni] ERROR: '%s' not found in rectangle (roomItems remaining=%d)", className, this.roomItemsList.size()), "red");
                this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find '%s' in inventory or room.. aborting", className));
+               this.reportImport("Import incomplete: required furniture unavailable");
             } else {
                this.extension.getLogger().log(String.format("[UseRoomFurni] WARN: '%s' not found in rectangle, continuing", className), "orange");
                this.extension.sendVisualChatInfo(String.format("Couldn't find '%s' in inventory or room.. continuing", className));
@@ -1251,6 +1267,7 @@ public class GPresetImporter {
             if (presetWired instanceof PresetWiredVariable && !refreshVariableMap()) {
                return failWiredImport("Variable saved, but its new ID could not be read; import stopped");
             }
+            this.reportWiredIds.add(presetWired.getWiredId());
             return true;
          }
       }
@@ -1259,19 +1276,13 @@ public class GPresetImporter {
 
    private void reportImport(String outcome) {
       if(this.workingPresetConfig==null)return;
-      java.util.List<PresetFurni> unresolved=new ArrayList<>();
-      int resolved=0;
-      synchronized(this.lock) {
-         for(PresetFurni item:this.workingPresetConfig.getFurniture()) {
-            if(this.realFurniIdMap.containsKey(item.getFurniId()))resolved++;else unresolved.add(item);
-         }
-      }
-      this.extension.getLogger().log(outcome + ": " + resolved + "/" + this.workingPresetConfig.getFurniture().size() + " floor furniture IDs resolved; " + unresolved.size() + " unconfirmed.","orange");
-      if(!unresolved.isEmpty()) {
-         String names=unresolved.stream().limit(20).map(PresetFurni::getFurniName).map(String::valueOf).collect(Collectors.joining(", "));
-         this.extension.getLogger().log("Unconfirmed: " + names + (unresolved.size()>20?" ...":""),"orange");
-      }
-      this.extension.getLogger().log("WIRED configurations confirmed: " + confirmedWiredCount + "; wall items are not included in this report.","orange");
+      try {
+         Map<Integer,Integer> floors=new HashMap<>();
+         synchronized(this.lock) {for(var item:this.workingPresetConfig.getFurniture()) {Integer id=this.reportFloorIds.getOrDefault(item.getFurniId(),this.realFurniIdMap.get(item.getFurniId()));if(id!=null)floors.put(item.getFurniId(),id);}}
+         org.json.JSONObject report=ImportReport.capture(outcome,this.workingPresetConfig,floors,new HashMap<>(reportWallIds),new HashSet<>(reportWiredIds),this.extension.getFloorState(),this.rootLocation,this.importZDelta,this.activeImportRoomId);
+         report.getJSONObject("otherConfigurations").put("confirmed",new org.json.JSONObject(reportOtherCounts));
+         this.extension.showImportReport(report);
+      } catch(RuntimeException error){this.extension.getLogger().log("Cannot capture import report: "+error.getMessage(),"orange");}
    }
 
    private boolean failWiredImport(String reason) {
@@ -1407,7 +1418,7 @@ public class GPresetImporter {
          if(this.state!=BuildingImportState.MOVE_FURNITURE) return;
          if(!this.extension.sendToServer(PresetWiredRoomSettings.requestPacket()) || !this.roomSettingsResponse.tryAcquire(5L,TimeUnit.SECONDS) || !settings.matches(this.receivedRoomSettings)) {
             failWiredImport("WIRED room settings were not confirmed");
-         }
+         } else {this.reportOtherCounts.merge("roomSettings",1,Integer::sum);}
       } catch(InterruptedException error) { Thread.currentThread().interrupt();failWiredImport("Room settings import interrupted"); }
       finally { this.awaitingRoomSettings=false; }
    }
@@ -1451,6 +1462,7 @@ public class GPresetImporter {
          if(actual==null || !java.util.Arrays.equals(packetPayload(save),packetPayload(actual.savePacket(this.extension.getFurniDataTools())))) {
             return failWiredImport("Contract settings were not confirmed for " + id);
          }
+         this.reportOtherCounts.merge("contracts",1,Integer::sum);
       }
       return this.state==BuildingImportState.SETUP_WIRED;
    }
@@ -1470,6 +1482,7 @@ public class GPresetImporter {
             if(!fetchObjectVariables(mapped.target,mapped.objectId,3000L) || !mapped.matches(this.inspectedFurniVariables.getOrDefault(mapped.objectId,Collections.emptyMap()))) {
                failWiredImport("Variable values not confirmed for holder " + mapped.objectId);return;
             }
+            this.reportOtherCounts.merge("objectVariables",1,Integer::sum);
          } catch(RuntimeException error) { failWiredImport(error.getMessage());return; }
       }
    }
@@ -1484,6 +1497,7 @@ public class GPresetImporter {
          Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
          boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==(original.destination.isEmpty()?0:Integer.parseInt(original.destination));
          if(!confirmed) return failWiredImport("Room linker destination not confirmed for " + id);
+         this.reportOtherCounts.merge("roomLinks",1,Integer::sum);
       }
       return this.state==BuildingImportState.SETUP_WIRED;
    }
@@ -1506,6 +1520,7 @@ public class GPresetImporter {
             Utils.sleep(200);
          }
          if(!confirmed) return failWiredImport("Chest settings/capacity not confirmed for " + id + "; capacity upgrades are not purchased automatically");
+         this.reportOtherCounts.merge("chests",1,Integer::sum);
       }
       return this.state==BuildingImportState.SETUP_WIRED;
    }
@@ -1556,6 +1571,7 @@ public class GPresetImporter {
          if (actual == null || !mapped.networkId.equals(actual.configuration.networkId) || mapped.receiveLocal != actual.configuration.receiveLocal) {
             return failWiredImport("WIRED Link settings were not confirmed for " + id);
          }
+         this.reportOtherCounts.merge("links",1,Integer::sum);
       }
       return this.state == BuildingImportState.SETUP_WIRED;
    }
@@ -1598,6 +1614,7 @@ public class GPresetImporter {
                failWiredImport("No confirmation for WIRED label " + id);
                return;
             }
+            this.reportOtherCounts.merge("labels",1,Integer::sum);
          } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             failWiredImport("WIRED label import interrupted");
@@ -1887,6 +1904,7 @@ public class GPresetImporter {
    private void placeWallItems() { placeWallItems(BuildingImportState.MOVE_FURNITURE); }
 
    private void placeWallItems(BuildingImportState phase) {
+      for(var item:this.workingPresetConfig.getFurniture()){Integer id=this.realFurniIdMap.get(item.getFurniId());if(id!=null)this.reportFloorIds.putIfAbsent(item.getFurniId(),id);}
       if (this.wallFurniturePlaced || this.state != phase) return;
       List<PresetWallFurni> wallFurniture = this.workingPresetConfig.getWallFurniture();
       if (wallFurniture != null && !wallFurniture.isEmpty()) {
@@ -2008,6 +2026,7 @@ public class GPresetImporter {
                      if (!this.extension.allowIncompleteBuilds()) {
                         this.state = GPresetImporter.BuildingImportState.NONE;
                         this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find wall item '%s' in BC catalog.. aborting", className));
+                        this.reportImport("Import incomplete: required furniture unavailable");
                      } else {
                         this.extension.sendVisualChatInfo(String.format("Couldn't find wall item '%s' in BC catalog.. continuing", className));
                      }
@@ -2034,6 +2053,7 @@ public class GPresetImporter {
                   if (inventoryItems.isEmpty()) {
                      if (!this.extension.allowIncompleteBuilds()) {
                         this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find wall item '%s' (state=%s) in inventory.. aborting", className, wallState));
+                        this.reportImport("Import incomplete: required furniture unavailable");
                         this.state = GPresetImporter.BuildingImportState.NONE;
                         return;
                      }
@@ -2080,6 +2100,7 @@ public class GPresetImporter {
                }
 
                if (newWallItemId != -1) {
+                  this.reportWallIds.put(wallFurni.getFurniId(),newWallItemId);
                   this.realFurniIdMap.put(wallFurni.getFurniId(), newWallItemId);
                   this.realFurniIdMap.put(-wallFurni.getFurniId(), -newWallItemId);
                   placedWallTracking.add(new int[]{newWallItemId, absX, absY, absAltitude, relPos.getOffsetX(), offY, relPos.getDirection()});
@@ -2438,6 +2459,7 @@ public class GPresetImporter {
          }
          if (!saved) return;
          this.confirmedWiredCount++;
+
       }
 
       synchronized(this.lock) {
@@ -2501,6 +2523,7 @@ public class GPresetImporter {
                   this.state = GPresetImporter.BuildingImportState.NONE;
                   this.extension.sendVisualChatInfo("ERROR: not all furniture were placed");
                   this.extension.getLogger().log("ERROR: not all furniture were placed", "red");
+                  this.reportImport("Import incomplete: floor placement not confirmed");
                } else {
                   this.state = GPresetImporter.BuildingImportState.SETUP_ADS;
                }

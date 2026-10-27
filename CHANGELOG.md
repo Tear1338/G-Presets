@@ -1,3 +1,13 @@
+## 1.5.0
+
+- Share a backward-compatible preset JSON containing a name, description and embedded PNG preview; show shared images when reopening a preset.
+- Check floor and wall inventory availability before import, including poster variants, selected source and unknown BC catalog state. Catalog offers do not guarantee quota or room rights.
+- Export detailed preflight and import reports. Compare observed floor/wall positions, directions and states; report missing observations, unknown wall heights and WIRED acknowledgements separately.
+- Record confirmation counts for contracts, chests, links, labels, room settings and object variables.
+- Diagnose duplicate IDs, WIRED variable cycles, external references, unsupported payloads and missing G-Earth message catalog entries. Block invalid local configurations before placement.
+- Add preview camera rotation, height filtering, selected-item isolation, sprite hit selection, wall images and corrected height projection.
+- Test metadata/image round trips, geometry, availability source rules, diagnostics and report comparisons. Full gameplay and pixel-exact preview alignment remain unverified.
+
 ## 1.4.9
 
 - Pause and resume import between operations; abort if the room changes while paused.
