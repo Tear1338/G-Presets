@@ -100,6 +100,7 @@ public class GPresetImporter {
    private volatile HWiredLinkConfiguration receivedLink;
    private Map<String, LinkedList<Integer>> expectFurniDrops = null;
    private volatile BuildingImportState state;
+   private volatile int confirmedWiredCount;
    private volatile int mainStackTile;
    private volatile int mainStackDimensions;
    private HPoint useRoomFurniRectCorner1;
@@ -418,6 +419,7 @@ public class GPresetImporter {
          if (text.equals(":abort") || text.equals(":a")) {
             hMessage.setBlocked(true);
             if (this.state != GPresetImporter.BuildingImportState.NONE) {
+               this.reportImport("Import aborted");
                this.reset();
                this.extension.sendVisualChatInfo("Successfully aborted importing");
             }
@@ -494,6 +496,7 @@ public class GPresetImporter {
          this.activePostConfig=new PostConfig(options);
          this.workingPresetConfig = new PresetConfig(source.toJsonObject());
          this.wallFurniturePlaced = false;
+         this.confirmedWiredCount=0;
          this.realVariableIdMap.clear();
          this.variableSnapshot.clear();
          this.variableReadError = null;
@@ -727,6 +730,7 @@ public class GPresetImporter {
                this.extension.updatePreviewAvailability();
                this.extension.sendVisualChatInfo("Imported the preset successfully");
                this.extension.getLogger().log("Finished importing the preset!", "green");
+            this.reportImport("Import finished");
             this.extension.setImportProgress("Import complete",1,1);
             }
 
@@ -1233,8 +1237,26 @@ public class GPresetImporter {
       return failWiredImport("No save confirmation for WIRED " + presetWired.getWiredId() + " after 3 attempts");
    }
 
+   private void reportImport(String outcome) {
+      if(this.workingPresetConfig==null)return;
+      java.util.List<PresetFurni> unresolved=new ArrayList<>();
+      int resolved=0;
+      synchronized(this.lock) {
+         for(PresetFurni item:this.workingPresetConfig.getFurniture()) {
+            if(this.realFurniIdMap.containsKey(item.getFurniId()))resolved++;else unresolved.add(item);
+         }
+      }
+      this.extension.getLogger().log(outcome + ": " + resolved + "/" + this.workingPresetConfig.getFurniture().size() + " floor furniture IDs resolved; " + unresolved.size() + " unconfirmed.","orange");
+      if(!unresolved.isEmpty()) {
+         String names=unresolved.stream().limit(20).map(PresetFurni::getFurniName).map(String::valueOf).collect(Collectors.joining(", "));
+         this.extension.getLogger().log("Unconfirmed: " + names + (unresolved.size()>20?" ...":""),"orange");
+      }
+      this.extension.getLogger().log("WIRED configurations confirmed: " + confirmedWiredCount + "; wall items are not included in this report.","orange");
+   }
+
    private boolean failWiredImport(String reason) {
       this.extension.getLogger().log("Import incomplete: " + reason, "red");
+      this.reportImport("Import incomplete");
       this.extension.sendVisualChatInfo("Import incomplete; see G-Presets logs");
       this.reset();
       return false;
@@ -1344,6 +1366,7 @@ public class GPresetImporter {
             this.extension.updatePreviewAvailability();
                this.extension.sendVisualChatInfo("Imported the preset successfully");
             this.extension.getLogger().log("Finished importing the preset!", "green");
+            this.reportImport("Import finished");
             this.extension.setImportProgress("Import complete",1,1);
          }
 
@@ -2380,6 +2403,7 @@ public class GPresetImporter {
             this.moveFurni(furniMoveInfo.getFurniId(), furniMoveInfo.getX(), furniMoveInfo.getY(), furniMoveInfo.getRotation(), furniMoveInfo.useStackTile(), altitude);
          }
          if (!saved) return;
+         this.confirmedWiredCount++;
       }
 
       synchronized(this.lock) {

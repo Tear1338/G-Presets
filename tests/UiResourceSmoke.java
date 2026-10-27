@@ -23,6 +23,7 @@ public final class UiResourceSmoke {
             FXMLLoader loader=new FXMLLoader(GPresets.class.getResource("ui/gpresets.fxml"));
             loader.setControllerFactory(type->new GPresets(){ @Override public void initialize() { } });
             Parent root=loader.load();GPresets controller=loader.getController();
+            if(controller.presetSearch==null)throw new AssertionError("Preset search missing");
             if(controller.importProgressLabel==null || controller.importProgressBar==null) throw new AssertionError("Import progress UI missing");
             if(root==null || controller.noExportFurniVariablesCbx==null || controller.logsBorderPane==null) throw new AssertionError("Missing FXML bindings");
             if(controller.previewBtn==null || controller.previewBeforeImportCbx==null || !controller.previewBeforeImportCbx.isSelected())throw new AssertionError("Preview controls/default missing");

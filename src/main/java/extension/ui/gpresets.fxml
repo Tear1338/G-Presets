@@ -58,7 +58,8 @@
                         <Button layoutX="22.0" layoutY="203.0" mnemonicParsing="false" onAction="#loadBCClick" prefHeight="25.0" prefWidth="160.0" text="Load BC Catalog" />
                      </children>
                   </AnchorPane>
-                  <ListView fx:id="presetListView" layoutX="527.0" layoutY="12.0" prefHeight="166.0" prefWidth="146.0" />
+                  <TextField fx:id="presetSearch" layoutX="527.0" layoutY="12.0" prefWidth="146.0" promptText="Search presets" />
+                  <ListView fx:id="presetListView" layoutX="527.0" layoutY="42.0" prefHeight="136.0" prefWidth="146.0" />
                   <Button fx:id="selfDonateBtn" layoutX="527.0" layoutY="150.0" mnemonicParsing="false" onAction="#selfDonateBtnClick" prefHeight="25.0" prefWidth="147.0" text="Self-donate furni" visible="false" />
                   <Button fx:id="previewBtn" layoutX="527.0" layoutY="185.0" mnemonicParsing="false" onAction="#previewBtnClick" prefHeight="30.0" prefWidth="147.0" text="Preview preset" />
                   <Button fx:id="availabilityBtn" layoutX="527.0" layoutY="225.0" mnemonicParsing="false" onAction="#availabilityBtnClick" prefHeight="25.0" prefWidth="147.0" text="Check Availability" />
@@ -110,6 +111,7 @@
                   </RadioButton>
                   <RadioButton fx:id="donateAll" layoutX="245.0" layoutY="111.0" mnemonicParsing="false" selected="false" text="All items in export" toggleGroup="$donate_tgl" userData="ALL_ITEMS" visible="false" />
                   <CheckBox fx:id="previewBeforeImportCbx" layoutX="187.0" layoutY="255.0" mnemonicParsing="false" selected="true" text="Preview before import (:ip)" />
+                  <Button layoutX="522.0" layoutY="265.0" mnemonicParsing="false" onAction="#sharePresetClick" prefHeight="25.0" prefWidth="150.0" text="Save preset copy" />
                   <CheckBox fx:id="useRoomFurniCbx" layoutX="14.0" layoutY="106.0" mnemonicParsing="false" text="Use room furni" />
                </children></AnchorPane>
       </content>

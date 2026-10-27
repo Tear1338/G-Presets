@@ -78,7 +78,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "edit by 1desirable1337",
-   Version = "1.4.6",
+   Version = "1.4.7",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
@@ -97,6 +97,7 @@ public class GPresets extends ExtensionForm {
    public RadioButton onlyBcCbx;
    public ToggleGroup item_src_tgl;
    public ListView<String> presetListView;
+   public TextField presetSearch;
    public Label donateLabel;
    public RadioButton donateMissing;
    public RadioButton donateAll;
@@ -237,6 +238,7 @@ public class GPresets extends ExtensionForm {
       this.floorState.requestRoom(this);
       this.updateUI();
       this.updateInstalledPresets();
+      this.presetSearch.textProperty().addListener((o,oldValue,newValue)->this.updateInstalledPresets());
       this.item_src_tgl.selectedToggleProperty().addListener((o) -> this.updatePostConfig());
       this.presetListView.setOnMouseClicked((event) -> {
          if (event.getButton().equals(MouseButton.PRIMARY) && event.getClickCount() == 2) {
@@ -352,8 +354,11 @@ public class GPresets extends ExtensionForm {
    public void updateInstalledPresets() {
       List<String> installed = PresetConfigUtils.listPresets();
       Platform.runLater(() -> {
-         this.presetListView.getItems().clear();
-         this.presetListView.getItems().addAll(installed);
+         String selected=this.presetListView.getSelectionModel().getSelectedItem();
+         String query=this.presetSearch==null?"":this.presetSearch.getText().strip().toLowerCase(java.util.Locale.ROOT);
+         List<String> filtered=installed.stream().filter(name->name.toLowerCase(java.util.Locale.ROOT).contains(query)).sorted(String.CASE_INSENSITIVE_ORDER).collect(Collectors.toList());
+         this.presetListView.getItems().setAll(filtered);
+         if(selected!=null && filtered.contains(selected))this.presetListView.getSelectionModel().select(selected);
       });
    }
 
@@ -453,7 +458,7 @@ public class GPresets extends ExtensionForm {
             if(this.primaryStage!=null){stage.initOwner(this.primaryStage);stage.initModality(Modality.WINDOW_MODAL);}
             stage.setTitle("G-Presets - Preset Preview");
             PresetPreviewPane pane=new PresetPreviewPane(model,this.selectedPresetName,session.rootX,session.rootY);
-            pane.setActions(confirm,stage::close);pane.setAvailabilityAction(()->pane.setAvailabilitySummary(previewAvailability(session)));pane.updateLaunchAvailability(canConfirm.getAsBoolean());
+            pane.setActions(confirm,stage::close);pane.setAvailabilityAction(()->pane.setAvailabilitySummary(previewAvailability(session)));pane.setCompatibilityAction(()->pane.setAvailabilitySummary(previewWiredCompatibility(session)));pane.updateLaunchAvailability(canConfirm.getAsBoolean());
             Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
             refresh.setCycleCount(Timeline.INDEFINITE);
             stage.setOnHidden(e->{refresh.stop();pane.close();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
@@ -465,6 +470,21 @@ public class GPresets extends ExtensionForm {
             cancel.run();this.logger.log("Cannot open preset preview: "+error.getMessage(),"red");
          }
       });
+   }
+
+   private String previewWiredCompatibility(PresetPreviewSession session) {
+      try {
+         var wireds=session.preset().getPresetWireds().getAll();
+         List<String> issues=new ArrayList<>();int generated=0;
+         for(var wired:wireds) {
+            try { wired.toPacket(); generated++; }
+            catch(RuntimeException error) { issues.add("WIRED "+wired.getWiredId()+": "+error.getMessage()); }
+         }
+         String summary="WIRED format: "+generated+"/"+wireds.size()+" generated locally; not verified in Habbo.";
+         if(!issues.isEmpty()) summary+=" Unsupported or invalid: "+String.join("; ",issues);
+         summary+=" Other item types and permissions still require verification.";
+         return summary;
+      } catch(RuntimeException error) { return "WIRED compatibility unknown: "+error.getMessage(); }
    }
 
    private String previewAvailability(PresetPreviewSession session) {
@@ -524,7 +544,7 @@ public class GPresets extends ExtensionForm {
          this.donateLabel.setVisible(show);
          this.donateAll.setVisible(show);
          this.donateMissing.setVisible(show);
-         this.presetListView.setPrefHeight(show?132:166);
+         this.presetListView.setPrefHeight(show?102:136);
       });
    }
 
@@ -547,6 +567,27 @@ public class GPresets extends ExtensionForm {
          }
       }
 
+   }
+
+   public void sharePresetClick(ActionEvent event) {
+      String name=this.presetListView.getSelectionModel().getSelectedItem();
+      if(name==null){this.logger.log("Select a preset first", "orange");return;}
+      try {
+         java.nio.file.Path source=PresetConfigUtils.resolvePresetFile(name);
+         if(!java.nio.file.Files.isRegularFile(source)){this.logger.log("Preset file not found", "red");return;}
+         javafx.stage.FileChooser chooser=new javafx.stage.FileChooser();
+         chooser.setTitle("Save a copy of the preset");
+         chooser.getExtensionFilters().add(new javafx.stage.FileChooser.ExtensionFilter("G-Presets JSON", "*.json"));
+         chooser.setInitialFileName(name+".json");
+         File target=chooser.showSaveDialog(this.primaryStage);
+         if(target==null)return;
+         java.nio.file.Files.copy(source,target.toPath());
+         this.logger.log("Preset copy saved", "green");
+      } catch(java.nio.file.FileAlreadyExistsException exists) {
+         this.logger.log("File already exists; choose a different name", "orange");
+      } catch(Exception error) {
+         this.logger.log("Cannot save preset copy: "+error.getMessage(), "red");
+      }
    }
 
    public void reloadPresetsClick(ActionEvent actionEvent) {

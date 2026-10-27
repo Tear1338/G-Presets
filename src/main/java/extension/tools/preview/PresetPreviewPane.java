@@ -41,6 +41,7 @@ public final class PresetPreviewPane extends BorderPane {
    private double scale,offsetX,offsetY;
    private final Integer originX,originY;
    private Runnable availabilityAction;
+   private Runnable compatibilityAction;
    private record Point(double x,double y) { }
    private record Hit(PresetPreviewModel.Item item,double[] x,double[] y) { }
 
@@ -85,6 +86,9 @@ public final class PresetPreviewPane extends BorderPane {
       availability.setWrapText(true); availability.setStyle("-fx-text-fill:#334155;");
       Button checkAvailability=new Button("Check availability"); checkAvailability.setId("checkAvailability"); checkAvailability.setOnAction(e->{if(availabilityAction!=null)availabilityAction.run();});
       actions.getChildren().add(0,checkAvailability);
+      Button checkCompatibility=new Button("Check WIRED");
+      checkCompatibility.setOnAction(e->{if(compatibilityAction!=null)compatibilityAction.run();});
+      actions.getChildren().add(1,checkCompatibility);
       VBox footer=new VBox(8,limitations,availability,status,actions);footer.setPadding(new Insets(12,0,0,0));setBottom(footer);
       canvas.setOnScroll(e->{zoom.setValue(Math.max(zoom.getMin(),Math.min(zoom.getMax(),zoom.getValue()*(e.getDeltaY()>0?1.12:1/1.12))));e.consume();});
       canvas.setOnMousePressed(e->{dragX=e.getX();dragY=e.getY();dragDistance=0;});
@@ -93,6 +97,7 @@ public final class PresetPreviewPane extends BorderPane {
       draw();
    }
    public void setAvailabilityAction(Runnable action) { availabilityAction=action; }
+   public void setCompatibilityAction(Runnable action) { compatibilityAction=action; }
    public void setAvailabilitySummary(String summary) { availability.setText(summary); }
    public void close() { spriteLoader.shutdownNow(); }
    public Canvas getCanvas() { return canvas; }

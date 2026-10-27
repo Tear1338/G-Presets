@@ -1,3 +1,9 @@
+## 1.4.7
+
+- Search and sort local presets, and save a separate JSON copy for sharing.
+- Log a partial import report with resolved floor furniture and WIRED confirmations; wall furniture is excluded.
+- Check WIRED configuration serialization locally before import; gameplay remains unverified.
+
 ## 1.4.6
 
 - Show import phases and processed counts while furniture and WIRED are being handled. Counts do not indicate server confirmation.
