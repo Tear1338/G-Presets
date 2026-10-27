@@ -1,3 +1,8 @@
+## 1.4.4
+
+- Improve assembled furniture preview and fit loaded images in view.
+- Support larger presets with more distinct furniture images.
+
 ## 1.4.3
 
 - Preview real furniture images from HabboAssets with schematic fallback when unavailable.

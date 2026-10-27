@@ -119,6 +119,14 @@ public final class PresetPreviewPane extends BorderPane {
          double x=item.x()+((corner==1 || corner==2)?item.width():0),y=item.y()+(corner>=2?item.depth():0);
          for(double z:new double[]{0,item.z()}){Point p=project(x,y,z);lowX=Math.min(lowX,p.x());highX=Math.max(highX,p.x());lowY=Math.min(lowY,p.y());highY=Math.max(highY,p.y());}
       }
+      if(showSprites.isSelected()) for(PresetPreviewModel.Item item:model.items) {
+         Image sprite=sprites.get(spriteKey(item));
+         if(sprite!=null && !item.wall()) {
+            Point center=project(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
+            lowX=Math.min(lowX,center.x()-sprite.getWidth()/2); highX=Math.max(highX,center.x()+sprite.getWidth()/2);
+            lowY=Math.min(lowY,center.y()-sprite.getHeight()+16); highY=Math.max(highY,center.y()+16);
+         }
+      }
       scale=Math.max(0.00001,Math.min((width-64)/Math.max(64,highX-lowX),(height-64)/Math.max(48,highY-lowY)))*zoom.getValue();
       offsetX=(width-(lowX+highX)*scale)/2+panX;offsetY=(height-(lowY+highY)*scale)/2+panY;
       g.setLineWidth(1);g.setStroke(Color.web("#263449"));
@@ -133,10 +141,10 @@ public final class PresetPreviewPane extends BorderPane {
          for(int c=0;c<4;c++){Point p=screen(item.x()+((c==1 || c==2)?item.width():0),item.y()+(c>=2?item.depth():0),item.z());xs[c]=p.x();ys[c]=p.y();}
          if(heights.isSelected() && item.z()!=0){Point a=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,0),b=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());g.setStroke(Color.web("#64748b"));g.setLineWidth(1);g.strokeLine(a.x(),a.y(),b.x(),b.y());}
          Color fill=Color.web(item.wall()?"#f59e0b":item.wired()?"#8b5cf6":"#3b82f6");
-         g.setFill(fill.deriveColor(0,1,1,item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
+         Image sprite=showSprites.isSelected() && !item.wall()?spriteFor(item):null;
+         g.setFill(fill.deriveColor(0,1,1,sprite!=null?0.15:item==selected?0.95:0.72));g.fillPolygon(xs,ys,4);
          g.setStroke(item==selected?Color.web("#67e8f9"):fill.brighter());g.setLineWidth(item==selected?3:1);g.strokePolygon(xs,ys,4);
          if(showSprites.isSelected() && !item.wall()) {
-            Image sprite=spriteFor(item);
             if(sprite!=null) {
                Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());
                double imageWidth=sprite.getWidth()*scale, imageHeight=sprite.getHeight()*scale;
@@ -144,15 +152,16 @@ public final class PresetPreviewPane extends BorderPane {
             }
          }
          hits.add(new Hit(item,xs,ys));
-         if(scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f8fafc"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
+         if(sprite==null && scale>0.30){Point center=screen(item.x()+item.width()/2.0,item.y()+item.depth()/2.0,item.z());double angle=item.rotation()*Math.PI/4;Point end=screen(item.x()+item.width()/2.0+Math.sin(angle)*0.30,item.y()+item.depth()/2.0-Math.cos(angle)*0.30,item.z());g.setStroke(Color.web("#f8fafc"));g.setLineWidth(1.4);g.strokeLine(center.x(),center.y(),end.x(),end.y());}
       }
    }
+   private String spriteKey(PresetPreviewModel.Item item) { return item.className()+"|"+item.rotation()+"|"+(item.state()==null?"":item.state()); }
    private Image spriteFor(PresetPreviewModel.Item item) {
       String classname=item.className();
       if(classname==null || !classname.matches("[A-Za-z0-9_.*-]{1,120}"))return null;
-      String key=classname+"|"+item.rotation()+"|"+(item.state()==null?"":item.state());
+      String key=spriteKey(item);
       Image image=sprites.get(key);
-      if(image==null && !spriteLoader.isShutdown() && requestedSprites.size()<128 && requestedSprites.add(key)) {
+      if(image==null && !spriteLoader.isShutdown() && requestedSprites.size()<1000 && requestedSprites.add(key)) {
          spriteLoader.submit(()->{
             try {
                String state=item.state()!=null && item.state().matches("[0-9]{1,3}")?"&state="+item.state():"";
