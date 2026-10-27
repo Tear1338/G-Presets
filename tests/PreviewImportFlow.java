@@ -21,7 +21,7 @@ public final class PreviewImportFlow {
    private static void require(boolean condition,String text) { if(!condition)throw new AssertionError(text); }
    private static final class FakeExtension extends GPresets {
       final Map<String,ExtensionBase.MessageListener> callbacks=new HashMap<>();
-      int serverPackets;int room=42;boolean roomLoaded;Runnable onPickup;
+      int serverPackets;int room=42;boolean roomLoaded;Runnable onPickup;JSONObject lastReport;
       final Map<Integer,gearth.extensions.parsers.HFloorItem> floorItems=new HashMap<>();
       final Map<Integer,gearth.extensions.parsers.HWallItem> wallItems=new HashMap<>();
       final List<String> pickups=new ArrayList<>();
@@ -43,6 +43,7 @@ public final class PreviewImportFlow {
          if(category==1)wallItems.remove(id);else floorItems.remove(id);if(onPickup!=null)onPickup.run();return true;
       }
       @Override public void sendVisualChatInfo(String text) { }
+      @Override public void showImportReport(JSONObject report){lastReport=report;}
       @Override public void updatePreviewAvailability() { }
       @Override public boolean previewBeforeImport() { return true; }
       @Override public void showImportPreview(PresetPreviewSession session,BooleanSupplier ready,BooleanSupplier confirm,Runnable cancel) { this.session=session;this.ready=ready;this.confirm=confirm;this.cancel=cancel; }
@@ -89,6 +90,7 @@ public final class PreviewImportFlow {
       extension.chat(":pp");PresetConfig active=importer.getPresetConfig();
       require(!importer.applySessionReplacements(active,preset),"substitutions cannot change an active preview/import");extension.cancel.run();
       undoWorker(extension,importer);
+      incompletePolicy(extension,importer);
       System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
    }
    private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
@@ -116,6 +118,38 @@ public final class PreviewImportFlow {
          require(extension.serverPackets==sent+1 && extension.floorItems.containsKey(101),"abort during real undo worker stops before the next pickup");
          extension.onPickup=null;extension.roomLoaded=false;
          System.out.println("PASS: real undo worker native routing, existing-item preservation, room/owner guards, acknowledgement and abort");
+      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
+   }
+
+   private static void put(GPresetImporter importer,String name,Object value) throws ReflectiveOperationException {
+      var f=GPresetImporter.class.getDeclaredField(name);f.setAccessible(true);f.set(importer,value);
+   }
+   private static void incompletePolicy(FakeExtension extension,GPresetImporter importer) {
+      try {
+         var prepare=GPresetImporter.class.getDeclaredMethod("preparePlacedConfigurations");prepare.setAccessible(true);
+         var finish=GPresetImporter.class.getDeclaredMethod("finishImport");finish.setAccessible(true);
+         var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
+         var available=new extension.tools.presetconfig.furni.PresetFurni(1,"table",new gearth.extensions.parsers.HPoint(1,2),0,null);available.setFurniName("table");
+         var missing=new extension.tools.presetconfig.furni.PresetFurni(220,"bw_tele",new gearth.extensions.parsers.HPoint(3,2),0,null);missing.setFurniName("teleporter");
+         var preset=new PresetConfig(new ArrayList<>(List.of(available,missing)),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
+         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(1,101)));put(importer,"incompleteBuildAllowed",true);
+         put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);extension.roomLoaded=true;
+         int sent=extension.serverPackets;
+         require((Boolean)prepare.invoke(importer),"actual importer continues after missing furniture when incomplete builds enabled");
+         finish.invoke(importer);
+         require(importer.getState()==GPresetImporter.BuildingImportState.NONE,"actual partial completion returns importer to idle");
+         require(extension.lastReport.getString("outcome").equals("Import finished with omissions"),"actual completion cannot claim full success when items missing");
+         require(extension.lastReport.getJSONArray("items").length()==2 && extension.lastReport.getJSONArray("omissions").length()==1,"actual completion retains original requested counts and missing item details");
+         require(ImportReport.text(extension.lastReport).contains("Not placed: bw_tele"),"exportable text report includes omission reason");
+         put(importer,"workingPresetConfig",preset);put(importer,"incompleteBuildAllowed",false);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);
+         require(!(Boolean)prepare.invoke(importer),"strict mode still rejects missing furniture");
+         require(extension.lastReport.getString("outcome").contains("Not placed: bw_tele"),"actual strict failure report retains the exact failure reason");
+         require(extension.serverPackets==sent,"missing-item policy and completion never invent placement/configuration packets");
+         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(1,101,220,2200)));put(importer,"incompleteBuildAllowed",true);
+         require((Boolean)prepare.invoke(importer),"fully supplied subsequent import has no inherited omissions");finish.invoke(importer);
+         require(extension.lastReport.getString("outcome").equals("Import finished"),"subsequent complete build resets previous partial outcome");
+         extension.roomLoaded=false;
+         System.out.println("PASS: real importer incomplete/strict policy, finish outcome, original totals, omission/error reasons and next-import isolation");
       }catch(ReflectiveOperationException e){throw new AssertionError(e);}
    }
 

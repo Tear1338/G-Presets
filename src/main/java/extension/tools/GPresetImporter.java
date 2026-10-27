@@ -8,6 +8,7 @@ import extension.parsers.HWiredLinkConfiguration;
 import extension.parsers.HWiredVariablesForObject;
 import extension.tools.importutils.AvailabilityChecker;
 import extension.tools.importutils.ImportReport;
+import extension.tools.importutils.PartialImportPlan;
 import extension.tools.importutils.ImportUndoJournal;
 import extension.tools.importutils.WiredDiagnostics;
 import extension.tools.importutils.FurniDropInfo;
@@ -134,6 +135,32 @@ public class GPresetImporter {
    private PostConfig activePostConfig;
    private PresetPreviewSession pendingPreview;
    private PresetConfig workingPresetConfig = null;
+   private PresetConfig reportRequestedPreset;
+   private PartialImportPlan partialPlan;
+   private boolean incompleteBuildAllowed;
+
+   private boolean preparePlacedConfigurations() {
+      this.reportRequestedPreset=new PresetConfig(this.workingPresetConfig.toJsonObject());
+      this.partialPlan=PartialImportPlan.create(this.reportRequestedPreset,this.realFurniIdMap,this.reportWallIds);
+      if(!this.partialPlan.omissions().isEmpty()) {
+         if(!this.incompleteBuildAllowed) {
+            for(var omission:this.partialPlan.omissions()) if(omission.category().equals("Floor") || omission.category().equals("Wall"))return failWiredImport(omission.reason());
+            this.partialPlan=null;return true;
+         }
+         this.workingPresetConfig=this.partialPlan.effective();
+         for(var omission:this.partialPlan.omissions())this.extension.getLogger().log("Skipped "+omission.category()+" ["+omission.presetId()+"]: "+omission.reason(),"orange");
+      }
+      return true;
+   }
+   private void finishImport() {
+      boolean skipped=this.partialPlan!=null && !this.partialPlan.omissions().isEmpty();
+      String outcome=skipped?"Import finished with omissions":"Import finished";
+      this.state=BuildingImportState.NONE;
+      this.extension.updatePreviewAvailability();
+      this.extension.sendVisualChatInfo(skipped?"Preset build finished; unavailable furniture/configurations skipped. See import report.":"Imported the preset successfully");
+      this.extension.getLogger().log(outcome,skipped?"orange":"green");
+      this.reportImport(outcome);this.pauseGate.cancel();this.extension.setImportProgress(skipped?"Import complete with omissions":"Import complete",1,1);
+   }
    private Map<Integer, Integer> realFurniIdMap = null;
    private Map<String, String> realVariableIdMap = Collections.synchronizedMap(new HashMap<>());
    private final Map<String, HWiredVariable> variableSnapshot = new HashMap<>();
@@ -576,6 +603,7 @@ public class GPresetImporter {
          this.wallFurniturePlaced = false;
          this.confirmedWiredCount=0;
          this.reportWallIds.clear();this.reportFloorIds.clear();this.reportWiredIds.clear();this.reportOtherCounts.clear();
+         this.reportRequestedPreset=null;this.partialPlan=null;this.incompleteBuildAllowed=this.extension.allowIncompleteBuilds();
          this.realVariableIdMap.clear();
          this.variableSnapshot.clear();
          this.variableReadError = null;
@@ -652,12 +680,12 @@ public class GPresetImporter {
             fakeDropInfo.add(new FurniDropInfo(-1, -1, furniData.getFloorTypeId(f.getClassName()), this.importPostConfig().getItemSource(), -1));
          }
 
-         Map<String, Integer> missing = AvailabilityChecker.missingItems(fakeDropInfo, this.extension.getInventory(), furniData, floorState, this.extension.useRoomFurni());
+         Map<String, Integer> missing = AvailabilityChecker.missingItems(fakeDropInfo, this.extension.getInventory(), furniData, floorState, this.extension.useRoomFurni(),this.extension.getCatalog());
          if (missing == null) {
             this.extension.sendVisualChatInfo("ERROR: Inventory, catalog or furnidata is unavailable");
          } else {
             if (!missing.isEmpty()) {
-               if (!this.extension.allowIncompleteBuilds()) {
+               if (!this.incompleteBuildAllowed) {
                   this.extension.sendVisualChatInfo("ERROR: Some items were not available, check the availability first!");
                   return;
                }
@@ -809,15 +837,10 @@ public class GPresetImporter {
       this.state = GPresetImporter.BuildingImportState.MOVE_FURNITURE;
       (new Thread(() -> {
          this.placeWallItems();
+         if(this.state!=BuildingImportState.MOVE_FURNITURE || !this.preparePlacedConfigurations())return;
          synchronized(this.lock) {
             if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-               this.state = GPresetImporter.BuildingImportState.NONE;
-               this.extension.updatePreviewAvailability();
-               this.extension.sendVisualChatInfo("Imported the preset successfully");
-               this.extension.getLogger().log("Finished importing the preset!", "green");
-            this.reportImport("Import finished");
-            this.pauseGate.cancel();
-            this.extension.setImportProgress("Import complete",1,1);
+               this.finishImport();
             }
 
          }
@@ -1085,17 +1108,20 @@ public class GPresetImporter {
       String className = furniData.getFloorItemName(typeId);
       ItemSource source = dropInfo.getItemSource();
       Inventory inventory = this.extension.getInventory();
-      int offerId = furniData.getFloorItemDetails(className).bcOfferId;
+      FloorItemDetails details=furniData.getFloorItemDetails(className);
+       BCCatalog catalog=this.extension.getCatalog();
+       BCCatalog.SingleFurniProduct product=catalog==null?null:catalog.getFloorProduct(typeId);
+       int offerId=product!=null && product.getOfferId()!=-1?product.getOfferId():details==null?-1:details.bcOfferId;
       if (!this.inventoryCache.containsKey(typeId)) {
          this.inventoryCache.put(typeId, new LinkedList(inventory.getFloorItemsByType(typeId)));
       }
 
       LinkedList<HInventoryItem> inventoryItems = (LinkedList)this.inventoryCache.get(typeId);
-      boolean useBC = source == ItemSource.ONLY_BC || source == ItemSource.PREFER_BC && offerId != -1 || source == ItemSource.PREFER_INVENTORY && inventoryItems.isEmpty();
+      boolean useBC = source.usesBC(offerId != -1,!inventoryItems.isEmpty());
       boolean useRoomFurni = this.extension.useRoomFurni();
       if (useBC) {
          if (offerId == -1) {
-            if (!this.extension.allowIncompleteBuilds()) {
+            if (!this.incompleteBuildAllowed) {
                this.state = GPresetImporter.BuildingImportState.NONE;
                this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find the item '%s' in BC warehouse.. aborting", className));
                this.reportImport("Import incomplete: required furniture unavailable");
@@ -1111,7 +1137,7 @@ public class GPresetImporter {
          recordFloorPlacement(dropInfo,null);
       } else {
          if (inventoryItems.isEmpty() && !useRoomFurni) {
-            if (!this.extension.allowIncompleteBuilds()) {
+            if (!this.incompleteBuildAllowed) {
                this.state = GPresetImporter.BuildingImportState.NONE;
                this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find '%s' in inventory.. aborting", className));
                this.reportImport("Import incomplete: required furniture unavailable");
@@ -1133,7 +1159,7 @@ public class GPresetImporter {
                HPacket packet = new HPacket("MoveObject", HMessage.Direction.TOSERVER, new Object[]{floorItem.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()});
                this.extension.sendToServer(packet);
                Utils.sleep(600);
-            } else if (!this.extension.allowIncompleteBuilds()) {
+            } else if (!this.incompleteBuildAllowed) {
                this.state = GPresetImporter.BuildingImportState.NONE;
                this.extension.getLogger().log(String.format("[UseRoomFurni] ERROR: '%s' not found in rectangle (roomItems remaining=%d)", className, this.roomItemsList.size()), "red");
                this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find '%s' in inventory or room.. aborting", className));
@@ -1334,15 +1360,19 @@ public class GPresetImporter {
       try {
          Map<Integer,Integer> floors=new HashMap<>();
          synchronized(this.lock) {for(var item:this.workingPresetConfig.getFurniture()) {Integer id=this.reportFloorIds.getOrDefault(item.getFurniId(),this.realFurniIdMap.get(item.getFurniId()));if(id!=null)floors.put(item.getFurniId(),id);}}
-         org.json.JSONObject report=ImportReport.capture(outcome,this.workingPresetConfig,floors,new HashMap<>(reportWallIds),new HashSet<>(reportWiredIds),this.extension.getFloorState(),this.rootLocation,this.importZDelta,this.activeImportRoomId);
+         org.json.JSONObject report=ImportReport.capture(outcome,this.reportRequestedPreset==null?this.workingPresetConfig:this.reportRequestedPreset,floors,new HashMap<>(reportWallIds),new HashSet<>(reportWiredIds),this.extension.getFloorState(),this.rootLocation,this.importZDelta,this.activeImportRoomId);
          report.getJSONObject("otherConfigurations").put("confirmed",new org.json.JSONObject(reportOtherCounts));
+         if(this.partialPlan!=null) {
+            org.json.JSONArray skipped=new org.json.JSONArray();for(var omission:this.partialPlan.omissions())skipped.put(omission.json());report.put("omissions",skipped);
+            for(Object value:report.getJSONArray("wired")) {var row=(org.json.JSONObject)value;String reason=this.partialPlan.skippedWired().get(row.getInt("presetId"));if(reason!=null)row.put("status","SKIPPED_MISSING_DEPENDENCY").put("reason",reason);}
+         }
          this.extension.showImportReport(report);
       } catch(RuntimeException error){this.extension.getLogger().log("Cannot capture import report: "+error.getMessage(),"orange");}
    }
 
    private boolean failWiredImport(String reason) {
       this.extension.getLogger().log("Import incomplete: " + reason, "red");
-      this.reportImport("Import incomplete");
+      this.reportImport("Import incomplete: " + reason);
       this.extension.sendVisualChatInfo("Import incomplete; see G-Presets logs");
       this.reset();
       return false;
@@ -1451,13 +1481,7 @@ public class GPresetImporter {
 
       synchronized(this.lock) {
          if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-            this.state = GPresetImporter.BuildingImportState.NONE;
-            this.extension.updatePreviewAvailability();
-               this.extension.sendVisualChatInfo("Imported the preset successfully");
-            this.extension.getLogger().log("Finished importing the preset!", "green");
-            this.reportImport("Import finished");
-            this.pauseGate.cancel();
-            this.extension.setImportProgress("Import complete",1,1);
+            this.finishImport();
          }
 
       }
@@ -2045,22 +2069,7 @@ public class GPresetImporter {
                   pageId = -1;
                }
 
-               boolean useBC;
-               if (source == ItemSource.ONLY_BC) {
-                  useBC = true;
-               } else if (source == ItemSource.PREFER_BC) {
-                  if (bcProduct != null) {
-                     useBC = true;
-                  } else if (!inventoryItems.isEmpty()) {
-                     useBC = false;
-                  } else {
-                     useBC = offerId != -1;
-                  }
-               } else if (source == ItemSource.PREFER_INVENTORY) {
-                  useBC = inventoryItems.isEmpty() && offerId != -1;
-               } else {
-                  useBC = false;
-               }
+               boolean useBC=source.usesBC(offerId != -1,!inventoryItems.isEmpty());
 
                Set<Integer> wallIdsBefore = new HashSet();
                String safeLocationString = null;
@@ -2079,7 +2088,7 @@ public class GPresetImporter {
                boolean placedAtSafeLocation = false;
                if (useBC) {
                   if (offerId == -1) {
-                     if (!this.extension.allowIncompleteBuilds()) {
+                     if (!this.incompleteBuildAllowed) {
                         this.state = GPresetImporter.BuildingImportState.NONE;
                         this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find wall item '%s' in BC catalog.. aborting", className));
                         this.reportImport("Import incomplete: required furniture unavailable");
@@ -2107,7 +2116,7 @@ public class GPresetImporter {
                   }
                } else {
                   if (inventoryItems.isEmpty()) {
-                     if (!this.extension.allowIncompleteBuilds()) {
+                     if (!this.incompleteBuildAllowed) {
                         this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find wall item '%s' (state=%s) in inventory.. aborting", className, wallState));
                         this.reportImport("Import incomplete: required furniture unavailable");
                         this.state = GPresetImporter.BuildingImportState.NONE;
@@ -2350,7 +2359,7 @@ public class GPresetImporter {
          }
 
          for(PresetWallFurni item:wallFurniture) {
-            if(!this.realFurniIdMap.containsKey(item.getFurniId())) {
+            if(!this.reportWallIds.containsKey(item.getFurniId()) && !this.incompleteBuildAllowed) {
                failWiredImport("Wall furniture was not placed: " + item.getClassName()); return;
             }
          }
@@ -2403,7 +2412,7 @@ public class GPresetImporter {
       if(!checkpoint(BuildingImportState.SETUP_WIRED))return;
       this.placeWallItems(BuildingImportState.SETUP_WIRED);
       if (this.state != BuildingImportState.SETUP_WIRED) return;
-      for(PresetFurni item:this.workingPresetConfig.getFurniture()) if(!this.realFurniIdMap.containsKey(item.getFurniId())) { failWiredImport("Furniture was not placed: " + item.getFurniName());return; }
+      if(!this.preparePlacedConfigurations())return;
       if (!this.applyRoomLinks() || !this.applyChests() || !this.applyContracts() || !this.applyWiredLinks()) return;
       List<PresetWiredBase> allWireds = new ArrayList();
       Map<Integer, List<PresetWiredFurniBinding>> wiredBindings = new HashMap();
@@ -2582,7 +2591,7 @@ public class GPresetImporter {
 
          synchronized(this.lock) {
             if (this.state == GPresetImporter.BuildingImportState.ADD_FURNITURE) {
-               if (!this.expectFurniDrops.isEmpty() && !this.extension.allowIncompleteBuilds()) {
+               if (!this.expectFurniDrops.isEmpty() && !this.incompleteBuildAllowed) {
                   this.state = GPresetImporter.BuildingImportState.NONE;
                   this.extension.sendVisualChatInfo("ERROR: not all furniture were placed");
                   this.extension.getLogger().log("ERROR: not all furniture were placed", "red");

@@ -586,6 +586,7 @@ public final class RegressionTests {
 
    public static void main(String[] args) throws Exception {
       passed+=PresetToolsTests.run();
+      passed+=PartialImportTests.run();
       pauseGateTests();
       imageCacheTests();
       release150Tests();

@@ -20,6 +20,10 @@ import java.util.stream.Collectors;
 
 public class AvailabilityChecker {
    public static Map<String, Integer> missingItems(List<FurniDropInfo> furniDrops, Inventory inventory, FurniDataTools furniDataTools, FloorState floorState, boolean useRoomFurni) {
+      return missingItems(furniDrops,inventory,furniDataTools,floorState,useRoomFurni,null);
+   }
+
+   public static Map<String, Integer> missingItems(List<FurniDropInfo> furniDrops, Inventory inventory, FurniDataTools furniDataTools, FloorState floorState, boolean useRoomFurni,BCCatalog catalog) {
       if (inventory.getState() == Inventory.InventoryState.LOADED && furniDataTools.isReady()) {
          Map<Integer, Integer> usedInventorySpots = new HashMap();
          Map<Integer, Integer> missingItemCounts = new HashMap();
@@ -30,14 +34,15 @@ public class AvailabilityChecker {
             ItemSource src = furniDropInfo.getItemSource();
             List<HInventoryItem> invItems = inventory.getFloorItemsByType(typeId);
             FloorItemDetails floorItemDetails = furniDataTools.getFloorItemDetails(furniDataTools.getFloorItemName(typeId));
+            boolean bcAvailable=(catalog!=null && catalog.getFloorProduct(typeId)!=null) || (floorItemDetails!=null && floorItemDetails.bcOfferId!=-1);
             boolean isMissing = false;
             boolean useInventorySpace = false;
             if (src == ItemSource.ONLY_BC) {
-               if (floorItemDetails.bcOfferId == -1) {
+               if (!bcAvailable) {
                   isMissing = true;
                }
             } else if (src == ItemSource.PREFER_BC) {
-               if (floorItemDetails.bcOfferId == -1) {
+               if (!bcAvailable) {
                   if ((Integer)usedInventorySpots.get(typeId) < invItems.size()) {
                      useInventorySpace = true;
                   } else {
@@ -48,7 +53,7 @@ public class AvailabilityChecker {
                if ((Integer)usedInventorySpots.get(typeId) < invItems.size()) {
                   useInventorySpace = true;
                } else {
-                  isMissing = floorItemDetails.bcOfferId == -1;
+                  isMissing = !bcAvailable;
                }
             } else if (src == ItemSource.ONLY_INVENTORY) {
                if ((Integer)usedInventorySpots.get(typeId) < invItems.size()) {

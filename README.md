@@ -9,11 +9,18 @@
 
 <h1 align="center">G-Presets · édition 1desirable1337</h1>
 <p align="center"><strong>Exportez vos constructions. Prévisualisez les mobis. Partagez vos presets.</strong><br>Extension G-Earth modifiée par <strong>1desirable1337</strong> — <a href="https://github.com/Tear1338">Tear1338 / Darkz</a>.</p>
-<p align="center"><a href="https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/GPresets-1.6.0.jar"><strong>Télécharger GPresets-1.6.0.jar</strong></a> · <a href="#installation">Installation</a> · <a href="#aperçu-et-images-des-mobis">Aperçu</a> · <a href="#partager-et-organiser-ses-presets">Partage</a> · <a href="https://www.habbone.fr/habbos">HabbOne</a></p>
+<p align="center"><a href="https://github.com/Tear1338/G-Presets/releases/download/v1.6.1/GPresets-1.6.1.jar"><strong>Télécharger GPresets-1.6.1.jar</strong></a> · <a href="#installation">Installation</a> · <a href="#aperçu-et-images-des-mobis">Aperçu</a> · <a href="#partager-et-organiser-ses-presets">Partage</a> · <a href="https://www.habbone.fr/habbos">HabbOne</a></p>
 
 > **Auteurs : sirjonasxx & 1desirable1337.** Cette édition est une version modifiée de [sirjonasxx/G-Presets](https://github.com/sirjonasxx/G-Presets), préparée à partir de la version 1.3.7 modifiée fournie. Elle est indépendante du projet original et de Habbo/Sulake. [Crédits et attributions](ATTRIBUTION.md).
 
-## Ce que propose la version 1.6.0
+## Correctif d'import 1.6.1
+
+- **Prefer BC** utilise le Builders Club en priorité, puis l'inventaire pour les mobis sans offre BC. La même règle s'applique au sol et au mur ; les offres du catalogue BC sont aussi prises en compte avant l'import.
+- **Allow building without all furni** termine les étapes restantes avec les mobis disponibles. Les WIRED dont une sélection, un instantané ou une variable requise manque sont ignorés et détaillés dans le rapport ; les autres configurations continuent.
+- Les propriétés valides d'un mobi restent importées lorsque seule une valeur dépend d'un élément absent. Le rapport conserve les quantités demandées et affiche **Import finished with omissions**. En mode strict, un mobi requis manquant bloque toujours l'import.
+- Les erreurs de transport, refus de sauvegarde et confirmations manquantes restent des erreurs : cette option ne transforme pas un import non confirmé en réussite. Le rapport inclut désormais la raison exacte de l'arrêt.
+
+## Ce que propose la version 1.6.1
 
 | Fonction | Dans cette édition |
 | :--- | :--- |
@@ -32,26 +39,26 @@ Aucun preset personnel n'est fourni avec la distribution. Les changements détai
 
 ## Une interface assortie à G-Earth
 
-La 1.6.0 conserve le thème sombre de G-Earth : panneaux gris anthracite, boutons et champs foncés, textes clairs, onglets bleus et accents cyan. Le même style s'applique à l'aperçu, au partage et aux rapports.
+La 1.6.1 conserve le thème sombre de G-Earth : panneaux gris anthracite, boutons et champs foncés, textes clairs, onglets bleus et accents cyan. Le même style s'applique à l'aperçu, au partage et aux rapports.
 
 <p align="center"><img src="docs/assets/settings-1.5.3.png" alt="Paramètres G-Presets (palette sombre conservée depuis la 1.5.3) avec le thème sombre de G-Earth et les boutons Share preset et Move to folder" width="686"></p>
 
 ## Installation
 
 1. Utilisez **Windows 64 bits**, **Java 17 ou plus récent** — Java 21 convient — et G-Earth. Cette édition vise notamment **G-Earth 1.5.4-beta-29**.
-2. Téléchargez [**GPresets-1.6.0.jar**](https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/GPresets-1.6.0.jar), puis installez-le dans G-Earth. Pour une mise à jour, fermez l'ancienne instance de l'extension avant de lancer la nouvelle.
+2. Téléchargez [**GPresets-1.6.1.jar**](https://github.com/Tear1338/G-Presets/releases/download/v1.6.1/GPresets-1.6.1.jar), puis installez-le dans G-Earth. Pour une mise à jour, fermez l'ancienne instance de l'extension avant de lancer la nouvelle.
 3. Connectez Habbo via G-Earth, puis entrez dans la salle après le démarrage de l'extension pour que les données de la salle soient capturées.
 4. Chargez les données nécessaires avec **Load Inventory** et **Load BC Catalog**, selon la source de mobilier choisie. Vérifiez les indicateurs de préparation de l'extension.
 5. Exportez une construction, sélectionnez le preset, ouvrez **Preview preset**, puis consultez les vérifications avant de confirmer l'import.
 
 Le placement dépend du mobilier disponible, des droits dans la salle et des stacktiles nécessaires. Le catalogue de messages G-Earth doit correspondre à votre client Habbo. Conservez une copie de vos presets avant de modifier leurs fichiers.
 
-L'[archive complète 1.6.0](https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/GPresets-1.6.0-complet.zip) contient aussi les sources et dépendances. Les sommes SHA-256 et le rapport de compilation sont disponibles dans la [release](https://github.com/Tear1338/G-Presets/releases/tag/v1.6.0).
+L'[archive complète 1.6.1](https://github.com/Tear1338/G-Presets/releases/download/v1.6.1/GPresets-1.6.1-complet.zip) contient aussi les sources et dépendances. Les sommes SHA-256 et le rapport de compilation sont disponibles dans la [release](https://github.com/Tear1338/G-Presets/releases/tag/v1.6.1).
 
 ## Aperçu et images des mobis
 
-<p align="center"><img src="docs/assets/preview-1.6.0.png" alt="Aperçu G-Presets 1.6.0 : thème sombre G-Earth, rotation de vue, filtre de hauteur, sélection et contrôles avant import" width="100%"></p>
-<p align="center"><sub>Capture de démonstration de l'interface 1.6.0 : les empreintes sont visibles pendant le chargement des images. Aucun preset personnel n'est utilisé.</sub></p>
+<p align="center"><img src="docs/assets/preview-1.6.1.png" alt="Aperçu G-Presets 1.6.1 : thème sombre G-Earth, rotation de vue, filtre de hauteur, sélection et contrôles avant import" width="100%"></p>
+<p align="center"><sub>Capture de démonstration de l'interface 1.6.1 : les empreintes sont visibles pendant le chargement des images. Aucun preset personnel n'est utilisé.</sub></p>
 
 Ouvrez **Preview preset**, ou utilisez `:preview` / `:pp`, pour examiner le preset sélectionné.
 
@@ -95,9 +102,9 @@ Les informations et l'image partagées sont conservées à la relecture ; le bou
 
 La recherche filtre les noms de presets, classés par ordre alphabétique. **Move to folder** déplace le preset sélectionné dans un dossier, créé si nécessaire. Un seul niveau de dossiers est pris en charge, sans écraser un preset existant.
 
-## Les six ajouts de la 1.6.0
+## Les six ajouts de la 1.6.1
 
-<p align="center"><img src="docs/assets/tools-1.6.0.png" alt="Onglet Tools : comparaison, historique, remplacements et annulation du dernier import" width="686"></p>
+<p align="center"><img src="docs/assets/tools-1.6.1.png" alt="Onglet Tools : comparaison, historique, remplacements et annulation du dernier import" width="686"></p>
 
 L'onglet **Tools** regroupe les nouveaux outils. La 1.5.3 et les releases déjà publiées sont conservées sur GitHub ; les prochaines publications ne les suppriment pas.
 
@@ -143,7 +150,7 @@ Pour conserver les données disponibles, laissez décochées **Do not export wir
 
 ## Compatibilité et validation
 
-La compilation **1.6.0** passe **1 349 assertions de régression** et les vérifications de l'interface JavaFX. Les tests couvrent notamment le transport des données, les fichiers, les diagnostics, le cache des images et l'affichage des images déjà en mémoire dès la première vue.
+La compilation **1.6.1** passe **1 379 assertions de régression** et les vérifications de l'interface JavaFX. Les tests couvrent notamment le transport des données, les fichiers, les diagnostics, le cache des images et l'affichage des images déjà en mémoire dès la première vue.
 
 Le catalogue de référence du 26 octobre 2026 contient **284 classes liées aux WIRED**, dont **207 classes des six familles de configuration**. Les fixtures binaires couvrent **188 codes de formulaires**. Ces chiffres décrivent les contrôles locaux, et non le nombre de scénarios validés en jeu.
 
@@ -151,7 +158,7 @@ Le catalogue de référence du 26 octobre 2026 contient **284 classes liées aux
 
 - [Compatibilité détaillée](COMPATIBILITE.md) et [inventaire WIRED](COUVERTURE-WIRED.csv)
 - [Guide technique](README.fr.md) et [journal des versions](CHANGELOG.md)
-- [Rapport du build 1.6.0](https://github.com/Tear1338/G-Presets/releases/download/v1.6.0/build-report.json)
+- [Rapport du build 1.6.1](https://github.com/Tear1338/G-Presets/releases/download/v1.6.1/build-report.json)
 - [Signaler un problème](https://github.com/Tear1338/G-Presets/issues) : joindre la version, les étapes et les logs utiles
 
 ## À découvrir : HabbOne

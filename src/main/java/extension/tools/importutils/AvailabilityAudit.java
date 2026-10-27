@@ -36,7 +36,7 @@ public final class AvailabilityAudit {
          Boolean bc=null;
          if(catalog!=null && catalog.getState()==BCCatalog.CatalogState.COLLECTED) {
             if(wall)bc=catalog.getWallProduct(type,variant)!=null;
-            else {var details=data.getFloorItemDetails(classname);bc=details!=null && details.bcOfferId!=-1;}
+            else {var details=data.getFloorItemDetails(classname);bc=catalog.getFloorProduct(type)!=null || details!=null && details.bcOfferId!=-1;}
          }
          row.put("inventory",available).put("catalogOffer",bc==null?JSONObject.NULL:bc);
          String status=evaluate(entry.getValue(),available,bc,options.getItemSource());

@@ -81,7 +81,7 @@
 +@ExtensionInfo(
 +   Title = "G-Presets",
 +   Description = "edit by 1desirable1337",
-+   Version = "1.6.0",
++   Version = "1.6.1",
 +   Author = "sirjonasxx & 1desirable1337"
 +)
 +public class GPresets extends ExtensionForm {
@@ -3182,7 +3182,7 @@
 +}
 --- a/src/main/java/extension/tools/GPresetImporter.java
 +++ b/src/main/java/extension/tools/GPresetImporter.java
-@@ -0,0 +1,2795 @@
+@@ -0,0 +1,2804 @@
 +package extension.tools;
 +
 +import extension.GPresets;
@@ -3193,6 +3193,7 @@
 +import extension.parsers.HWiredVariablesForObject;
 +import extension.tools.importutils.AvailabilityChecker;
 +import extension.tools.importutils.ImportReport;
++import extension.tools.importutils.PartialImportPlan;
 +import extension.tools.importutils.ImportUndoJournal;
 +import extension.tools.importutils.WiredDiagnostics;
 +import extension.tools.importutils.FurniDropInfo;
@@ -3319,6 +3320,32 @@
 +   private PostConfig activePostConfig;
 +   private PresetPreviewSession pendingPreview;
 +   private PresetConfig workingPresetConfig = null;
++   private PresetConfig reportRequestedPreset;
++   private PartialImportPlan partialPlan;
++   private boolean incompleteBuildAllowed;
++
++   private boolean preparePlacedConfigurations() {
++      this.reportRequestedPreset=new PresetConfig(this.workingPresetConfig.toJsonObject());
++      this.partialPlan=PartialImportPlan.create(this.reportRequestedPreset,this.realFurniIdMap,this.reportWallIds);
++      if(!this.partialPlan.omissions().isEmpty()) {
++         if(!this.incompleteBuildAllowed) {
++            for(var omission:this.partialPlan.omissions()) if(omission.category().equals("Floor") || omission.category().equals("Wall"))return failWiredImport(omission.reason());
++            this.partialPlan=null;return true;
++         }
++         this.workingPresetConfig=this.partialPlan.effective();
++         for(var omission:this.partialPlan.omissions())this.extension.getLogger().log("Skipped "+omission.category()+" ["+omission.presetId()+"]: "+omission.reason(),"orange");
++      }
++      return true;
++   }
++   private void finishImport() {
++      boolean skipped=this.partialPlan!=null && !this.partialPlan.omissions().isEmpty();
++      String outcome=skipped?"Import finished with omissions":"Import finished";
++      this.state=BuildingImportState.NONE;
++      this.extension.updatePreviewAvailability();
++      this.extension.sendVisualChatInfo(skipped?"Preset build finished; unavailable furniture/configurations skipped. See import report.":"Imported the preset successfully");
++      this.extension.getLogger().log(outcome,skipped?"orange":"green");
++      this.reportImport(outcome);this.pauseGate.cancel();this.extension.setImportProgress(skipped?"Import complete with omissions":"Import complete",1,1);
++   }
 +   private Map<Integer, Integer> realFurniIdMap = null;
 +   private Map<String, String> realVariableIdMap = Collections.synchronizedMap(new HashMap<>());
 +   private final Map<String, HWiredVariable> variableSnapshot = new HashMap<>();
@@ -3761,6 +3788,7 @@
 +         this.wallFurniturePlaced = false;
 +         this.confirmedWiredCount=0;
 +         this.reportWallIds.clear();this.reportFloorIds.clear();this.reportWiredIds.clear();this.reportOtherCounts.clear();
++         this.reportRequestedPreset=null;this.partialPlan=null;this.incompleteBuildAllowed=this.extension.allowIncompleteBuilds();
 +         this.realVariableIdMap.clear();
 +         this.variableSnapshot.clear();
 +         this.variableReadError = null;
@@ -3837,12 +3865,12 @@
 +            fakeDropInfo.add(new FurniDropInfo(-1, -1, furniData.getFloorTypeId(f.getClassName()), this.importPostConfig().getItemSource(), -1));
 +         }
 +
-+         Map<String, Integer> missing = AvailabilityChecker.missingItems(fakeDropInfo, this.extension.getInventory(), furniData, floorState, this.extension.useRoomFurni());
++         Map<String, Integer> missing = AvailabilityChecker.missingItems(fakeDropInfo, this.extension.getInventory(), furniData, floorState, this.extension.useRoomFurni(),this.extension.getCatalog());
 +         if (missing == null) {
 +            this.extension.sendVisualChatInfo("ERROR: Inventory, catalog or furnidata is unavailable");
 +         } else {
 +            if (!missing.isEmpty()) {
-+               if (!this.extension.allowIncompleteBuilds()) {
++               if (!this.incompleteBuildAllowed) {
 +                  this.extension.sendVisualChatInfo("ERROR: Some items were not available, check the availability first!");
 +                  return;
 +               }
@@ -3994,15 +4022,10 @@
 +      this.state = GPresetImporter.BuildingImportState.MOVE_FURNITURE;
 +      (new Thread(() -> {
 +         this.placeWallItems();
++         if(this.state!=BuildingImportState.MOVE_FURNITURE || !this.preparePlacedConfigurations())return;
 +         synchronized(this.lock) {
 +            if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-+               this.state = GPresetImporter.BuildingImportState.NONE;
-+               this.extension.updatePreviewAvailability();
-+               this.extension.sendVisualChatInfo("Imported the preset successfully");
-+               this.extension.getLogger().log("Finished importing the preset!", "green");
-+            this.reportImport("Import finished");
-+            this.pauseGate.cancel();
-+            this.extension.setImportProgress("Import complete",1,1);
++               this.finishImport();
 +            }
 +
 +         }
@@ -4270,17 +4293,20 @@
 +      String className = furniData.getFloorItemName(typeId);
 +      ItemSource source = dropInfo.getItemSource();
 +      Inventory inventory = this.extension.getInventory();
-+      int offerId = furniData.getFloorItemDetails(className).bcOfferId;
++      FloorItemDetails details=furniData.getFloorItemDetails(className);
++       BCCatalog catalog=this.extension.getCatalog();
++       BCCatalog.SingleFurniProduct product=catalog==null?null:catalog.getFloorProduct(typeId);
++       int offerId=product!=null && product.getOfferId()!=-1?product.getOfferId():details==null?-1:details.bcOfferId;
 +      if (!this.inventoryCache.containsKey(typeId)) {
 +         this.inventoryCache.put(typeId, new LinkedList(inventory.getFloorItemsByType(typeId)));
 +      }
 +
 +      LinkedList<HInventoryItem> inventoryItems = (LinkedList)this.inventoryCache.get(typeId);
-+      boolean useBC = source == ItemSource.ONLY_BC || source == ItemSource.PREFER_BC && offerId != -1 || source == ItemSource.PREFER_INVENTORY && inventoryItems.isEmpty();
++      boolean useBC = source.usesBC(offerId != -1,!inventoryItems.isEmpty());
 +      boolean useRoomFurni = this.extension.useRoomFurni();
 +      if (useBC) {
 +         if (offerId == -1) {
-+            if (!this.extension.allowIncompleteBuilds()) {
++            if (!this.incompleteBuildAllowed) {
 +               this.state = GPresetImporter.BuildingImportState.NONE;
 +               this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find the item '%s' in BC warehouse.. aborting", className));
 +               this.reportImport("Import incomplete: required furniture unavailable");
@@ -4296,7 +4322,7 @@
 +         recordFloorPlacement(dropInfo,null);
 +      } else {
 +         if (inventoryItems.isEmpty() && !useRoomFurni) {
-+            if (!this.extension.allowIncompleteBuilds()) {
++            if (!this.incompleteBuildAllowed) {
 +               this.state = GPresetImporter.BuildingImportState.NONE;
 +               this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find '%s' in inventory.. aborting", className));
 +               this.reportImport("Import incomplete: required furniture unavailable");
@@ -4318,7 +4344,7 @@
 +               HPacket packet = new HPacket("MoveObject", HMessage.Direction.TOSERVER, new Object[]{floorItem.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()});
 +               this.extension.sendToServer(packet);
 +               Utils.sleep(600);
-+            } else if (!this.extension.allowIncompleteBuilds()) {
++            } else if (!this.incompleteBuildAllowed) {
 +               this.state = GPresetImporter.BuildingImportState.NONE;
 +               this.extension.getLogger().log(String.format("[UseRoomFurni] ERROR: '%s' not found in rectangle (roomItems remaining=%d)", className, this.roomItemsList.size()), "red");
 +               this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find '%s' in inventory or room.. aborting", className));
@@ -4519,15 +4545,19 @@
 +      try {
 +         Map<Integer,Integer> floors=new HashMap<>();
 +         synchronized(this.lock) {for(var item:this.workingPresetConfig.getFurniture()) {Integer id=this.reportFloorIds.getOrDefault(item.getFurniId(),this.realFurniIdMap.get(item.getFurniId()));if(id!=null)floors.put(item.getFurniId(),id);}}
-+         org.json.JSONObject report=ImportReport.capture(outcome,this.workingPresetConfig,floors,new HashMap<>(reportWallIds),new HashSet<>(reportWiredIds),this.extension.getFloorState(),this.rootLocation,this.importZDelta,this.activeImportRoomId);
++         org.json.JSONObject report=ImportReport.capture(outcome,this.reportRequestedPreset==null?this.workingPresetConfig:this.reportRequestedPreset,floors,new HashMap<>(reportWallIds),new HashSet<>(reportWiredIds),this.extension.getFloorState(),this.rootLocation,this.importZDelta,this.activeImportRoomId);
 +         report.getJSONObject("otherConfigurations").put("confirmed",new org.json.JSONObject(reportOtherCounts));
++         if(this.partialPlan!=null) {
++            org.json.JSONArray skipped=new org.json.JSONArray();for(var omission:this.partialPlan.omissions())skipped.put(omission.json());report.put("omissions",skipped);
++            for(Object value:report.getJSONArray("wired")) {var row=(org.json.JSONObject)value;String reason=this.partialPlan.skippedWired().get(row.getInt("presetId"));if(reason!=null)row.put("status","SKIPPED_MISSING_DEPENDENCY").put("reason",reason);}
++         }
 +         this.extension.showImportReport(report);
 +      } catch(RuntimeException error){this.extension.getLogger().log("Cannot capture import report: "+error.getMessage(),"orange");}
 +   }
 +
 +   private boolean failWiredImport(String reason) {
 +      this.extension.getLogger().log("Import incomplete: " + reason, "red");
-+      this.reportImport("Import incomplete");
++      this.reportImport("Import incomplete: " + reason);
 +      this.extension.sendVisualChatInfo("Import incomplete; see G-Presets logs");
 +      this.reset();
 +      return false;
@@ -4636,13 +4666,7 @@
 +
 +      synchronized(this.lock) {
 +         if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-+            this.state = GPresetImporter.BuildingImportState.NONE;
-+            this.extension.updatePreviewAvailability();
-+               this.extension.sendVisualChatInfo("Imported the preset successfully");
-+            this.extension.getLogger().log("Finished importing the preset!", "green");
-+            this.reportImport("Import finished");
-+            this.pauseGate.cancel();
-+            this.extension.setImportProgress("Import complete",1,1);
++            this.finishImport();
 +         }
 +
 +      }
@@ -5230,22 +5254,7 @@
 +                  pageId = -1;
 +               }
 +
-+               boolean useBC;
-+               if (source == ItemSource.ONLY_BC) {
-+                  useBC = true;
-+               } else if (source == ItemSource.PREFER_BC) {
-+                  if (bcProduct != null) {
-+                     useBC = true;
-+                  } else if (!inventoryItems.isEmpty()) {
-+                     useBC = false;
-+                  } else {
-+                     useBC = offerId != -1;
-+                  }
-+               } else if (source == ItemSource.PREFER_INVENTORY) {
-+                  useBC = inventoryItems.isEmpty() && offerId != -1;
-+               } else {
-+                  useBC = false;
-+               }
++               boolean useBC=source.usesBC(offerId != -1,!inventoryItems.isEmpty());
 +
 +               Set<Integer> wallIdsBefore = new HashSet();
 +               String safeLocationString = null;
@@ -5264,7 +5273,7 @@
 +               boolean placedAtSafeLocation = false;
 +               if (useBC) {
 +                  if (offerId == -1) {
-+                     if (!this.extension.allowIncompleteBuilds()) {
++                     if (!this.incompleteBuildAllowed) {
 +                        this.state = GPresetImporter.BuildingImportState.NONE;
 +                        this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find wall item '%s' in BC catalog.. aborting", className));
 +                        this.reportImport("Import incomplete: required furniture unavailable");
@@ -5292,7 +5301,7 @@
 +                  }
 +               } else {
 +                  if (inventoryItems.isEmpty()) {
-+                     if (!this.extension.allowIncompleteBuilds()) {
++                     if (!this.incompleteBuildAllowed) {
 +                        this.extension.sendVisualChatInfo(String.format("ERROR: Couldn't find wall item '%s' (state=%s) in inventory.. aborting", className, wallState));
 +                        this.reportImport("Import incomplete: required furniture unavailable");
 +                        this.state = GPresetImporter.BuildingImportState.NONE;
@@ -5535,7 +5544,7 @@
 +         }
 +
 +         for(PresetWallFurni item:wallFurniture) {
-+            if(!this.realFurniIdMap.containsKey(item.getFurniId())) {
++            if(!this.reportWallIds.containsKey(item.getFurniId()) && !this.incompleteBuildAllowed) {
 +               failWiredImport("Wall furniture was not placed: " + item.getClassName()); return;
 +            }
 +         }
@@ -5588,7 +5597,7 @@
 +      if(!checkpoint(BuildingImportState.SETUP_WIRED))return;
 +      this.placeWallItems(BuildingImportState.SETUP_WIRED);
 +      if (this.state != BuildingImportState.SETUP_WIRED) return;
-+      for(PresetFurni item:this.workingPresetConfig.getFurniture()) if(!this.realFurniIdMap.containsKey(item.getFurniId())) { failWiredImport("Furniture was not placed: " + item.getFurniName());return; }
++      if(!this.preparePlacedConfigurations())return;
 +      if (!this.applyRoomLinks() || !this.applyChests() || !this.applyContracts() || !this.applyWiredLinks()) return;
 +      List<PresetWiredBase> allWireds = new ArrayList();
 +      Map<Integer, List<PresetWiredFurniBinding>> wiredBindings = new HashMap();
@@ -5767,7 +5776,7 @@
 +
 +         synchronized(this.lock) {
 +            if (this.state == GPresetImporter.BuildingImportState.ADD_FURNITURE) {
-+               if (!this.expectFurniDrops.isEmpty() && !this.extension.allowIncompleteBuilds()) {
++               if (!this.expectFurniDrops.isEmpty() && !this.incompleteBuildAllowed) {
 +                  this.state = GPresetImporter.BuildingImportState.NONE;
 +                  this.extension.sendVisualChatInfo("ERROR: not all furniture were placed");
 +                  this.extension.getLogger().log("ERROR: not all furniture were placed", "red");
@@ -6019,7 +6028,7 @@
 +         Boolean bc=null;
 +         if(catalog!=null && catalog.getState()==BCCatalog.CatalogState.COLLECTED) {
 +            if(wall)bc=catalog.getWallProduct(type,variant)!=null;
-+            else {var details=data.getFloorItemDetails(classname);bc=details!=null && details.bcOfferId!=-1;}
++            else {var details=data.getFloorItemDetails(classname);bc=catalog.getFloorProduct(type)!=null || details!=null && details.bcOfferId!=-1;}
 +         }
 +         row.put("inventory",available).put("catalogOffer",bc==null?JSONObject.NULL:bc);
 +         String status=evaluate(entry.getValue(),available,bc,options.getItemSource());
@@ -6037,7 +6046,7 @@
 +}
 --- a/src/main/java/extension/tools/importutils/AvailabilityChecker.java
 +++ b/src/main/java/extension/tools/importutils/AvailabilityChecker.java
-@@ -0,0 +1,199 @@
+@@ -0,0 +1,204 @@
 +package extension.tools.importutils;
 +
 +import extension.logger.Logger;
@@ -6060,6 +6069,10 @@
 +
 +public class AvailabilityChecker {
 +   public static Map<String, Integer> missingItems(List<FurniDropInfo> furniDrops, Inventory inventory, FurniDataTools furniDataTools, FloorState floorState, boolean useRoomFurni) {
++      return missingItems(furniDrops,inventory,furniDataTools,floorState,useRoomFurni,null);
++   }
++
++   public static Map<String, Integer> missingItems(List<FurniDropInfo> furniDrops, Inventory inventory, FurniDataTools furniDataTools, FloorState floorState, boolean useRoomFurni,BCCatalog catalog) {
 +      if (inventory.getState() == Inventory.InventoryState.LOADED && furniDataTools.isReady()) {
 +         Map<Integer, Integer> usedInventorySpots = new HashMap();
 +         Map<Integer, Integer> missingItemCounts = new HashMap();
@@ -6070,14 +6083,15 @@
 +            ItemSource src = furniDropInfo.getItemSource();
 +            List<HInventoryItem> invItems = inventory.getFloorItemsByType(typeId);
 +            FloorItemDetails floorItemDetails = furniDataTools.getFloorItemDetails(furniDataTools.getFloorItemName(typeId));
++            boolean bcAvailable=(catalog!=null && catalog.getFloorProduct(typeId)!=null) || (floorItemDetails!=null && floorItemDetails.bcOfferId!=-1);
 +            boolean isMissing = false;
 +            boolean useInventorySpace = false;
 +            if (src == ItemSource.ONLY_BC) {
-+               if (floorItemDetails.bcOfferId == -1) {
++               if (!bcAvailable) {
 +                  isMissing = true;
 +               }
 +            } else if (src == ItemSource.PREFER_BC) {
-+               if (floorItemDetails.bcOfferId == -1) {
++               if (!bcAvailable) {
 +                  if ((Integer)usedInventorySpots.get(typeId) < invItems.size()) {
 +                     useInventorySpace = true;
 +                  } else {
@@ -6088,7 +6102,7 @@
 +               if ((Integer)usedInventorySpots.get(typeId) < invItems.size()) {
 +                  useInventorySpace = true;
 +               } else {
-+                  isMissing = floorItemDetails.bcOfferId == -1;
++                  isMissing = !bcAvailable;
 +               }
 +            } else if (src == ItemSource.ONLY_INVENTORY) {
 +               if ((Integer)usedInventorySpots.get(typeId) < invItems.size()) {
@@ -6360,7 +6374,7 @@
 +}
 --- a/src/main/java/extension/tools/importutils/ImportReport.java
 +++ b/src/main/java/extension/tools/importutils/ImportReport.java
-@@ -0,0 +1,61 @@
+@@ -0,0 +1,66 @@
 +package extension.tools.importutils;
 +
 +import extension.tools.presetconfig.*;
@@ -6414,6 +6428,11 @@
 +      StringBuilder s=new StringBuilder(report.getString("outcome")+"\n\n");
 +      Map<String,Integer> totals=new TreeMap<>();
 +      for(Object value:report.getJSONArray("items")){JSONObject row=(JSONObject)value;String status=row.getString("status");totals.merge(row.getString("kind")+" "+status,1,Integer::sum);s.append(row.getString("kind")).append(" ").append(row.getString("className")).append(" [").append(row.getInt("presetId")).append("] — ").append(status.replace('_',' '));if(row.has("stateCheck"))s.append("; state: ").append(row.getString("stateCheck"));if(row.has("altitudeCheck"))s.append("; height: ").append(row.getString("altitudeCheck"));s.append('\n');}
++      JSONArray omissions=report.optJSONArray("omissions");
++      if(omissions!=null && !omissions.isEmpty()) {
++         s.append("\nSkipped because furniture/dependencies were unavailable\n");
++         for(Object value:omissions){JSONObject row=(JSONObject)value;s.append(row.getString("category")).append(" [").append(row.getInt("presetId")).append("]: ").append(row.getString("reason")).append('\n');}
++      }
 +      s.append("\nTotals\n");totals.forEach((key,value)->s.append(key.replace('_',' ')).append(": ").append(value).append('\n'));
 +      for(Object value:report.getJSONArray("wired")){JSONObject row=(JSONObject)value;s.append("WIRED ").append(row.getInt("presetId")).append(": ").append(row.getString("status").replace('_',' ')).append('\n');}
 +      JSONObject other=report.getJSONObject("otherConfigurations"),confirmed=other.optJSONObject("confirmed");
@@ -6449,6 +6468,114 @@
 + public synchronized void clear(){entries.clear();room=0;owner=0;}
 + private static String key(Entry entry){return (entry.wall()?"W:":"F:")+entry.id();}
 + public static HPacket pickup(Entry entry){return new HPacket("PickupObject",HMessage.Direction.TOSERVER,entry.wall()?1:2,entry.id());}
++}
+--- a/src/main/java/extension/tools/importutils/PartialImportPlan.java
++++ b/src/main/java/extension/tools/importutils/PartialImportPlan.java
+@@ -0,0 +1,105 @@
++package extension.tools.importutils;
++
++import extension.tools.presetconfig.PresetConfig;
++import extension.tools.presetconfig.wired.*;
++import java.util.*;
++import java.util.function.ToIntFunction;
++import org.json.*;
++
++/** Exclude unavailable dependencies without changing the requested preset or its report totals. */
++public final class PartialImportPlan {
++   public record Omission(String category,int presetId,String reason) {
++      public JSONObject json(){return new JSONObject().put("category",category).put("presetId",presetId).put("reason",reason);}
++   }
++   private final PresetConfig effective;
++   private final List<Omission> omissions=new ArrayList<>();
++   private final Map<Integer,String> skippedWired=new LinkedHashMap<>();
++   private final Set<Integer> missing=new HashSet<>();
++   private final Set<String> missingVariables=new HashSet<>();
++   private PartialImportPlan(PresetConfig requested,Map<Integer,Integer> furniture,Map<Integer,Integer> walls) {
++      effective=new PresetConfig(requested.toJsonObject());
++      for(var f:requested.getFurniture()) if(!furniture.containsKey(f.getFurniId())) {
++         missing.add(f.getFurniId());omit("Floor",f.getFurniId(),"Not placed: "+f.getClassName());
++      }
++      for(var f:requested.getWallFurniture()) if(!walls.containsKey(f.getFurniId())) {
++         missing.add(-Math.abs(f.getFurniId()));omit("Wall",f.getFurniId(),"Not placed: "+f.getClassName());
++      }
++      var wired=effective.getPresetWireds();
++      // A missing snapshot/selection must not silently change what a WIRED selects.
++      for(var box:wired.getAll()) {
++         String reason=null;
++         if(!furniture.containsKey(box.getWiredId()))reason="WIRED furniture was not placed";
++         for(int id:box.getItems()) if(missing.contains(id) || !furniture.containsKey(id))reason="Missing selected furniture "+id;
++         for(int id:box.getSecondItems()) if(missing.contains(id) || !furniture.containsKey(id))reason="Missing second-selection furniture "+id;
++         for(var binding:effective.getBindings()) if(binding.getWiredId()==box.getWiredId() && (missing.contains(binding.getFurniId()) || !furniture.containsKey(binding.getFurniId())))reason="Missing snapshot furniture "+binding.getFurniId();
++         if(reason!=null)skippedWired.put(box.getWiredId(),reason);
++      }
++      // Propagate unavailable variable definitions through dependent definitions and WIRED.
++      boolean changed;
++      do {
++         changed=false;
++         for(var variable:wired.getVariables()) if(skippedWired.containsKey(variable.getWiredId()))missingVariables.add(variable.variableId);
++         for(var box:wired.getAll()) if(!skippedWired.containsKey(box.getWiredId())) {
++            for(String id:box.getVariableIds()) if(missingVariables.contains(id) && !box.getExternalVariableIds().contains(id)) {
++               skippedWired.put(box.getWiredId(),"Unavailable preset variable "+id);changed=true;break;
++            }
++         }
++      }while(changed);
++      skippedWired.forEach((id,reason)->omit("WIRED",id,reason));
++      wired.getConditions().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      wired.getEffects().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      wired.getTriggers().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      wired.getAddons().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      wired.getSelectors().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      wired.getVariables().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      Set<String> missingNames=new HashSet<>();
++      wired.getVariablesMap().forEach((name,id)->{if(missingVariables.contains(id))missingNames.add(name);});
++      for(var item:effective.getFurniture())item.setVariables(legacyValues(item.getVariables(),missingNames,item.getFurniId()));
++      for(var item:effective.getWallFurniture())item.setVariables(legacyValues(item.getVariables(),missingNames,-Math.abs(item.getFurniId())));
++      wired.getVariablesMap().entrySet().removeIf(e->missingVariables.contains(e.getValue()));
++      effective.getBindings().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++      exclude(effective.getRoomLinks(),b->b.furniId,"roomLinks",furniture);
++      exclude(effective.getChests(),b->b.furniId,"chests",furniture);
++      exclude(effective.getContracts(),b->b.furniId,"contracts",furniture);
++      exclude(effective.getWiredLinks(),b->b.furniId,"links",furniture);
++      exclude(effective.getFurnitureLabels(),b->b.furniId,"labels",furniture);
++      exclude(effective.getAdsBackgrounds(),b->b.getFurniId(),"adsBackgrounds",furniture);
++      List<PresetObjectVariables> holders=new ArrayList<>();
++      for(var holder:effective.getObjectVariables()) {
++         if(holder.target==0 && (missing.contains(holder.objectId) || !furniture.containsKey(holder.objectId))) {
++            omit("objectVariables",holder.objectId,"Variable holder was not placed");continue;
++         }
++         JSONObject json=holder.toJsonObject(),values=json.getJSONObject("values");
++         Set<String> removed=new HashSet<>();
++         for(String key:new ArrayList<>(values.keySet())) {
++            boolean missingReference=false;
++            for(Object ref:json.getJSONArray("furnitureReferenceKeys")) if(key.equals(ref) && (missing.contains(values.getInt(key)) || !furniture.containsKey(values.getInt(key))))missingReference=true;
++            if(missingVariables.contains(key) || missingReference) {
++               values.remove(key);removed.add(key);
++               omit("objectVariables",holder.objectId,"Skipped value "+key+": unavailable "+(missingReference?"furniture destination":"preset variable"));
++            }
++         }
++         for(String array:List.of("furnitureReferenceKeys","writeOnlyVariableIds")) {
++            JSONArray kept=new JSONArray();for(Object key:json.getJSONArray(array))if(!removed.contains(key))kept.put(key);json.put(array,kept);
++         }
++         if(!values.isEmpty() || removed.isEmpty())holders.add(new PresetObjectVariables(json));
++      }
++      effective.setObjectVariables(holders);
++   }
++   private Map<String,Integer> legacyValues(Map<String,Integer> values,Set<String> names,int id) {
++      if(values==null)return null;
++      Map<String,Integer> kept=new HashMap<>(values);
++      for(String name:values.keySet())if(names.contains(name) || missingVariables.contains(name)) {
++         kept.remove(name);omit("objectVariables",id,"Skipped legacy value "+name+": unavailable preset variable");
++      }
++      return kept;
++   }
++   private void omit(String category,int id,String reason){omissions.add(new Omission(category,id,reason));}
++   private <T> void exclude(List<T> items,ToIntFunction<T> id,String category,Map<Integer,Integer> furniture) {
++      items.removeIf(item->{int source=id.applyAsInt(item);if(furniture.containsKey(source))return false;omit(category,source,"Owner furniture was not placed");return true;});
++   }
++   public static PartialImportPlan create(PresetConfig requested,Map<Integer,Integer> furniture,Map<Integer,Integer> walls){return new PartialImportPlan(requested,furniture,walls);}
++   public PresetConfig effective(){return effective;}
++   public List<Omission> omissions(){return List.copyOf(omissions);}
++   public Map<Integer,String> skippedWired(){return Map.copyOf(skippedWired);}
 +}
 --- a/src/main/java/extension/tools/importutils/PresetReplacements.java
 +++ b/src/main/java/extension/tools/importutils/PresetReplacements.java
@@ -6968,7 +7095,7 @@
 +}
 --- a/src/main/java/extension/tools/postconfig/ItemSource.java
 +++ b/src/main/java/extension/tools/postconfig/ItemSource.java
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,18 @@
 +package extension.tools.postconfig;
 +
 +public enum ItemSource {
@@ -6976,6 +7103,11 @@
 +   PREFER_BC,
 +   PREFER_INVENTORY,
 +   ONLY_INVENTORY;
++
++   /** Prefer modes may use both sources; ONLY modes never cross to the other source. */
++   public boolean usesBC(boolean bcAvailable,boolean inventoryAvailable) {
++      return this==ONLY_BC || this==PREFER_BC && bcAvailable || this==PREFER_INVENTORY && !inventoryAvailable && bcAvailable;
++   }
 +
 +   // $FF: synthetic method
 +   private static ItemSource[] $values() {
@@ -13383,6 +13515,72 @@
 +      return this.altitude;
 +   }
 +}
+--- a/tests/PartialImportTests.java
++++ b/tests/PartialImportTests.java
+@@ -0,0 +1,63 @@
++package tests;
++import extension.tools.importutils.*;
++import extension.tools.library.PresetComparison;
++import extension.tools.postconfig.ItemSource;
++import extension.tools.presetconfig.*;
++import extension.tools.presetconfig.furni.*;
++import extension.tools.presetconfig.wired.*;
++import extension.tools.presetconfig.binding.*;
++import gearth.extensions.parsers.HPoint;
++import org.json.*;
++import java.util.*;
++
++public final class PartialImportTests {
++ private static int checks;
++ private static void check(boolean b,String m){if(!b)throw new AssertionError(m);checks++;}
++ private static JSONObject box(int id,List<Integer> items,List<Integer> second,List<String> variables){return new JSONObject().put("wiredId",id).put("options",new JSONArray()).put("config","").put("items",items).put("secondItems",second).put("variableIds",variables).put("delay",0);}
++ public static int run() {
++  checks=0;
++  for(var source:ItemSource.values()) for(boolean bc:List.of(false,true))for(boolean inv:List.of(false,true)) {
++   boolean expected=switch(source){case ONLY_BC->true;case ONLY_INVENTORY->false;case PREFER_BC->bc;case PREFER_INVENTORY->!inv && bc;};
++   check(source.usesBC(bc,inv)==expected,"source priority "+source+" bc="+bc+" inventory="+inv);
++  }
++  var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
++  List<PresetFurni> furni=new ArrayList<>();
++  for(int id:List.of(1,2,3,4,5,6,7,8,9,220,331,357)){var f=new PresetFurni(id,id>=220?"bw_tele":"item",new HPoint(0,0),0,null);f.setFurniName("test"+id);furni.add(f);}
++  var wall=new PresetWallFurni(1,"poster",new utils.WallPosition(0,0,0,0,'l',0),"0");wall.setFurniName("wall");
++  var preset=new PresetConfig(furni,new ArrayList<>(List.of(wall)),wired,new ArrayList<>(),new ArrayList<>());
++  wired.getEffects().add(new PresetWiredEffect(box(1,List.of(2),List.of(),List.of())));
++  wired.getEffects().add(new PresetWiredEffect(box(3,List.of(220),List.of(),List.of())));
++  wired.getEffects().add(new PresetWiredEffect(box(4,List.of(),List.of(331),List.of())));
++  wired.getEffects().add(new PresetWiredEffect(box(5,List.of(),List.of(),List.of("v2"))));
++  wired.getEffects().add(new PresetWiredEffect(box(6,List.of(),List.of(),List.of("v1")).put("externalVariableIds",List.of("v1"))));
++  wired.getVariables().add(new PresetWiredVariable(box(357,List.of(),List.of(),List.of()).put("variableId","v1")));
++  wired.getVariables().add(new PresetWiredVariable(box(7,List.of(),List.of(),List.of("v1")).put("variableId","v2")));
++  wired.getVariablesMap().put("missing","v1");wired.getVariablesMap().put("dependent","v2");
++  var values=new LinkedHashMap<String,Integer>();values.put("~100",1);values.put("v1",99);values.put("~103",220);
++  preset.setObjectVariables(new ArrayList<>(List.of(new PresetObjectVariables(0,2,values).withFurnitureReference("~103"),new PresetObjectVariables(0,220,Map.of("~100",1)))));
++  preset.setFurnitureLabels(new ArrayList<>(List.of(new PresetFurniLabel(2,"keep",0,0,false),new PresetFurniLabel(331,"skip",0,0,false))));
++  wired.getEffects().add(new PresetWiredEffect(box(8,List.of(-1),List.of(),List.of())));
++  wired.getEffects().add(new PresetWiredEffect(box(9,List.of(),List.of(),List.of())));
++  preset.getBindings().add(new PresetWiredFurniBinding(357,9,new HPoint(1,1),0,null,null));
++  preset.getFurniture().get(1).setVariables(Map.of("missing",99,"valid",10));
++  String before=PresetComparison.canonical(preset.toJsonObject());Map<Integer,Integer> ids=new HashMap<>();for(int i=1;i<=9;i++)ids.put(i,100+i);
++  var plan=PartialImportPlan.create(preset,ids,Map.of());var effective=plan.effective();
++  check(effective.getFurniture().size()==12 && effective.getWallFurniture().size()==1,"full requested furniture retained for placement and reporting");
++  check(plan.omissions().stream().filter(o->o.category().equals("Floor")).count()==3,"all three unavailable teleporters identified");
++  check(plan.omissions().stream().anyMatch(o->o.category().equals("Wall") && o.presetId()==1),"floor mapping cannot hide missing wall with same source ID");
++  check(effective.getPresetWireds().getEffects().stream().map(PresetWiredBase::getWiredId).toList().equals(List.of(1,6)),"independent and explicitly external WIRED continue; missing selections and variable consumers skipped");
++  check(effective.getPresetWireds().getVariables().isEmpty() && effective.getPresetWireds().getVariablesMap().isEmpty(),"missing variable definitions propagate through dependent definitions");
++  check(plan.skippedWired().keySet().containsAll(List.of(3,4,5,7,8,9,357)),"report records each skipped WIRED");
++  check(effective.getObjectVariables().size()==1 && effective.getObjectVariables().get(0).values.equals(Map.of("~100",1)),"valid holder values retained while missing variable and teleporter references skipped");
++  check(effective.getObjectVariables().get(0).remap(ids,Map.of()).values.equals(Map.of("~100",1)),"remaining holder configuration remaps without missing-dependency failure");
++  check(effective.getFurnitureLabels().size()==1 && effective.getFurnitureLabels().get(0).furniId==2,"available furniture labels finish");
++  check(PresetComparison.canonical(preset.toJsonObject()).equals(before),"partial planning does not mutate source preset");
++  check(effective.getFurniture().get(1).getVariables().equals(Map.of("valid",10)),"legacy variable names cannot fall back to an unavailable definition");
++  check(effective.getBindings().isEmpty(),"WIRED with missing snapshot target is skipped before moving snapshot furniture");
++  var full=new HashMap<>(ids);full.put(220,320);full.put(331,431);full.put(357,457);full.put(-1,-1001);
++  var complete=PartialImportPlan.create(preset,full,Map.of(1,1001));
++  check(complete.omissions().isEmpty() && complete.effective().getPresetWireds().getAll().size()==9,"fully supplied preset keeps all configuration");
++  check(effective.getPresetWireds().getEffects().get(0).remap(ids,Map.of()).getItems().equals(List.of(102)),"remaining WIRED uses actual destination room IDs");
++  return checks;
++ }
++}
 --- a/tests/PresetToolsTests.java
 +++ b/tests/PresetToolsTests.java
 @@ -0,0 +1,94 @@
@@ -13482,7 +13680,7 @@
 +}
 --- a/tests/PreviewImportFlow.java
 +++ b/tests/PreviewImportFlow.java
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,156 @@
 +package tests;
 +import extension.GPresets;
 +import extension.logger.Logger;
@@ -13506,7 +13704,7 @@
 +   private static void require(boolean condition,String text) { if(!condition)throw new AssertionError(text); }
 +   private static final class FakeExtension extends GPresets {
 +      final Map<String,ExtensionBase.MessageListener> callbacks=new HashMap<>();
-+      int serverPackets;int room=42;boolean roomLoaded;Runnable onPickup;
++      int serverPackets;int room=42;boolean roomLoaded;Runnable onPickup;JSONObject lastReport;
 +      final Map<Integer,gearth.extensions.parsers.HFloorItem> floorItems=new HashMap<>();
 +      final Map<Integer,gearth.extensions.parsers.HWallItem> wallItems=new HashMap<>();
 +      final List<String> pickups=new ArrayList<>();
@@ -13528,6 +13726,7 @@
 +         if(category==1)wallItems.remove(id);else floorItems.remove(id);if(onPickup!=null)onPickup.run();return true;
 +      }
 +      @Override public void sendVisualChatInfo(String text) { }
++      @Override public void showImportReport(JSONObject report){lastReport=report;}
 +      @Override public void updatePreviewAvailability() { }
 +      @Override public boolean previewBeforeImport() { return true; }
 +      @Override public void showImportPreview(PresetPreviewSession session,BooleanSupplier ready,BooleanSupplier confirm,Runnable cancel) { this.session=session;this.ready=ready;this.confirm=confirm;this.cancel=cancel; }
@@ -13574,6 +13773,7 @@
 +      extension.chat(":pp");PresetConfig active=importer.getPresetConfig();
 +      require(!importer.applySessionReplacements(active,preset),"substitutions cannot change an active preview/import");extension.cancel.run();
 +      undoWorker(extension,importer);
++      incompletePolicy(extension,importer);
 +      System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
 +   }
 +   private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
@@ -13604,10 +13804,42 @@
 +      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
 +   }
 +
++   private static void put(GPresetImporter importer,String name,Object value) throws ReflectiveOperationException {
++      var f=GPresetImporter.class.getDeclaredField(name);f.setAccessible(true);f.set(importer,value);
++   }
++   private static void incompletePolicy(FakeExtension extension,GPresetImporter importer) {
++      try {
++         var prepare=GPresetImporter.class.getDeclaredMethod("preparePlacedConfigurations");prepare.setAccessible(true);
++         var finish=GPresetImporter.class.getDeclaredMethod("finishImport");finish.setAccessible(true);
++         var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
++         var available=new extension.tools.presetconfig.furni.PresetFurni(1,"table",new gearth.extensions.parsers.HPoint(1,2),0,null);available.setFurniName("table");
++         var missing=new extension.tools.presetconfig.furni.PresetFurni(220,"bw_tele",new gearth.extensions.parsers.HPoint(3,2),0,null);missing.setFurniName("teleporter");
++         var preset=new PresetConfig(new ArrayList<>(List.of(available,missing)),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
++         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(1,101)));put(importer,"incompleteBuildAllowed",true);
++         put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);extension.roomLoaded=true;
++         int sent=extension.serverPackets;
++         require((Boolean)prepare.invoke(importer),"actual importer continues after missing furniture when incomplete builds enabled");
++         finish.invoke(importer);
++         require(importer.getState()==GPresetImporter.BuildingImportState.NONE,"actual partial completion returns importer to idle");
++         require(extension.lastReport.getString("outcome").equals("Import finished with omissions"),"actual completion cannot claim full success when items missing");
++         require(extension.lastReport.getJSONArray("items").length()==2 && extension.lastReport.getJSONArray("omissions").length()==1,"actual completion retains original requested counts and missing item details");
++         require(ImportReport.text(extension.lastReport).contains("Not placed: bw_tele"),"exportable text report includes omission reason");
++         put(importer,"workingPresetConfig",preset);put(importer,"incompleteBuildAllowed",false);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);
++         require(!(Boolean)prepare.invoke(importer),"strict mode still rejects missing furniture");
++         require(extension.lastReport.getString("outcome").contains("Not placed: bw_tele"),"actual strict failure report retains the exact failure reason");
++         require(extension.serverPackets==sent,"missing-item policy and completion never invent placement/configuration packets");
++         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(1,101,220,2200)));put(importer,"incompleteBuildAllowed",true);
++         require((Boolean)prepare.invoke(importer),"fully supplied subsequent import has no inherited omissions");finish.invoke(importer);
++         require(extension.lastReport.getString("outcome").equals("Import finished"),"subsequent complete build resets previous partial outcome");
++         extension.roomLoaded=false;
++         System.out.println("PASS: real importer incomplete/strict policy, finish outcome, original totals, omission/error reasons and next-import isolation");
++      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
++   }
++
 +}
 --- a/tests/RegressionTests.java
 +++ b/tests/RegressionTests.java
-@@ -0,0 +1,618 @@
+@@ -0,0 +1,619 @@
 +package tests;
 +
 +import extension.parsers.*;
@@ -14196,6 +14428,7 @@
 +
 +   public static void main(String[] args) throws Exception {
 +      passed+=PresetToolsTests.run();
++      passed+=PartialImportTests.run();
 +      pauseGateTests();
 +      imageCacheTests();
 +      release150Tests();

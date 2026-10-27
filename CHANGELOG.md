@@ -1,3 +1,11 @@
+## 1.6.1
+
+- Finish remaining import stages when Allow building without all furni is enabled. Report unavailable floor/wall furniture and skip configuration with missing owners, selected furniture, snapshots or preset variable dependencies; continue independent WIRED, auxiliary settings and valid object properties.
+- Preserve source presets and the full requested totals in reports. Distinguish completion with omissions from a complete import; include omission details and exact fatal reasons in exported text reports. Strict mode still stops for required missing furniture; transport/save/confirmation failures are not suppressed.
+- Apply BC-first, inventory-fallback source selection consistently to floor and wall placements. Include collected floor BC catalog offers in placement and preflight checks.
+- Add missing-teleporter, dependent variable/selection, source priority, immutable-source, namespace and real importer completion/report regression checks. Local regression and JavaFX smoke tests; no claim of a complete live Habbo import.
+- Preserve all previous GitHub releases, including v1.5.3.
+
 ## 1.6.0
 
 - Add Tools: recover individually identified new floor/wall placements from the last import in the same session/room, with per-item type/owner/permission checks, server-state acknowledgement and abort/retry support. Existing/reused furniture and helper tiles are excluded; unconfirmed or unattributable BC placements are excluded. Configuration changes on existing items are not reverted.
