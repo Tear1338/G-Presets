@@ -1,4 +1,4 @@
-# 1.4.0-rc3
+## 1.4.0-rc3
 
 - Correction du demarrage : JavaFX et les dependances de l interface sont incluses dans le JAR Windows. Java 17 ou plus reste necessaire.
 - Test de l interface avec le seul JAR distribue.
@@ -22,4 +22,3 @@
 - Validation explicite des données, sauvegarde atomique et fixtures des formats réseau.
 
 Ces préversions n'ont pas encore été validées par un cycle complet export/import dans Habbo. Voir `COMPATIBILITE.md` pour les limites.
-
