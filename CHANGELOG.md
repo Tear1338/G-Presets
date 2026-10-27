@@ -1,3 +1,7 @@
+## 1.4.2
+
+- Restore G-Earth-compatible binary encoding for intercepted packet transport to prevent data corruption.
+
 ## 1.4.1
 
 - Update the extension description.

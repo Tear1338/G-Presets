@@ -461,6 +461,13 @@ public final class RegressionTests {
    }
 
    public static void main(String[] args) throws Exception {
+      byte[] wireBytes = new byte[256]; for (int i=0;i<256;i++) wireBytes[i]=(byte)i;
+      String wireString = new String(wireBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+      HPacket envelope = new HPacket(1); envelope.appendLongString(wireString);
+      check(Arrays.equals(wireBytes, Arrays.copyOfRange(envelope.toBytes(), 10, envelope.getBytesLength())), "G-Earth transport encodes all bytes losslessly");
+      check(envelope.readLongString().equals(wireString), "G-Earth transport decodes all bytes losslessly");
+      check(envelope.readLongString(6).equals(wireString), "indexed G-Earth transport decode");
+
       JSONObject golden=new JSONObject(Files.readString(Path.of("tests/fixtures/qx-reference.json")).replace("\uFEFF",""));
       outgoingProtocol(golden);
       modernContexts();

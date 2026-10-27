@@ -378,11 +378,11 @@ public class HPacket implements StringifyAble {
    }
 
    public String readLongString() {
-      return this.readLongString(StandardCharsets.UTF_8);
+      return this.readLongString(StandardCharsets.ISO_8859_1);
    }
 
    public String readLongString(int index) {
-      return this.readLongString(index, StandardCharsets.UTF_8);
+      return this.readLongString(index, StandardCharsets.ISO_8859_1);
    }
 
    public boolean readBoolean() {
@@ -721,7 +721,7 @@ public class HPacket implements StringifyAble {
    }
 
    public HPacket appendLongString(String s) {
-      return this.appendLongString(s, StandardCharsets.UTF_8);
+      return this.appendLongString(s, StandardCharsets.ISO_8859_1);
    }
 
    public HPacket appendObjects(Object... objects) {
