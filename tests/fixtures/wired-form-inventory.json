@@ -1,0 +1,4815 @@
+{
+  "collected_at": "2026-10-26",
+  "client": "WIN63-202610201032-107964540",
+  "source": "QX Scripter running form-definition registry (reference inventory, not live gameplay tests)",
+  "definitions": [
+    {
+      "category": "trigger",
+      "code": 0,
+      "name": "AvatarSaysSomething",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "owner_only",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "match_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "hide_message",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "text",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 1,
+      "name": "WalksOnFurniture",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 2,
+      "name": "WalksOffFurniture",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 3,
+      "name": "TriggerOnce",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "delay_pulses",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 4,
+      "name": "UseStuff",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 6,
+      "name": "TriggerPeriodically",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "interval_pulses",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 7,
+      "name": "AvatarEntersRoom",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 8,
+      "name": "GameStarts",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 9,
+      "name": "GameEnds",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 10,
+      "name": "ScoreAchieved",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "score",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 11,
+      "name": "AvatarCaught",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 12,
+      "name": "PeriodicLong",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "interval_units",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 13,
+      "name": "BotDestinationReached",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 14,
+      "name": "BotAvatarReached",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 15,
+      "name": "ClockReachTime",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "seconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minutes",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "half_second",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 16,
+      "name": "UserPerformsAction",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "action",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "action_filter",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 17,
+      "name": "ReceiveSignal",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 18,
+      "name": "AvatarClicksFurni",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 19,
+      "name": "PeriodicShort",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "interval_units",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 20,
+      "name": "StateChange",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "state_mode",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 21,
+      "name": "ClickTile",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 22,
+      "name": "VariableUpdate",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "variable_id",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "created",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "value_changed",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "deleted",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "change_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "origin_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "select_variable_boxes",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 23,
+      "name": "AvatarLeavesRoom",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 24,
+      "name": "UserClicksUser",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "suppress_avatar_menu",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "suppress_rotation",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 25,
+      "name": "TransactionCompleted",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 26,
+      "name": "TransactionFailed",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 0,
+      "name": "ToggleFurniState",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "toggle_type",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 1,
+      "name": "Reset",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 3,
+      "name": "MatchSnapshot",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "state",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "direction",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "altitude",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 4,
+      "name": "MoveFurni",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "movement",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "rotation",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 6,
+      "name": "GiveScore",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "points",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "per_game_limit",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 7,
+      "name": "Chat",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "visibility",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "bubble_width",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 8,
+      "name": "TeleportToFurniture",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "fast_teleport",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 9,
+      "name": "JoinTeam",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "game_type",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 10,
+      "name": "LeaveTeam",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 11,
+      "name": "Chase",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 12,
+      "name": "Flee",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 13,
+      "name": "MoveToDirection",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "direction",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "blocked_turn",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "block_on_user",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 14,
+      "name": "GiveScoreToPredefinedTeam",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "points",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "per_game_limit",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 15,
+      "name": "ToggleToRandomState",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 16,
+      "name": "MoveFurniTo",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "movement",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "spacing_tiles",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 17,
+      "name": "GiveReward",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "interval_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "unique_rewards",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "total_limit",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "interval_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "rewards",
+          "kind": "rewards",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 18,
+      "name": "CallAnotherStack",
+      "aliases": [
+        36
+      ],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 19,
+      "name": "KickFromRoom",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 20,
+      "name": "MuteUser",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "minutes",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 21,
+      "name": "BotTeleport",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 22,
+      "name": "BotMove",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 23,
+      "name": "BotTalk",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "chat_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "bubble_width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "hide_bot_name",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 24,
+      "name": "BotGiveHandItem",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "optional_bot_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "hand_item",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 25,
+      "name": "BotFollowAvatar",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "following",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 26,
+      "name": "BotChangeFigure",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "figure",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 27,
+      "name": "BotTalkDirectToAvtr",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "bot_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "chat_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "bubble_width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "hide_bot_name",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 28,
+      "name": "ControlClock",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "clock_control",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 29,
+      "name": "SetFurniAltitude",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "altitude_hundredths",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operation",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 30,
+      "name": "SendSignal",
+      "aliases": [
+        37
+      ],
+      "fields": [
+        {
+          "name": "split_furniture",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "split_users",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 31,
+      "name": "FreezeUser",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "freeze_effect",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "cancel_on_teleport",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 32,
+      "name": "UnfreezeUser",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 33,
+      "name": "RelativeFurniMove",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "x_offset",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "y_offset",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 34,
+      "name": "MoveFurniToFurni",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 35,
+      "name": "MoveFurniToUser",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 38,
+      "name": "AdjustClock",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "seconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minutes",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "half_second",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operation",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 39,
+      "name": "GiveVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "initial_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "initial_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_existing",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "initial_value_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "initial_value_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "initial_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_same_holder",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 40,
+      "name": "RemoveVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 41,
+      "name": "ChangeVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "destination_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operation",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "operand_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "destination",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "operand",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_same_holder",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 42,
+      "name": "MoveUser",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "movement",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "rotation",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 43,
+      "name": "MoveUserToFurni",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "walking_mode",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 44,
+      "name": "TeleportToRoom",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 45,
+      "name": "GiveCurrencyFromChest",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "rewarding_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_popup",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "amount_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "popup_text",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "earnings_category",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 46,
+      "name": "GiveFurniFromChest",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "rewarding_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_popup",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "amount_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "popup_text",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "iteration_mode",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 47,
+      "name": "InitiateTransaction",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "transaction_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "multiplier",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "multiplier_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "multiplier_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "timeout_enabled",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "timeout_seconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "multiplier_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 48,
+      "name": "CancelTransaction",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "match_criteria",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 49,
+      "name": "Log",
+      "aliases": [
+        50
+      ],
+      "fields": [
+        {
+          "name": "log_level",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 51,
+      "name": "ProgressAchievement",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "progression_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "achievement_name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 52,
+      "name": "GiveEffect",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "effect_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "priority",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "effect_type",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 53,
+      "name": "OverrideHeight",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "height",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "height_type",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 54,
+      "name": "ClickConfiguration",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "user_click",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "furniture_click",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 55,
+      "name": "PlaceFurni",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "custom_target_is_user",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "location_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "altitude_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "x_offset",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "y_offset",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "altitude_offset",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "spawn_with_variable",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "spawn_value_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "spawn_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "spawn_value_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "spawn_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "spawn_value_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 56,
+      "name": "RemoveFurni",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "action",
+      "code": 57,
+      "name": "MoveAsGroup",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "target_is_user",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "x_offset",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "y_offset",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 58,
+      "name": "ProgressRewardTrack",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "add_to_existing_score",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "score_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "track_id",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "task_id",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 59,
+      "name": "ResetRewardTrack",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "track_id",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 2,
+      "name": "TriggererIsOnFurni",
+      "aliases": [
+        15
+      ],
+      "fields": []
+    },
+    {
+      "category": "condition",
+      "code": 1,
+      "name": "FurnisHaveAvatars",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "require_all",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 14,
+      "name": "NotFurnisHaveAvatars",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "require_any_without_avatar",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 0,
+      "name": "StatesMatch",
+      "aliases": [
+        13
+      ],
+      "fields": [
+        {
+          "name": "match_state",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "match_direction",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "match_position",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "match_altitude",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 3,
+      "name": "TimeElapsedMore",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "time_threshold",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 4,
+      "name": "TimeElapsedLess",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "time_threshold",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 5,
+      "name": "UserCountIn",
+      "aliases": [
+        16
+      ],
+      "fields": [
+        {
+          "name": "minimum_users",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_users",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 6,
+      "name": "ActorIsInTeam",
+      "aliases": [
+        17
+      ],
+      "fields": [
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 7,
+      "name": "HasStackedFurnis",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "require_all",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 8,
+      "name": "StuffTypeMatches",
+      "aliases": [
+        19
+      ],
+      "fields": []
+    },
+    {
+      "category": "condition",
+      "code": 10,
+      "name": "ActorIsGroupMember",
+      "aliases": [
+        21
+      ],
+      "fields": [
+        {
+          "name": "group_id",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 11,
+      "name": "ActorIsWearingBadge",
+      "aliases": [
+        22
+      ],
+      "fields": [
+        {
+          "name": "badge_code",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 12,
+      "name": "ActorIsWearingEffect",
+      "aliases": [
+        23
+      ],
+      "fields": [
+        {
+          "name": "effect_id",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 18,
+      "name": "NotHasStackedFurnis",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "require_all",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 24,
+      "name": "DateRangeActive",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "start_timestamp",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "end_timestamp",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 25,
+      "name": "ActorHasHanditem",
+      "aliases": [
+        30
+      ],
+      "fields": [
+        {
+          "name": "hand_item",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 26,
+      "name": "TriggererMatches",
+      "aliases": [
+        27
+      ],
+      "fields": [
+        {
+          "name": "user_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 28,
+      "name": "TimeMatches",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "use_second",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "use_minute",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "use_hour",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "second_minimum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "second_maximum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minute_minimum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minute_maximum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "hour_minimum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "hour_maximum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "timezone",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 29,
+      "name": "DateMatches",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "use_day",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "use_year",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "weekday_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "day_minimum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "day_maximum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "month_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "year_minimum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "year_maximum",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "timezone",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 31,
+      "name": "TeamIsWinning",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "placement",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 32,
+      "name": "PerformingAction",
+      "aliases": [
+        33
+      ],
+      "fields": [
+        {
+          "name": "action",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "action_filter",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 34,
+      "name": "TeamHasScore",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "score",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 35,
+      "name": "ClockTimeMatches",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "seconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minutes",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "half_second",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 36,
+      "name": "FurniHasAltitude",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "altitude_hundredths",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 37,
+      "name": "UserDirection",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "direction_mask",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 38,
+      "name": "InputSourceQuantity",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "reference_is_user",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 39,
+      "name": "CanPerformMove",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "condition",
+      "code": 40,
+      "name": "HasVariable",
+      "aliases": [
+        41
+      ],
+      "fields": [
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 42,
+      "name": "VariableValue",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "reference_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_same_holder",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 43,
+      "name": "VariableAge",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "age_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "duration_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "duration",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "duration_unit",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "duration_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "duration_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "duration_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 44,
+      "name": "UserLevel",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "level",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 45,
+      "name": "ChestHasItems",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "condition",
+      "code": 46,
+      "name": "ChestHasItemTypes",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 0,
+      "name": "FurniByType",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "match_state",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 1,
+      "name": "PickedFurniture",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "selector",
+      "code": 2,
+      "name": "UsersByType",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "user_type",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 3,
+      "name": "UsersInTeam",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "team",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 4,
+      "name": "FurniOnFurni",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "relation",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 5,
+      "name": "FurniFromSignal",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "selector",
+      "code": 6,
+      "name": "FurnitureInNeighborhood",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "reference_is_user",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "root_x",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "root_y",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "tile_mask",
+          "kind": "neighborhood",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 7,
+      "name": "FurnitureInArea",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "x",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "y",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "height",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 8,
+      "name": "UsersOnFurni",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "selector",
+      "code": 9,
+      "name": "UsersPerformingAction",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "action",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "action_filter",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 10,
+      "name": "UsersFromSignal",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "selector",
+      "code": 11,
+      "name": "UsersByName",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "usernames",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 12,
+      "name": "UsersInNeighborhood",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "reference_is_user",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "root_x",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "root_y",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "tile_mask",
+          "kind": "neighborhood",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 13,
+      "name": "UsersInArea",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "x",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "y",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "height",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 14,
+      "name": "UsersWithHanditem",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "hand_item",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 15,
+      "name": "UsersInGroup",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "group_id",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 16,
+      "name": "FurniWithAltitude",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "altitude_hundredths",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 17,
+      "name": "FurnitureWithVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "value_filter",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "reference_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "selected_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 18,
+      "name": "UsersWithVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "value_filter",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "reference_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "selected_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "selector",
+      "code": 19,
+      "name": "RemoteSelector",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "set_operation",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "random_stack_count",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 0,
+      "name": "ConditionEvaluation",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "comparison",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "amount",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1,
+      "name": "Random",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "skip_recent",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "pick_count",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 2,
+      "name": "Unseen",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "addon",
+      "code": 5,
+      "name": "ExecutionLimit",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "execution_count",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "window_pulses",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 6,
+      "name": "NoMoveAnimation",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "addon",
+      "code": 7,
+      "name": "MovementPhysics",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "keep_altitude",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "move_through_furni",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "move_through_users",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "block_by_furni",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 8,
+      "name": "CarryUsers",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "carry_mode",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 9,
+      "name": "AnimationTime",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "animation_milliseconds",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 10,
+      "name": "FurniSelectorFilter",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "filter_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 11,
+      "name": "UserSelectorFilter",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "filter_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 12,
+      "name": "FurniVariableFilter",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "filter_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "sort_order",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "sort_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 13,
+      "name": "UserVariableFilter",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "filter_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "sort_order",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "sort_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 14,
+      "name": "UsernamePlaceholder",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "show_multiple",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "placeholder_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "delimiter",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 15,
+      "name": "VariablePlaceholder",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "show_multiple",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "text_mode",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "placeholder_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "delimiter",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 16,
+      "name": "VariableCapturer",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "text_mode",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "capture_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 17,
+      "name": "ExecuteInOrder",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "addon",
+      "code": 18,
+      "name": "ChestItemTypeScanner",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "scanning_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 19,
+      "name": "FurniNamePlaceholder",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "show_multiple",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "placeholder_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "delimiter",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 20,
+      "name": "CustomContract",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "payment_enabled",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "payment_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "payment_operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "payment_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "payment_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "payment_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "reward_enabled",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "reward_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reward_operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reward_amount",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reward_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reward_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 21,
+      "name": "Projectile",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "rotate_projectile",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "direction_system",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "scale_time",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "time_operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "time_per_tile",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "time_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "distance_x",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "distance_y",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "distance_z",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "speed_increase",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "rotation_offset",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "internal_variables",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "rotate_shooter",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "bunny_hop",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "distance_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "distance_operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "distance",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "distance_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "curve_strength",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "time_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "distance_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 22,
+      "name": "JumpStrength",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "strength",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1000,
+      "name": "VariableTextConverter",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "text_mapping",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1001,
+      "name": "VariableLevelUp",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "subvariable_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "step_or_first_xp",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_or_increase",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_level",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "level_mapping",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1002,
+      "name": "VariableTimeUtil",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "subvariable_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "time_source",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1200,
+      "name": "VariableFxHealthPoints",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "source_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "update_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_on_hover",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "duration_milliseconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "minimum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "maximum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_minimum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "override_maximum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "minimum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "audience_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "segments",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "maximum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "audience_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "stack_order",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1201,
+      "name": "VariableFxProgressBar",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "source_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "update_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_on_hover",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "duration_milliseconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "minimum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "maximum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_minimum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "override_maximum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "minimum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "audience_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "segments",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "maximum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "audience_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "stack_order",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1202,
+      "name": "VariableFxLevellingProgress",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "source_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "update_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_on_hover",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "duration_milliseconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "minimum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "maximum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_minimum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "override_maximum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "minimum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "audience_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "segments",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "maximum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "audience_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "sub_renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "stack_order",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1203,
+      "name": "VariableFxStatusBar",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "source_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "update_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_on_hover",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "duration_milliseconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "minimum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "maximum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_minimum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "override_maximum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "minimum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "audience_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "segments",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "maximum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "audience_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "stack_order",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1204,
+      "name": "VariableFxBossBar",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "source_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "update_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_on_hover",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "duration_milliseconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "minimum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "maximum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_minimum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "override_maximum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "minimum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "audience_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "segments",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "maximum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "audience_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "stack_order",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1205,
+      "name": "VariableFxNumberDisplay",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "source_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "update_mask",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "show_on_hover",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "duration_milliseconds",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "style_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "width_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "renderer_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "minimum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "maximum_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "override_minimum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "override_maximum",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "minimum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "maximum_target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "audience_value_high",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "audience_value",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "segments",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "minimum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "maximum_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "audience_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "icon_alignment",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "icon",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "stack_order",
+          "kind": "integer",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 2000,
+      "name": "GlobalPlaceholder",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "reserved",
+          "kind": "integer",
+          "writable": false
+        },
+        {
+          "name": "room_id",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "placeholder_name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "value_or_reference",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 2001,
+      "name": "AchievementEnabler",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "achievements",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 2002,
+      "name": "VariablesWebApi",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "allow_mass_deletion",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "read_key",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "write_key",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 0,
+      "name": "Furniture",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "has_value",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "availability",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 1,
+      "name": "UserVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "availability",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "has_value",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 2,
+      "name": "GlobalVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "availability",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 3,
+      "name": "ContextVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "has_value",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 4,
+      "name": "ReferenceVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "read_only",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 5,
+      "name": "Quest",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "code",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 6,
+      "name": "QuestChain",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "code",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 7,
+      "name": "EchoVariable",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "reference_variable",
+          "kind": "variable",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 8,
+      "name": "DailyTask",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "code",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 61,
+      "name": "SetFurniTransparency",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "transparency",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "allow_click_through",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "easing",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "target_users",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 62,
+      "name": "SetFurniHighlight",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "audience",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "highlight_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "strength",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "color_rgb",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "animation",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "easing",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "target_users",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 63,
+      "name": "SendLinkMessage",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "message_source",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "message",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 28,
+      "name": "RoomInitialized",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "trigger",
+      "code": 29,
+      "name": "ReceiveLinkMessage",
+      "aliases": [],
+      "fields": []
+    },
+    {
+      "category": "addon",
+      "code": 1003,
+      "name": "VariableAddonShare",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "text_connectors",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "subvariable_creators",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "variable_fx",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1004,
+      "name": "VariableAddonImport",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "text_connectors",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "subvariable_creators",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "variable_fx",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 2003,
+      "name": "LinkSpeaker",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "messages",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "dataframes",
+          "kind": "boolean",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "variable",
+      "code": 9,
+      "name": "Pointer",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "target",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "accessor_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "name",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "action",
+      "code": 64,
+      "name": "SendLinkDataframe",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "rows",
+          "kind": "send_dataframe",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "trigger",
+      "code": 30,
+      "name": "ReceiveLinkDataframe",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "rows",
+          "kind": "receive_dataframe",
+          "writable": true
+        }
+      ]
+    },
+    {
+      "category": "addon",
+      "code": 1005,
+      "name": "VariableLeaderboard",
+      "aliases": [],
+      "fields": [
+        {
+          "name": "sort_mode",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_count",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_1_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_2_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_3_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_4_type",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "filter_enabled",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "comparison_enabled",
+          "kind": "boolean",
+          "writable": true
+        },
+        {
+          "name": "operand_kind",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "display_override_count",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "tile_x",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "tile_y",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "offset_x",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "altitude",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_1_width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_2_width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_3_width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "column_4_width",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "page_size_option",
+          "kind": "integer",
+          "writable": true
+        },
+        {
+          "name": "filter_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "global_operand_variable",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_1",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_2",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_3",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_4",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_5",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_6",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_7",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_8",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_9",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "display_variable_10",
+          "kind": "variable",
+          "writable": true
+        },
+        {
+          "name": "title",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "description",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "column_1_label",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "column_2_label",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "column_3_label",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "column_4_label",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "literal_operand",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_1",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_2",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_3",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_4",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_5",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_6",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_7",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_8",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_9",
+          "kind": "text",
+          "writable": true
+        },
+        {
+          "name": "display_name_10",
+          "kind": "text",
+          "writable": true
+        }
+      ]
+    }
+  ]
+}

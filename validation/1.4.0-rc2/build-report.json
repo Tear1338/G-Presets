@@ -1,0 +1,10 @@
+{
+  "version": "1.4.0-rc2",
+  "runtime_sha256": "4e2032360327090c91019d3a507bafc7966a9692c12349fd66f67d76329fee36",
+  "artifact_sha256": "70f0ea848eab64ddcb686f20e31f9a0054e87545bb7c0e0b34c72d8a876d224f",
+  "sources_compiled": 88,
+  "test_output": "Catalog: 284 WIRED-related furniture, 207 configuration-family classes checked\nNative form-code fixtures: 188 (wire transport, not gameplay semantics)\nPASS: 1203 regression assertions; native-codec fixtures, JSON, variables, contexts, catalog, and file persistence\nLive Habbo import/export and gameplay: NOT TESTED\n",
+  "ui_resource_smoke_tested": true,
+  "ui_test_output": "PASS: real import command preview gate, cancel, abort and stale contexts send no game packets\nPASS: preview canvas/layout, selection, launch availability, confirm and cancel\nPASS: packaged JavaFX FXML, controller bindings and CSS; no hotel connection\noct. 27, 2026 12:08:30 AM com.sun.javafx.application.PlatformImpl startup\nWARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @5a10411'\n",
+  "live_habbo_import_tested": false
+}

@@ -3,44 +3,53 @@ package extension.tools.postconfig;
 import java.util.HashMap;
 import java.util.Map;
 
-// cant be edited while importing
 public class PostConfig {
+   private ItemSource itemSource;
+   private Map<String, String> globalClassNameMapper;
+   private Map<String, FurniPostConfig> furniPostConfigs;
 
-    private ItemSource itemSource = ItemSource.PREFER_BC;
+   public PostConfig() {
+      this.itemSource = ItemSource.PREFER_BC;
+      this.globalClassNameMapper = new HashMap();
+      this.furniPostConfigs = new HashMap();
+   }
 
-    private Map<String, String> globalClassNameMapper = new HashMap<>();
-    private Map<String, FurniPostConfig> furniPostConfigs = new HashMap<>(); // key = identifier
+   public PostConfig(PostConfig source) {
+      this.itemSource=source.itemSource;
+      this.globalClassNameMapper=new HashMap<>(source.globalClassNameMapper);
+      this.furniPostConfigs=new HashMap<>();
+      source.furniPostConfigs.forEach((name,value)->this.furniPostConfigs.put(name,new FurniPostConfig(value)));
+   }
 
-    public void removeClassNameMapping(String className) {
-        globalClassNameMapper.remove(className);
-    }
+   public void removeClassNameMapping(String className) {
+      this.globalClassNameMapper.remove(className);
+   }
 
-    public void addClassNameMapping(String oldClass, String newClass) {
-        globalClassNameMapper.put(oldClass, newClass);
-    }
+   public void addClassNameMapping(String oldClass, String newClass) {
+      this.globalClassNameMapper.put(oldClass, newClass);
+   }
 
-    public void addFurniPostConfig(FurniPostConfig config) {
-        furniPostConfigs.put(config.getFurniIdentifier(), config);
-    }
+   public void addFurniPostConfig(FurniPostConfig config) {
+      this.furniPostConfigs.put(config.getFurniIdentifier(), config);
+   }
 
-    public void removePostConfig(String furniIdentifier) {
-        furniPostConfigs.remove(furniIdentifier);
-    }
+   public void removePostConfig(String furniIdentifier) {
+      this.furniPostConfigs.remove(furniIdentifier);
+   }
 
-    public String getClassMapping(String className) {
-        return globalClassNameMapper.get(className);
-    }
+   public String getClassMapping(String className) {
+      return (String)this.globalClassNameMapper.get(className);
+   }
 
-    public FurniPostConfig getFurniPostConfig(String furniIdentifier) {
-        return furniPostConfigs.get(furniIdentifier);
-    }
+   public FurniPostConfig getFurniPostConfig(String furniIdentifier) {
+      return (FurniPostConfig)this.furniPostConfigs.get(furniIdentifier);
+   }
 
-    public ItemSource getItemSource() {
-        return itemSource;
-    }
+   public ItemSource getItemSource() {
+      return this.itemSource;
+   }
 
-    public void setItemSource(ItemSource itemSource) {
-        this.itemSource = itemSource;
-    }
-
+   public void setItemSource(ItemSource itemSource) {
+      this.itemSource = itemSource;
+   }
 }

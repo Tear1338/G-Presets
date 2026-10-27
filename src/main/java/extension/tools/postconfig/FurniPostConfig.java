@@ -1,97 +1,83 @@
 package extension.tools.postconfig;
 
 import gearth.extensions.parsers.HPoint;
-
 import java.util.HashMap;
 import java.util.Map;
 
 public class FurniPostConfig {
+   private final String furniIdentifier;
+   private final boolean useExistingFurni;
+   private final int existingFurniId;
+   private final String overrideClassName;
+   private final HPoint overrideLocation;
+   private final Integer overrideRotation;
+   private final String overrideState;
+   private final Map<Integer, Integer> wiredRotationMapping;
+   private final Map<String, String> wiredStateMapping;
 
-    // identifier created by GPreset
-    private final String furniIdentifier;
+   public FurniPostConfig(String furniIdentifier, boolean useExistingFurni, int existingFurniId, String overrideClassName, HPoint overrideLocation, Integer overrideRotation, String overrideState, Map<Integer, Integer> wiredRotationMapping, Map<String, String> wiredStateMapping) {
+      this.furniIdentifier = furniIdentifier;
+      this.useExistingFurni = useExistingFurni;
+      this.existingFurniId = existingFurniId;
+      this.overrideClassName = overrideClassName;
+      this.overrideLocation = overrideLocation;
+      this.overrideRotation = overrideRotation;
+      this.overrideState = overrideState;
+      this.wiredRotationMapping = wiredRotationMapping;
+      this.wiredStateMapping = wiredStateMapping;
+   }
 
-    // use existing furni in room instead of placing new one
-    // standard rotation/state/location will not be changed in this case
-    private final boolean useExistingFurni;
-    private final int existingFurniId;
+   public FurniPostConfig(FurniPostConfig source) {
+      this(source.furniIdentifier,source.useExistingFurni,source.existingFurniId,source.overrideClassName,
+         source.overrideLocation==null?null:new HPoint(source.overrideLocation.getX(),source.overrideLocation.getY(),source.overrideLocation.getZ()),
+         source.overrideRotation,source.overrideState,new HashMap<>(source.wiredRotationMapping),new HashMap<>(source.wiredStateMapping));
+   }
 
-    // following rules only apply if useExistingFurni = false
-    private final String overrideClassName;
-    private final HPoint overrideLocation;
-    private final Integer overrideRotation;
-    private final String overrideState;
+   public FurniPostConfig(String furniIdentifier) {
+      this.furniIdentifier = furniIdentifier;
+      this.useExistingFurni = false;
+      this.existingFurniId = -1;
+      this.overrideClassName = null;
+      this.overrideLocation = null;
+      this.overrideRotation = null;
+      this.overrideState = null;
+      this.wiredRotationMapping = new HashMap();
+      this.wiredStateMapping = new HashMap();
+   }
 
-    private final Map<Integer, Integer> wiredRotationMapping;
-    private final Map<String, String> wiredStateMapping;
-//    private final Map<HPoint, HPoint> wiredLocationMapping;
+   public String getFurniIdentifier() {
+      return this.furniIdentifier;
+   }
 
-    public FurniPostConfig(String furniIdentifier, boolean useExistingFurni, int existingFurniId, String overrideClassName, HPoint overrideLocation, Integer overrideRotation, String overrideState, Map<Integer, Integer> wiredRotationMapping, Map<String, String> wiredStateMapping/*, Map<HPoint, HPoint> wiredLocationMapping*/) {
-        this.furniIdentifier = furniIdentifier;
-        this.useExistingFurni = useExistingFurni;
-        this.existingFurniId = existingFurniId;
-        this.overrideClassName = overrideClassName;
-        this.overrideLocation = overrideLocation;
-        this.overrideRotation = overrideRotation;
-        this.overrideState = overrideState;
-        this.wiredRotationMapping = wiredRotationMapping;
-        this.wiredStateMapping = wiredStateMapping;
-//        this.wiredLocationMapping = wiredLocationMapping;
-    }
+   public boolean isUseExistingFurni() {
+      return this.useExistingFurni;
+   }
 
-    public FurniPostConfig(String furniIdentifier) {
-        // initializes empty config
-        this.furniIdentifier = furniIdentifier;
-        useExistingFurni = false;
-        existingFurniId = -1;
+   public int getExistingFurniId() {
+      return this.existingFurniId;
+   }
 
-        overrideClassName = null;
-        overrideLocation = null;
-        overrideRotation = null;
-        overrideState = null;
+   public String getOverrideClassName() {
+      return this.overrideClassName;
+   }
 
-        wiredRotationMapping = new HashMap<>();
-        wiredStateMapping = new HashMap<>();
-//        wiredLocationMapping = new HashMap<>();
-    }
+   public HPoint getOverrideLocation() {
+      return this.overrideLocation;
+   }
 
+   public Integer getOverrideRotation() {
+      return this.overrideRotation;
+   }
 
-    public String getFurniIdentifier() {
-        return furniIdentifier;
-    }
+   public String getOverrideState() {
+      return this.overrideState;
+   }
 
-    public boolean isUseExistingFurni() {
-        return useExistingFurni;
-    }
+   public Map<Integer, Integer> getWiredRotationMapping() {
+      return this.wiredRotationMapping;
+   }
 
-    public int getExistingFurniId() {
-        return existingFurniId;
-    }
-
-    public String getOverrideClassName() {
-        return overrideClassName;
-    }
-
-    public HPoint getOverrideLocation() {
-        return overrideLocation;
-    }
-
-    public Integer getOverrideRotation() {
-        return overrideRotation;
-    }
-
-    public String getOverrideState() {
-        return overrideState;
-    }
-
-    public Map<Integer, Integer> getWiredRotationMapping() {
-        return wiredRotationMapping;
-    }
-
-    public Map<String, String> getWiredStateMapping() {
-        return wiredStateMapping;
-    }
-
-//    public Map<HPoint, HPoint> getWiredLocationMapping() {
-//        return wiredLocationMapping;
-//    }
+   public Map<String, String> getWiredStateMapping() {
+      return this.wiredStateMapping;
+   }
 }

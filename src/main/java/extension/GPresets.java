@@ -1,10 +1,22 @@
 package extension;
 
 import extension.logger.Logger;
-import extension.tools.PresetUtils;
-import extension.tools.StackTileSetting;
+import extension.tools.AutoDonator;
+import extension.tools.preview.PresetPreviewModel;
+import extension.tools.preview.PresetPreviewPane;
+import extension.tools.preview.PresetPreviewSession;
+import furnidata.details.FloorItemDetails;
+import java.util.function.BooleanSupplier;
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+import javafx.util.Duration;
+import javafx.stage.Stage;
+import javafx.stage.Modality;
+import javafx.scene.Scene;
 import extension.tools.GPresetExporter;
 import extension.tools.GPresetImporter;
+import extension.tools.PresetUtils;
+import extension.tools.StackTileSetting;
 import extension.tools.importutils.AvailabilityChecker;
 import extension.tools.importutils.FurniDropInfo;
 import extension.tools.postconfig.FurniPostConfig;
@@ -14,6 +26,7 @@ import extension.tools.presetconfig.PresetConfig;
 import extension.tools.presetconfig.PresetConfigUtils;
 import extension.tools.presetconfig.furni.PresetFurni;
 import furnidata.FurniDataTools;
+import game.BCCatalog;
 import game.FloorState;
 import game.Inventory;
 import game.RoomPermissions;
@@ -24,15 +37,35 @@ import gearth.extensions.parsers.HPoint;
 import gearth.misc.Cacher;
 import gearth.protocol.HMessage;
 import gearth.protocol.HPacket;
+import java.awt.Desktop;
+import java.io.File;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.Slider;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
-import javafx.scene.control.*;
+import javafx.scene.control.Toggle;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
@@ -40,480 +73,512 @@ import javafx.scene.layout.GridPane;
 import org.json.JSONObject;
 import utils.Utils;
 
-import java.awt.*;
-import java.io.File;
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.stream.Collectors;
-
 @ExtensionInfo(
-        Title =  "G-Presets",
-        Description =  "Never do anything twice",
-        Version =  "1.2.5",
-        Author =  "sirjonasxx"
+   Title = "G-Presets",
+   Description = "Never do anything twice mod. by TH",
+   Version = "1.4.0-rc2",
+   Author = "sirjonasxx"
 )
 public class GPresets extends ExtensionForm {
+   public BorderPane logsBorderPane;
+   public Label cndConnectedLbl;
+   public Label cndRoomLbl;
+   public Label cndInventoryLbl;
+   public Label cndStackTileLbl;
+   public Label cndFurnidataLbl;
+   public Label cndPermissionsLbl;
+   public Label cndBCShopLbl;
+   public ToggleGroup stacktile_tgl;
+   public RadioButton onlyInvCbx;
+   public RadioButton preferInvCbx;
+   public RadioButton preferBcCbx;
+   public RadioButton onlyBcCbx;
+   public ToggleGroup item_src_tgl;
+   public ListView<String> presetListView;
+   public Label donateLabel;
+   public RadioButton donateMissing;
+   public RadioButton donateAll;
+   public ToggleGroup donate_tgl;
+   public Button availabilityBtn;
+   public Button previewBtn;
+   public CheckBox previewBeforeImportCbx;
+   private Stage previewStage;
+   private String selectedPresetName;
+   public Button selfDonateBtn;
+   public Button currentPresetBtn;
+   public CheckBox allowIncompleteBuildsCbx;
+   public TextField furniNamePC_txt;
+   public TextField replacementIdPC_txt;
+   public TableView<FurniPostConfig> postconfigTable;
+   public GridPane pcgrid;
+   public Label postconfigErrorLbl;
+   public CheckBox noExportWiredCbx;
+   public CheckBox noExportFurniVariablesCbx;
+   public Slider ratelimiter;
+   public CheckBox onTopCbx;
+   public CheckBox useRoomFurniCbx;
+   public CheckBox noExportWallItemsCbx;
+   private List<FurniPostConfig> furniPostConfigs = new ArrayList();
+   private Logger logger = new Logger();
+   private FurniDataTools furniDataTools = null;
+   private Inventory inventory = null;
+   private FloorState floorState = null;
+   private RoomPermissions permissions = null;
+   private BCCatalog catalog = null;
+   private volatile boolean isConnected = false;
+   private GPresetExporter exporter = null;
+   private GPresetImporter importer = null;
+   private AutoDonator autoDonator = null;
+   private volatile long latestPingTimestamp = -1L;
+   private volatile int ping = 45;
+   private volatile double pingVariation = (double)10.0F;
+   private StackTileSetting stackTileSetting;
 
-    public BorderPane logsBorderPane;
+   public GPresets() {
+      this.stackTileSetting = StackTileSetting.Large;
+   }
 
-    public Label cndConnectedLbl;
-    public Label cndRoomLbl;
-    public Label cndInventoryLbl;
-    public Label cndStackTileLbl;
-    public Label cndFurnidataLbl;
-    public Label cndPermissionsLbl;
+   public void initialize() {
+      this.setupCache();
+      this.previewBeforeImportCbx.selectedProperty().addListener(o->Cacher.put("previewBeforeImport",this.previewBeforeImportCbx.isSelected()));
+      this.logsBorderPane.setPadding(new Insets((double)5.0F, (double)5.0F, (double)5.0F, (double)5.0F));
+      this.logger.initialize(this.logsBorderPane);
+      this.logger.log("Welcome to G-Presets!", "purple");
+      this.logger.log("Use the following commands:", "purple");
+      this.logger.log("* :exportpreset [all] / :ep [all]", "purple");
+      this.logger.log("* :exportpresetwalls / :epw", "purple");
+      this.logger.log("* :importpreset [x,y] / :ip [x,y]", "purple");
+      this.logger.log("* :abort / :a", "purple");
+      this.stacktile_tgl.selectedToggleProperty().addListener((observable) -> {
+         String option = ((RadioButton)this.stacktile_tgl.getSelectedToggle()).getText();
+         Cacher.put("stacktile", option);
+         this.stackTileSetting = StackTileSetting.fromString(option);
+         this.updateUI();
+      });
+      this.donate_tgl.selectedToggleProperty().addListener((observable) -> {
+         Object option = ((RadioButton)this.donate_tgl.getSelectedToggle()).getUserData();
+         Cacher.put("donationMode", option);
+      });
+      this.noExportWiredCbx.selectedProperty().addListener((observable) -> {
+         Cacher.put("noExportWired", this.noExportWiredCbx.isSelected());
+         this.updateUI();
+      });
+      this.noExportFurniVariablesCbx.selectedProperty().addListener((observable) -> Cacher.put("noExportFurniVariables", this.noExportFurniVariablesCbx.isSelected()));
+      this.allowIncompleteBuildsCbx.selectedProperty().addListener((observable) -> Cacher.put("allowIncompleteBuilds", this.allowIncompleteBuildsCbx.isSelected()));
+      this.noExportWallItemsCbx.selectedProperty().addListener((observable) -> Cacher.put("noExportWallItems", this.noExportWallItemsCbx.isSelected()));
+      this.useRoomFurniCbx.selectedProperty().addListener((observable) -> Cacher.put("useRoomFurni", this.useRoomFurniCbx.isSelected()));
+      this.postconfigTable = new TableView();
+      this.postconfigTable.setStyle("-fx-focus-color: white;");
+      TableColumn<FurniPostConfig, String> furniNameColumn = new TableColumn("Furni name");
+      furniNameColumn.setCellValueFactory(new PropertyValueFactory("furniIdentifier"));
+      furniNameColumn.setPrefWidth((double)110.0F);
+      TableColumn<FurniPostConfig, Integer> existingFurniIdColumn = new TableColumn("Existing furni ID");
+      existingFurniIdColumn.setCellValueFactory(new PropertyValueFactory("existingFurniId"));
+      existingFurniIdColumn.setPrefWidth((double)120.0F);
+      this.postconfigTable.getColumns().addAll(Arrays.asList(furniNameColumn, existingFurniIdColumn));
+      this.postconfigTable.setRowFactory((tableView) -> {
+         TableRow<FurniPostConfig> row = new TableRow();
+         ContextMenu contextMenu = new ContextMenu();
+         MenuItem removeMenuItem = new MenuItem("Remove");
+         removeMenuItem.setOnAction((event) -> {
+            FurniPostConfig config = (FurniPostConfig)row.getItem();
+            if (config != null) {
+               this.furniPostConfigs.remove(config);
+               this.updatePostConfig();
+               this.updateFurniPostConfigsView();
+            }
 
-    public ToggleGroup stacktile_tgl;
+         });
+         contextMenu.getItems().add(removeMenuItem);
+         row.contextMenuProperty().bind(Bindings.when(row.emptyProperty()).then((ContextMenu)null).otherwise(contextMenu));
+         return row;
+      });
+      this.pcgrid.add(this.postconfigTable, 0, 0);
+      this.ratelimiter.valueProperty().addListener((observable, oldValue, newValue) -> {
+         int val = newValue.intValue();
+         Utils.setExtraSleepTime(val);
+         Cacher.put("ratelimit", val);
+      });
+   }
 
-    public RadioButton onlyInvCbx;
-    public RadioButton preferInvCbx;
-    public RadioButton preferBcCbx;
-    public RadioButton onlyBcCbx;
-    public ToggleGroup item_src_tgl;
-    public ListView<String> presetListView;
+   protected void initExtension() {
+      this.floorState = new FloorState(this, this.logger, this::updateUI, () -> {
+         this.updateUI();
+         this.exporter.reset();
+         this.logger.log("Leaving room..", "blue");
+      });
+      this.inventory = new Inventory(this, this.logger, this::updateUI);
+      this.permissions = new RoomPermissions(this, this.logger, this::updateUI);
+      this.catalog = new BCCatalog(this, this.logger, this::updateUI);
+      this.exporter = new GPresetExporter(this);
+      this.importer = new GPresetImporter(this);
+      this.autoDonator = new AutoDonator(this);
+      this.onConnect((host, i, s1, s2, hClient) -> {
+         this.showSelfDonateBtn("game-s2.habbo.com".equals(host));
+         this.furniDataTools = new FurniDataTools(host, this::updateUI);
+      });
+      this.intercept(HMessage.Direction.TOSERVER, "LatencyPingRequest", (hMessage) -> this.latestPingTimestamp = System.currentTimeMillis());
+      this.intercept(HMessage.Direction.TOCLIENT, "LatencyPingResponse", (hMessage) -> {
+         if (this.latestPingTimestamp != -1L) {
+            int newPing = (int)(System.currentTimeMillis() - this.latestPingTimestamp) / 2;
+            this.pingVariation = this.pingVariation * 0.66 + (double)Math.abs(this.ping - newPing) * 0.34;
+            if (this.pingVariation > (double)10.0F) {
+               this.pingVariation = (double)10.0F;
+            }
 
-    public Button availabilityBtn;
-    public Button currentPresetBtn;
-    public CheckBox allowIncompleteBuildsCbx;
+            this.ping = newPing;
+         }
 
-    public TextField furniNamePC_txt;
-    public TextField replacementIdPC_txt;
-    public TableView<FurniPostConfig> postconfigTable;
-    public GridPane pcgrid;
-    public Label postconfigErrorLbl;
-    public CheckBox noExportWiredCbx;
-    public Slider ratelimiter;
-    public CheckBox onTopCbx;
+      });
+      this.floorState.requestRoom(this);
+      this.updateUI();
+      this.updateInstalledPresets();
+      this.item_src_tgl.selectedToggleProperty().addListener((o) -> this.updatePostConfig());
+      this.presetListView.setOnMouseClicked((event) -> {
+         if (event.getButton().equals(MouseButton.PRIMARY) && event.getClickCount() == 2) {
+            String presetName = (String)this.presetListView.getSelectionModel().getSelectedItem();
+            PresetConfig preset = PresetConfigUtils.loadPreset(presetName);
+            if (preset != null) {
+               this.selectPreset(preset, presetName);
+            }
+         }
 
-    private List<FurniPostConfig> furniPostConfigs = new ArrayList<>();
+         this.updateUI();
+      });
+      this.updatePostConfig();
+   }
 
-    private Logger logger = new Logger();
+   private void setupCache() {
+      Cacher.setCacheDir(PresetConfigUtils.baseDir() + File.separator + "Cache");
+      this.loadCache();
+   }
 
-    private FurniDataTools furniDataTools = null;
-    private Inventory inventory = null;
-    private FloorState floorState = null;
-    private RoomPermissions permissions = null;
-    private volatile boolean isConnected = false;
+   private void loadCache() {
+      JSONObject cache = Cacher.getCacheContents();
+      String stackTileKey = cache.optString("stacktile", "2x2");
+      this.stackTileSetting = StackTileSetting.fromString(stackTileKey);
+      ((Toggle)this.stacktile_tgl.getToggles().stream().filter((s) -> ((RadioButton)s).getText().equals(stackTileKey)).findFirst().orElseGet(() -> (Toggle)this.stacktile_tgl.getToggles().get(2))).setSelected(true);
+      String itemSourceKey = cache.optString("itemSource", "ONLY_INVENTORY");
+      ((Toggle)this.item_src_tgl.getToggles().stream().filter((s) -> itemSourceKey.equals(s.getUserData())).findFirst().orElseGet(() -> (Toggle)this.item_src_tgl.getToggles().get(0))).setSelected(true);
+      String donationModeKey = cache.optString("donationMode", "MISSING_ITEMS");
+      ((Toggle)this.donate_tgl.getToggles().stream().filter((s) -> donationModeKey.equals(s.getUserData())).findFirst().orElseGet(() -> (Toggle)this.donate_tgl.getToggles().get(0))).setSelected(true);
+      this.ratelimiter.setValue((double)cache.optInt("ratelimit", 22));
+      Utils.setExtraSleepTime(cache.optInt("ratelimit", 22));
+      this.noExportWiredCbx.setSelected(cache.optBoolean("noExportWired"));
+      this.previewBeforeImportCbx.setSelected(cache.optBoolean("previewBeforeImport",true));
+      this.noExportFurniVariablesCbx.setSelected(cache.optBoolean("noExportFurniVariables", false));
+      this.noExportWallItemsCbx.setSelected(cache.optBoolean("noExportWallItems"));
+      this.allowIncompleteBuildsCbx.setSelected(cache.optBoolean("allowIncompleteBuilds"));
+      this.useRoomFurniCbx.setSelected(cache.optBoolean("useRoomFurni"));
+   }
 
-    private GPresetExporter exporter = null;
-    private GPresetImporter importer = null;
+   private void selectPreset(PresetConfig preset, String name) {
+      this.logger.log(String.format("Selected \"%s\" preset", name), "green");
+      this.selectedPresetName=name;
+      this.importer.setPresetConfig(preset);
+      HPoint dim = PresetUtils.presetDimensions(preset);
+      this.logger.log(String.format("Preset dimensions: %dx%d", dim.getX(), dim.getY()), "green");
+      this.updateUI();
+   }
 
-    private volatile long latestPingTimestamp = -1;
-    private volatile int ping = 45;
-    private volatile double pingVariation = 10;
+   protected void onStartConnection() {
+      this.latestPingTimestamp = System.currentTimeMillis();
+      this.isConnected = true;
+      this.updateUI();
+   }
 
-    private StackTileSetting stackTileSetting = StackTileSetting.Large;
+   protected void onEndConnection() {
+      this.isConnected = false;
+      this.furniDataTools = null;
+      this.floorState.reset();
+      this.inventory.clear();
+      this.exporter.reset();
+      this.importer.reset();
+      this.updateUI();
+   }
 
+   public HFloorItem stackTile() {
+      if (this.floorState.inRoom() && this.furniDataTools.isReady()) {
+         List<HFloorItem> items = this.floorState.getItemsFromType(this.furniDataTools, this.stackTileSetting.getClassName());
+         return items.size() == 0 ? null : (HFloorItem)items.get(0);
+      } else {
+         return null;
+      }
+   }
 
-    public void initialize() {
-        setupCache();
+   public boolean furniDataReady() {
+      return this.furniDataTools != null && this.furniDataTools.isReady();
+   }
 
-        logsBorderPane.setPadding(new Insets(5, 5, 5, 5));
-        logger.initialize(logsBorderPane);
+   private boolean BCCatalogAvailable() {
+      return this.catalog.getState() == BCCatalog.CatalogState.COLLECTED;
+   }
 
-        logger.log("Welcome to G-Presets!", "purple");
-        logger.log("Use the following commands:", "purple");
-        logger.log("* :exportpreset [all] / :ep [all]", "purple");
-        logger.log("* :importpreset [x,y] / :ip [x,y]", "purple");
+   private void updateLabel(Label lbl, boolean isFullfilled, boolean isBusy, boolean isOptional) {
+      lbl.getStyleClass().removeAll((Collection)lbl.getStyleClass().stream().filter((p) -> p.startsWith("lbl")).collect(Collectors.toList()));
+      lbl.getStyleClass().add(isFullfilled ? "lblgreen" : (isBusy ? "lblorange" : (isOptional ? "lblgrey" : "lblred")));
+   }
 
-        stacktile_tgl.selectedToggleProperty().addListener(observable -> {
-            String option = ((RadioButton)(stacktile_tgl.getSelectedToggle())).getText();
-            Cacher.put("stacktile", option);
-            stackTileSetting = StackTileSetting.fromString(option);
-            updateUI();
-        });
+   private void updateLabel(Label lbl, boolean isFullfilled, boolean isBusy) {
+      this.updateLabel(lbl, isFullfilled, isBusy, false);
+   }
 
-        noExportWiredCbx.selectedProperty().addListener(observable -> {
-            Cacher.put("noExportWired", noExportWiredCbx.isSelected());
-            updateUI();
-        });
+   private void updateLabel(Label lbl, boolean isFullfilled) {
+      this.updateLabel(lbl, isFullfilled, false);
+   }
 
-        allowIncompleteBuildsCbx.selectedProperty().addListener(observable ->
-                Cacher.put("allowIncompleteBuilds", allowIncompleteBuildsCbx.isSelected())
-        );
+   private void updateUI() {
+      Platform.runLater(() -> {
+         this.previewBtn.setDisable(this.importer.getPresetConfig()==null || this.importer.getState()!=GPresetImporter.BuildingImportState.NONE);
+         boolean presetHasWallItems = this.importer.getPresetConfig() != null && this.importer.getPresetConfig().getWallFurniture() != null && !this.importer.getPresetConfig().getWallFurniture().isEmpty();
+         boolean presetHasFloorItems = this.importer.getPresetConfig() != null && !this.importer.getPresetConfig().getFurniture().isEmpty();
+         this.updateLabel(this.cndConnectedLbl, this.isConnected);
+         this.updateLabel(this.cndRoomLbl, this.floorState.inRoom());
+         this.updateLabel(this.cndFurnidataLbl, this.furniDataReady());
+         this.updateLabel(this.cndInventoryLbl, this.inventory.getState() == Inventory.InventoryState.LOADED, this.inventory.getState() == Inventory.InventoryState.LOADING);
+         this.updateLabel(this.cndStackTileLbl, this.stackTile() != null, false, !presetHasFloorItems);
+         this.updateLabel(this.cndBCShopLbl, this.catalog.getState() == BCCatalog.CatalogState.COLLECTED, this.catalog.getState() == BCCatalog.CatalogState.COLLECTING_PAGES, !presetHasWallItems);
+         this.updateLabel(this.cndPermissionsLbl, this.permissions.canMoveFurni() && (this.noExportWiredCbx.isSelected() || this.permissions.canModifyWired()));
+         this.availabilityBtn.setDisable(this.importer.getPresetConfig() == null);
+         this.selfDonateBtn.setDisable(this.importer.getPresetConfig() == null);
+         this.currentPresetBtn.setDisable(this.presetListView.getSelectionModel().getSelectedItem() == null);
+      });
+   }
 
+   public void updateInstalledPresets() {
+      List<String> installed = PresetConfigUtils.listPresets();
+      Platform.runLater(() -> {
+         this.presetListView.getItems().clear();
+         this.presetListView.getItems().addAll(installed);
+      });
+   }
 
+   public void sendVisualChatInfo(String text) {
+      this.sendToClient(new HPacket("Whisper", HMessage.Direction.TOCLIENT, new Object[]{-1, text, 0, 30, 0, -1}));
+   }
 
-        postconfigTable = new TableView<>();
-//        postconfigTable.setTableMenuButtonVisible(true);
-        postconfigTable.setStyle("-fx-focus-color: white;");
+   public void loadInventoryClick(ActionEvent actionEvent) {
+      this.inventory.requestInventory();
+   }
 
-//        postconfigTable.focusedProperty().addListener(observable -> {
-//            if (postconfigTable.isFocused()) {
-//                pcgrid.requestFocus();
-//            }
-//        });
+   public void loadBCClick(ActionEvent actionEvent) {
+      this.catalog.requestIndex();
+   }
 
-        TableColumn<FurniPostConfig, String> furniNameColumn = new TableColumn<>("Furni name");
-        furniNameColumn.setCellValueFactory(new PropertyValueFactory<>("furniIdentifier"));
-        furniNameColumn.setPrefWidth(110);
+   public void clearBCClick(ActionEvent actionEvent) throws URISyntaxException {
+      this.catalog.clearCache();
+   }
 
-        TableColumn<FurniPostConfig, Integer> existingFurniIdColumn = new TableColumn<>("Existing furni ID");
-        existingFurniIdColumn.setCellValueFactory(new PropertyValueFactory<>("existingFurniId"));
-        existingFurniIdColumn.setPrefWidth(120);
+   public FurniDataTools getFurniDataTools() {
+      return this.furniDataTools;
+   }
 
-        postconfigTable.getColumns().addAll(Arrays.asList(furniNameColumn, existingFurniIdColumn));
+   public Logger getLogger() {
+      return this.logger;
+   }
 
-        // https://stackoverflow.com/questions/20802208/delete-a-row-from-a-javafx-table-using-context-menu
-        postconfigTable.setRowFactory(tableView -> {
-            final TableRow<FurniPostConfig> row = new TableRow<>();
-            final ContextMenu contextMenu = new ContextMenu();
-            final MenuItem removeMenuItem = new MenuItem("Remove");
-            removeMenuItem.setOnAction(event -> {
-                FurniPostConfig config = row.getItem();
-                if (config != null) {
-                    furniPostConfigs.remove(config);
-                    updatePostConfig();
-                    updateFurniPostConfigsView();
-                }
+   public Inventory getInventory() {
+      return this.inventory;
+   }
+
+   public BCCatalog getCatalog() {
+      return this.catalog;
+   }
+
+   public FloorState getFloorState() {
+      return this.floorState;
+   }
+
+   public RoomPermissions getPermissions() {
+      return this.permissions;
+   }
+
+   public StackTileSetting getStackTileSetting() {
+      return this.stackTileSetting;
+   }
+
+   public int getSafeFeedbackTimeout() {
+      return (int)(((double)this.ping + this.pingVariation + (double)10.0F) * (double)3.0F);
+   }
+
+   private void updatePostConfig() {
+      this.importer.setPostConfig(this.createPostConfig());
+      this.updateUI();
+   }
+
+   private PostConfig createPostConfig() {
+      PostConfig postConfig = new PostConfig();
+      ItemSource itemSource = ItemSource.valueOf((String)this.item_src_tgl.getSelectedToggle().getUserData());
+      Cacher.put("itemSource", itemSource);
+      postConfig.setItemSource(itemSource);
+      List var10000 = this.furniPostConfigs;
+      Objects.requireNonNull(postConfig);
+      var10000.forEach(value -> postConfig.addFurniPostConfig((FurniPostConfig)value));
+      return postConfig;
+   }
+
+   public void updatePreviewAvailability() {
+      Platform.runLater(()->{
+         if(this.previewBtn!=null && this.importer!=null)this.previewBtn.setDisable(this.importer.getPresetConfig()==null || this.importer.getState()!=GPresetImporter.BuildingImportState.NONE);
+      });
+   }
+
+   public boolean previewBeforeImport() { return this.previewBeforeImportCbx==null || this.previewBeforeImportCbx.isSelected(); }
+
+   public void previewBtnClick(ActionEvent event) {
+      if(this.importer!=null)this.importer.previewSelectedPreset();
+   }
+
+   public void showImportPreview(PresetPreviewSession session,BooleanSupplier canConfirm,BooleanSupplier confirm,Runnable cancel) {
+      Platform.runLater(()->{
+         if(session.isClosed())return;
+         try {
+            PresetPreviewModel model=new PresetPreviewModel(session.preset(),session.options(),name->{
+               FloorItemDetails details=this.furniDataReady()?this.furniDataTools.getFloorItemDetails(name):null;
+               return details==null || details.xDim<1 || details.yDim<1 || details.xDim>128 || details.yDim>128?null:new PresetPreviewModel.Footprint(details.xDim,details.yDim);
             });
-            contextMenu.getItems().add(removeMenuItem);
-            // Set context menu on row, but use a binding to make it only show for non-empty rows:
-            row.contextMenuProperty().bind(
-                    Bindings.when(row.emptyProperty())
-                            .then((ContextMenu)null)
-                            .otherwise(contextMenu)
-            );
-            return row ;
-        });
+            if(this.previewStage!=null)this.previewStage.close();
+            Stage stage=new Stage();this.previewStage=stage;
+            if(this.primaryStage!=null){stage.initOwner(this.primaryStage);stage.initModality(Modality.WINDOW_MODAL);}
+            stage.setTitle("G-Presets - Aper\u00e7u avant import");
+            PresetPreviewPane pane=new PresetPreviewPane(model,this.selectedPresetName,session.rootX,session.rootY);
+            pane.setActions(confirm,stage::close);pane.updateLaunchAvailability(canConfirm.getAsBoolean());
+            Timeline refresh=new Timeline(new KeyFrame(Duration.millis(400),e->{if(session.isClosed())stage.close();else pane.updateLaunchAvailability(canConfirm.getAsBoolean());}));
+            refresh.setCycleCount(Timeline.INDEFINITE);
+            stage.setOnHidden(e->{refresh.stop();cancel.run();if(this.previewStage==stage)this.previewStage=null;});
+            stage.setScene(new Scene(pane,1040,720));stage.setMinWidth(900);stage.setMinHeight(620);
+            stage.show();refresh.play();
+         } catch(RuntimeException error) {
+            cancel.run();this.logger.log("Cannot open preset preview: "+error.getMessage(),"red");
+         }
+      });
+   }
 
-        pcgrid.add(postconfigTable, 0, 0);
+   public void availabilityBtnClick(ActionEvent actionEvent) {
+      PresetConfig presetConfig = this.importer.getPresetConfig();
+      PostConfig postConfig = this.createPostConfig();
+      if (presetConfig != null && this.furniDataReady()) {
+         PresetConfig combined = new PresetConfig(presetConfig.toJsonObject());
+         combined.applyPostConfig(postConfig);
+         List<FurniDropInfo> fakeDropInfo = new ArrayList();
 
+         for(PresetFurni f : combined.getFurniture()) {
+            fakeDropInfo.add(new FurniDropInfo(-1, -1, this.furniDataTools.getFloorTypeId(f.getClassName()), postConfig.getItemSource(), -1));
+         }
 
+         AvailabilityChecker.printAvailability(this.logger, fakeDropInfo, this.inventory, this.furniDataTools, this.floorState, this.useRoomFurni());
+         AvailabilityChecker.printWallItemAvailability(this.logger, combined.getWallFurniture(), this.inventory, this.furniDataTools, this.catalog, postConfig.getItemSource());
+      } else {
+         this.logger.log("No preset chosen or furnidata not ready", "red");
+      }
 
-        ratelimiter.valueProperty().addListener((observable, oldValue, newValue) -> {
-            int val = newValue.intValue();
-            Utils.setExtraSleepTime(val);
-            Cacher.put("ratelimit", val);
-        });
-    }
+   }
 
-    @Override
-    protected void initExtension() {
-        this.floorState = new FloorState(this, logger, this::updateUI, () -> {
-            this.updateUI();
-            this.exporter.reset();
-            logger.log("Leaving room..", "blue");
-        });
-        this.inventory = new Inventory(this, logger, this::updateUI);
-        this.permissions = new RoomPermissions(this, logger, this::updateUI);
+   public void selfDonateBtnClick(ActionEvent actionEvent) {
+      if (this.exporter.getState() != GPresetExporter.PresetExportState.NONE) {
+         this.logger.log("Can't autodonate while export is in progress", "red");
+      } else if (this.importer.getState() != GPresetImporter.BuildingImportState.NONE) {
+         this.logger.log("Can't autodonate while import is in progress", "red");
+      } else {
+         this.autoDonator.donateAll(this.donateMissing.isSelected());
+      }
+   }
 
-        this.exporter = new GPresetExporter(this);
-        this.importer = new GPresetImporter(this);
+   public void showSelfDonateBtn(boolean show) {
+      Platform.runLater(()->{
+         this.selfDonateBtn.setVisible(show);
+         this.donateLabel.setVisible(show);
+         this.donateAll.setVisible(show);
+         this.donateMissing.setVisible(show);
+         this.presetListView.setPrefHeight(show?132:166);
+      });
+   }
 
-        onConnect((host, i, s1, s2, hClient) -> furniDataTools = new FurniDataTools(host, this::updateUI));
+   public void openPresetsFolderClick(ActionEvent actionEvent) {
+      try {
+         Desktop.getDesktop().open(new File(PresetConfigUtils.presetPath()));
+      } catch (Exception e) {
+         e.printStackTrace();
+      }
 
+   }
 
-
-
-        intercept(HMessage.Direction.TOSERVER, "LatencyPingRequest", hMessage -> {
-            latestPingTimestamp = System.currentTimeMillis();
-        });
-        intercept(HMessage.Direction.TOCLIENT, "LatencyPingResponse", hMessage -> {
-            if (latestPingTimestamp != -1) {
-                int newPing = (int) (System.currentTimeMillis() - latestPingTimestamp) / 2;
-                pingVariation = pingVariation * 0.66 + (Math.abs(ping - newPing)) * 0.34;
-                if (pingVariation > 10) {
-                    pingVariation = 10;
-                }
-                ping = newPing;
-            }
-        });
-
-        this.floorState.requestRoom(this);
-        updateUI();
-        updateInstalledPresets();
-
-        item_src_tgl.selectedToggleProperty().addListener(o -> updatePostConfig());
-        presetListView.setOnMouseClicked(event -> {
-            if(event.getButton().equals(MouseButton.PRIMARY) && event.getClickCount() == 2) {
-                String presetName = presetListView.getSelectionModel().getSelectedItem();
-                PresetConfig preset = PresetConfigUtils.loadPreset(presetName);
-                if (preset != null) {
-                    selectPreset(preset, presetName);
-                }
-            }
-            updateUI();
-        });
-
-        updatePostConfig();
-    }
-
-    private void setupCache() {
-        File extDir = null;
-        try {
-            extDir = (new File(GPresets.class.getProtectionDomain().getCodeSource().getLocation().toURI())).getParentFile();
-            if (extDir.getName().equals("Extensions")) {
-                extDir = extDir.getParentFile();
-            }
-        } catch (URISyntaxException ignored) {}
-
-        Cacher.setCacheDir(extDir + File.separator + "Cache");
-        loadCache();
-    }
-
-    private void loadCache() {
-        JSONObject cache = Cacher.getCacheContents();
-
-        String stackTileKey = cache.optString("stacktile", "2x2");
-        stackTileSetting = StackTileSetting.fromString(stackTileKey);
-        stacktile_tgl.getToggles()
-                .stream()
-                .filter(s -> ((RadioButton) s).getText().equals(stackTileKey))
-                .findFirst()
-                .orElseGet(() -> stacktile_tgl.getToggles().get(2))
-                .setSelected(true);
-
-        String itemSourceKey = cache.optString("itemSource", "ONLY_INVENTORY");
-        item_src_tgl.getToggles()
-                .stream()
-                .filter(s -> itemSourceKey.equals(s.getUserData()))
-                .findFirst()
-                .orElseGet(() -> item_src_tgl.getToggles().get(0))
-                .setSelected(true);
-
-        ratelimiter.setValue(cache.optInt("ratelimit", 22));
-        Utils.setExtraSleepTime(cache.optInt("ratelimit", 22));
-
-        noExportWiredCbx.setSelected(cache.optBoolean("noExportWired"));
-        allowIncompleteBuildsCbx.setSelected(cache.optBoolean("allowIncompleteBuilds"));
-    }
-
-    private void selectPreset(PresetConfig preset, String name) {
-        logger.log(String.format("Selected \"%s\" preset", name), "green");
-        importer.setPresetConfig(preset);
-        HPoint dim = PresetUtils.presetDimensions(preset);
-        logger.log(String.format("Preset dimensions: %dx%d", dim.getX(), dim.getY()), "green");
-        updateUI();
-    }
-
-    @Override
-    protected void onStartConnection() {
-        latestPingTimestamp = System.currentTimeMillis();
-//        sendToServer(new HPacket("LatencyPingRequest", HMessage.Direction.TOSERVER, -1));
-
-        isConnected = true;
-        updateUI();
-    }
-
-    @Override
-    protected void onEndConnection() {
-        isConnected = false;
-        furniDataTools = null;
-        floorState.reset();
-        inventory.clear();
-        exporter.reset();
-        importer.reset();
-        updateUI();
-    }
-
-    public HFloorItem stackTile() {
-        if (!floorState.inRoom() || !furniDataTools.isReady()) return null;
-        List<HFloorItem> items = floorState.getItemsFromType(furniDataTools, stackTileSetting.getClassName());
-        if (items.size() == 0) return null;
-        return items.get(0);
-    }
-
-    public boolean furniDataReady() {
-        return furniDataTools != null && furniDataTools.isReady();
-    }
-
-//
-//    public boolean isReady() {
-//        return isConnected && floorState.inRoom() && furniDataReady() && inventory.getState() == Inventory.InventoryState.LOADED
-//                && stackTile() != null;
-//    }
-//
-//    private boolean BCCatalogAvailable() {
-//        return catalog.getState() == BCCatalog.CatalogState.COLLECTED;
-//    }
-
-    private void updateLabel(Label lbl, boolean isFullfilled, boolean isBusy, boolean isOptional) {
-        lbl.getStyleClass().removeAll(lbl.getStyleClass().stream().filter(p -> p.startsWith("lbl")).collect(Collectors.toList()));
-        lbl.getStyleClass().add(
-                isFullfilled ?
-                        "lblgreen" : (isBusy ? "lblorange" : (isOptional ? "lblgrey" : "lblred")));
-    }
-
-    private void updateLabel(Label lbl, boolean isFullfilled, boolean isBusy) {
-        updateLabel(lbl, isFullfilled, isBusy, false);
-    }
-
-    private void updateLabel(Label lbl, boolean isFullfilled) {
-        updateLabel(lbl, isFullfilled, false);
-    }
-
-    private void updateUI() {
-        Platform.runLater(() -> {
-            updateLabel(cndConnectedLbl, isConnected);
-            updateLabel(cndRoomLbl, floorState.inRoom());
-            updateLabel(cndFurnidataLbl, furniDataReady());
-            updateLabel(cndInventoryLbl, inventory.getState() == Inventory.InventoryState.LOADED,
-                    inventory.getState() == Inventory.InventoryState.LOADING);
-            updateLabel(cndStackTileLbl, stackTile() != null);
-            updateLabel(cndPermissionsLbl, permissions.canMoveFurni() && (noExportWiredCbx.isSelected() || permissions.canModifyWired()));
-
-            availabilityBtn.setDisable(importer.getPresetConfig() == null);
-            currentPresetBtn.setDisable(presetListView.getSelectionModel().getSelectedItem() == null);
-        });
-    }
-
-    public void updateInstalledPresets() {
-        List<String> installed = PresetConfigUtils.listPresets();
-        Platform.runLater(() -> {
-            presetListView.getItems().clear();
-            presetListView.getItems().addAll(installed);
-        });
-    }
-
-    public void sendVisualChatInfo(String text) {
-        sendToClient(new HPacket("Whisper", HMessage.Direction.TOCLIENT, -1, text, 0, 30, 0, -1));
-    }
-
-    public void loadInventoryClick(ActionEvent actionEvent) {
-        inventory.requestInventory();
-    }
-
-    public FurniDataTools getFurniDataTools() {
-        return furniDataTools;
-    }
-
-    public Logger getLogger() {
-        return logger;
-    }
-
-    public Inventory getInventory() {
-        return inventory;
-    }
-
-    public FloorState getFloorState() {
-        return floorState;
-    }
-
-    public RoomPermissions getPermissions() {
-        return permissions;
-    }
-
-    public StackTileSetting getStackTileSetting() {
-        return stackTileSetting;
-    }
-
-    public int getSafeFeedbackTimeout() {
-        return (int)((ping + pingVariation + 10) * 3);
-    }
-
-    private void updatePostConfig() {
-        importer.setPostConfig(createPostConfig());
-        updateUI();
-    }
-
-    private PostConfig createPostConfig() {
-        PostConfig postConfig = new PostConfig();
-
-        ItemSource itemSource = ItemSource.valueOf((String) item_src_tgl.getSelectedToggle().getUserData());
-        Cacher.put("itemSource", itemSource);
-
-        postConfig.setItemSource(itemSource);
-
-        furniPostConfigs.forEach(postConfig::addFurniPostConfig);
-        return postConfig;
-    }
-
-    public void availabilityBtnClick(ActionEvent actionEvent) {
-        PresetConfig presetConfig = importer.getPresetConfig();
-        PostConfig postConfig = createPostConfig();
-
-        if (presetConfig != null && furniDataReady()) {
-            PresetConfig combined = new PresetConfig(presetConfig.toJsonObject());
-            combined.applyPostConfig(postConfig);
-
-            List<FurniDropInfo> fakeDropInfo = new ArrayList<>();
-            for (PresetFurni f : combined.getFurniture()) {
-                fakeDropInfo.add(new FurniDropInfo(-1, -1, furniDataTools.getFloorTypeId(f.getClassName()), postConfig.getItemSource(), -1));
-            }
-
-            AvailabilityChecker.printAvailability(logger, fakeDropInfo, inventory, furniDataTools);
-        }
-        else {
-            logger.log("No preset chosen or furnidata not ready", "red");
-        }
-
-    }
-
-    public void openPresetsFolderClick(ActionEvent actionEvent) {
-        try {
-            Desktop.getDesktop().open(new File(PresetConfigUtils.presetPath()));
-        } catch (Exception e) {
+   public void openCurrentPresetClick(ActionEvent actionEvent) {
+      String selectedPreset = (String)this.presetListView.getSelectionModel().getSelectedItem();
+      if (selectedPreset != null) {
+         try {
+            Desktop.getDesktop().edit(new File(PresetConfigUtils.presetPath(), selectedPreset + ".json"));
+         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
+         }
+      }
 
-    public void openCurrentPresetClick(ActionEvent actionEvent) {
-        String selectedPreset = presetListView.getSelectionModel().getSelectedItem();
-        if (selectedPreset != null) {
-            try {
-                Desktop.getDesktop().edit(new File(PresetConfigUtils.presetPath(), selectedPreset + PresetConfigUtils.PRESET_EXT));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+   }
 
-    public void reloadPresetsClick(ActionEvent actionEvent) {
-        updateInstalledPresets();
-        updateUI();
-    }
+   public void reloadPresetsClick(ActionEvent actionEvent) {
+      this.updateInstalledPresets();
+      this.updateUI();
+   }
 
-    public boolean allowIncompleteBuilds() {
-        return allowIncompleteBuildsCbx.isSelected();
-    }
+   public boolean allowIncompleteBuilds() {
+      return this.allowIncompleteBuildsCbx.isSelected();
+   }
 
-    private void updateFurniPostConfigsView() {
-        Platform.runLater(() -> {
-            postconfigTable.getItems().clear();
-            postconfigTable.getItems().addAll(furniPostConfigs);
-        });
-        updateUI();
-    }
+   public boolean useRoomFurni() {
+      return this.useRoomFurniCbx.isSelected();
+   }
 
-    public void updatePostconfigClick(ActionEvent actionEvent) {
-        try {
-            if (furniNamePC_txt.getText().isEmpty() || replacementIdPC_txt.getText().isEmpty()) throw new Exception();
+   private void updateFurniPostConfigsView() {
+      Platform.runLater(() -> {
+         this.postconfigTable.getItems().clear();
+         this.postconfigTable.getItems().addAll(this.furniPostConfigs);
+      });
+      this.updateUI();
+   }
 
-            FurniPostConfig furniPostConfig = new FurniPostConfig(
-                    furniNamePC_txt.getText(),
-                    true, Integer.parseInt(replacementIdPC_txt.getText()),
-                    null, null, null, null, new HashMap<>(), new HashMap<>()
-            );
-            furniPostConfigs = furniPostConfigs.stream().filter(c -> !c.getFurniIdentifier().equals(furniPostConfig.getFurniIdentifier())).collect(Collectors.toList());
-            furniPostConfigs.add(furniPostConfig);
-            updatePostConfig();
-            updateFurniPostConfigsView();
-            Platform.runLater(() -> postconfigErrorLbl.setText(""));
-        }
-        catch (Exception e) {
-//            e.printStackTrace();
-            Platform.runLater(() -> postconfigErrorLbl.setText("You entered invalid information!"));
-        }
-    }
+   public void updatePostconfigClick(ActionEvent actionEvent) {
+      try {
+         if (this.furniNamePC_txt.getText().isEmpty() || this.replacementIdPC_txt.getText().isEmpty()) {
+            throw new Exception();
+         }
 
-    public boolean shouldExportWired() {
-        return !noExportWiredCbx.isSelected();
-    }
+         FurniPostConfig furniPostConfig = new FurniPostConfig(this.furniNamePC_txt.getText(), true, Integer.parseInt(this.replacementIdPC_txt.getText()), (String)null, (HPoint)null, (Integer)null, (String)null, new HashMap(), new HashMap());
+         this.furniPostConfigs = (List)this.furniPostConfigs.stream().filter((c) -> !c.getFurniIdentifier().equals(furniPostConfig.getFurniIdentifier())).collect(Collectors.toList());
+         this.furniPostConfigs.add(furniPostConfig);
+         this.updatePostConfig();
+         this.updateFurniPostConfigsView();
+         Platform.runLater(() -> this.postconfigErrorLbl.setText(""));
+      } catch (Exception var3) {
+         Platform.runLater(() -> this.postconfigErrorLbl.setText("You entered invalid information!"));
+      }
 
-    public GPresetExporter getExporter() {
-        return exporter;
-    }
+   }
 
-    public void alwaysOnTopClick(ActionEvent actionEvent) {
-        primaryStage.setAlwaysOnTop(onTopCbx.isSelected());
-    }
+   public boolean shouldExportWired() {
+      return !this.noExportWiredCbx.isSelected();
+   }
 
-    public void clearWiredClick(ActionEvent actionEvent) {
-        exporter.clearCache();
-    }
+   public boolean shouldExportFurniVariables() {
+      return !this.noExportFurniVariablesCbx.isSelected();
+   }
+
+   public boolean shouldExportWallItems() {
+      return !this.noExportWallItemsCbx.isSelected();
+   }
+
+   public GPresetExporter getExporter() {
+      return this.exporter;
+   }
+
+   public GPresetImporter getImporter() {
+      return this.importer;
+   }
+
+   public void alwaysOnTopClick(ActionEvent actionEvent) {
+      this.primaryStage.setAlwaysOnTop(this.onTopCbx.isSelected());
+   }
+
+   public void clearWiredClick(ActionEvent actionEvent) {
+      this.exporter.clearCache();
+   }
 }

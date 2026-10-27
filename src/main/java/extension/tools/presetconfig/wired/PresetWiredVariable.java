@@ -4,95 +4,90 @@ import extension.parsers.HSharedVariable;
 import extension.parsers.HWiredContext;
 import extension.parsers.HWiredVariable;
 import gearth.protocol.HPacket;
+import java.util.List;
 import org.json.JSONObject;
 
-import java.util.List;
-
-/**
- * @author Beny.
- */
 public class PresetWiredVariable extends PresetWiredBase {
+   public String variableId;
+   private Integer variableTarget;
 
-    public String variableId;
+   public PresetWiredVariable(HPacket packet) {
+      super(packet);
+   }
 
-    public PresetWiredVariable(HPacket packet) {
-        super(packet);
-    }
-
-    public PresetWiredVariable(int wiredId, List<Integer> options, String stringConfig, List<Integer> items, List<Integer> secondItems, List<Integer> pickedFurniSources, List<Integer> pickedUserSources, List<String> variableIds, HWiredContext wiredContext) {
-        super(wiredId, options, stringConfig, items, secondItems, pickedFurniSources, pickedUserSources, variableIds);
-        this.variableId = "";
-
-        if(wiredContext != null) {
-            if(wiredContext.roomVariablesList != null && !wiredContext.roomVariablesList.variables.isEmpty()) {
-                for(HWiredVariable var : wiredContext.roomVariablesList.variables.values()) {
-                    if(var.name.equals(stringConfig)) {
-                        this.variableId = var.id;
-                    }
-                }
+   public PresetWiredVariable(int wiredId, List<Integer> options, String stringConfig, List<Integer> items, List<Integer> secondItems, List<Integer> pickedFurniSources, List<Integer> pickedUserSources, List<String> variableIds, HWiredContext wiredContext) {
+      super(wiredId, options, stringConfig, items, secondItems, pickedFurniSources, pickedUserSources, variableIds);
+      this.variableId = "";
+      if (wiredContext != null) {
+         if (wiredContext.roomVariablesList != null && !wiredContext.roomVariablesList.variables.isEmpty()) {
+            for(HWiredVariable var : wiredContext.roomVariablesList.variables.values()) {
+               if (var.name.equals(getVariableName())) {
+                  this.variableId = var.id;
+                  this.variableTarget = var.variableType;
+               }
             }
-            else if(wiredContext.furniVariableInfo != null && wiredContext.furniVariableInfo.variable.name.equals(stringConfig)) {
-                this.variableId = wiredContext.furniVariableInfo.variable.id;
+         }
+         if (wiredContext.furniVariableInfo != null && wiredContext.furniVariableInfo.variable.name.equals(getVariableName())) {
+            this.variableId = wiredContext.furniVariableInfo.variable.id;
+            this.variableTarget = wiredContext.furniVariableInfo.variable.variableType;
+         }
+         if (wiredContext.userVariableInfo != null && wiredContext.userVariableInfo.variable.name.equals(getVariableName())) {
+            this.variableId = wiredContext.userVariableInfo.variable.id;
+            this.variableTarget = wiredContext.userVariableInfo.variable.variableType;
+         }
+         if (wiredContext.globalVariableInfo != null && wiredContext.globalVariableInfo.variable.name.equals(getVariableName())) {
+            this.variableId = wiredContext.globalVariableInfo.variable.id;
+            this.variableTarget = wiredContext.globalVariableInfo.variable.variableType;
+         }
+         if (wiredContext.referenceVariablesList != null && !wiredContext.referenceVariablesList.sharedVariables.isEmpty()) {
+            for(HSharedVariable var : wiredContext.referenceVariablesList.sharedVariables) {
+               if (var.wiredVariable.name.equals(getVariableName())) {
+                  this.variableId = var.wiredVariable.id;
+                  this.variableTarget = var.wiredVariable.variableType;
+               }
             }
-            else if(wiredContext.userVariableInfo != null && wiredContext.userVariableInfo.variable.name.equals(stringConfig)) {
-                this.variableId = wiredContext.userVariableInfo.variable.id;
-            }
-            else if(wiredContext.globalVariableInfo != null && wiredContext.globalVariableInfo.variable.name.equals(stringConfig)) {
-                this.variableId = wiredContext.globalVariableInfo.variable.id;
-            }
-            else if(wiredContext.referenceVariablesList != null && !wiredContext.referenceVariablesList.sharedVariables.isEmpty()) {
-                for(HSharedVariable var : wiredContext.referenceVariablesList.sharedVariables) {
-                    if(var.wiredVariable.name.equals(stringConfig)) {
-                        this.variableId = var.wiredVariable.id;
-                    }
-                }
-            }
-        }
-    }
+         }
+      }
 
-    // deep copy constructor
-    public PresetWiredVariable(PresetWiredVariable variable) {
-        super(variable);
-        this.variableId = variable.variableId;
-    }
+   }
 
-    public PresetWiredVariable(JSONObject object) {
-        super(object);
+   public PresetWiredVariable(PresetWiredVariable variable) {
+      super((PresetWiredBase)variable);
+      this.variableId = variable.variableId;
+      this.variableTarget = variable.variableTarget;
+   }
 
-        try {
-            this.variableId = object.optString("variableId");
-        }
-        catch(Exception e) {
-            try {
-                this.variableId = object.optString("variableId");
-            }
-            catch(Exception ex) {
-                this.variableId = (String)object.get("variableId");
-            }
-        }
-    }
+   public PresetWiredVariable(JSONObject object) {
+      super(object);
 
-    @Override
-    protected void readTypeSpecific(HPacket packet) {
-    }
+      this.variableId = object.optString("variableId", "");
+      this.variableTarget = object.has("variableTarget") ? object.getInt("variableTarget") : null;
+   }
 
-    @Override
-    protected void appendJsonFields(JSONObject object) {
-        object.put("variableId", variableId);
-    }
+   public String getVariableName() {
+      return this.stringConfig.split("\t", -1)[0];
+   }
 
-    @Override
-    protected String getPacketName() {
-        return "UpdateVariable";
-    }
+   public Integer getVariableTarget() {
+      return this.variableTarget;
+   }
 
-    @Override
-    protected void applyTypeSpecificWiredConfig(HPacket packet) {
+   protected void readTypeSpecific(HPacket packet) {
+   }
 
-    }
+   protected void appendJsonFields(JSONObject object) {
+      object.put("variableId", this.variableId);
+      if (this.variableTarget != null) object.put("variableTarget", this.variableTarget);
+   }
 
-    @Override
-    public PresetWiredVariable clone() {
-        return new PresetWiredVariable(this);
-    }
+   protected String getPacketName() {
+      return "UpdateVariable";
+   }
+
+   protected void applyTypeSpecificWiredConfig(HPacket packet) {
+   }
+
+   public PresetWiredVariable clone() {
+      return new PresetWiredVariable(this);
+   }
 }

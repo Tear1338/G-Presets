@@ -1,0 +1,5 @@
+PASS: real import command preview gate, cancel, abort and stale contexts send no game packets
+PASS: preview canvas/layout, selection, launch availability, confirm and cancel
+PASS: packaged JavaFX FXML, controller bindings and CSS; no hotel connection
+oct. 27, 2026 12:08:30 AM com.sun.javafx.application.PlatformImpl startup
+WARNING: Unsupported JavaFX configuration: classes were loaded from 'unnamed module @5a10411'

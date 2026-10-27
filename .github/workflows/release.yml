@@ -1,0 +1,80 @@
+name: Build and release
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile and test the packaged UI
+        run: python scripts/build.py --ui-smoke
+      - name: Package the complete distribution
+        run: python scripts/package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gpresets-build-${{ github.sha }}
+          path: |
+            dist/*
+            target/build-report.json
+            target/test-results.txt
+            target/ui-test-results.txt
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: github.repository == 'Tear1338/G-Presets' && github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: gpresets-build-${{ github.sha }}
+          path: release-artifacts
+      - name: Create the versioned release and upload its JAR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          tag="v${version}"
+          if gh api "repos/${GH_REPO}/git/ref/tags/${tag}" > /dev/null 2> tag-error.txt; then
+            echo "Tag ${tag} already exists; keeping the published version."
+            exit 0
+          elif ! grep -q 'HTTP 404' tag-error.txt; then
+            cat tag-error.txt >&2
+            exit 1
+          fi
+          python scripts/release_notes.py > release-notes.md
+          prerelease=()
+          if [[ "$version" == *-* ]]; then prerelease=(--prerelease); fi
+          gh release create "$tag" \
+            "release-artifacts/dist/GPresets-${version}.jar" \
+            "release-artifacts/dist/GPresets-${version}.jar.sha256" \
+            "release-artifacts/dist/GPresets-${version}-complet.zip" \
+            "release-artifacts/dist/GPresets-${version}-complet.zip.sha256" \
+            "release-artifacts/target/build-report.json" \
+            --target "$GITHUB_SHA" --title "G-Presets ${version} · édition Darkz" \
+            --notes-file release-notes.md "${prerelease[@]}"

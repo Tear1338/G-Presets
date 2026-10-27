@@ -1,0 +1,6 @@
+Catalog: 284 WIRED-related furniture, 207 configuration-family classes checked
+Native form-code fixtures: 188 (wire transport, not gameplay semantics)
+PASS: 1203 regression assertions; native-codec fixtures, JSON, variables, contexts, catalog, and file persistence
+Live Habbo import/export and gameplay: NOT TESTED
+Cannot save preset: Cannot invoke "extension.tools.presetconfig.PresetConfig.toJsonObject()" because "<parameter2>" is null
+Cannot load preset: Expected a ':' after a key at 8 [character 9 line 1]

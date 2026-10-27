@@ -3,52 +3,54 @@ package extension.tools.presetconfig.ads_bg;
 import org.json.JSONObject;
 
 public class PresetAdsBackground {
+   private int furniId;
+   private String imageUrl;
+   private String offsetX;
+   private String offsetY;
+   private String offsetZ;
 
-    private int furniId;
+   public PresetAdsBackground(int furniId, String imageUrl, String offsetX, String offsetY, String offsetZ) {
+      this.furniId = furniId;
+      this.imageUrl = imageUrl;
+      this.offsetX = offsetX;
+      this.offsetY = offsetY;
+      this.offsetZ = offsetZ;
+   }
 
-    private String imageUrl;
-    private String offsetX;
-    private String offsetY;
-    private String offsetZ;
+   public PresetAdsBackground(JSONObject object) {
+      this.furniId = object.getInt("furniId");
+      this.imageUrl = object.getString("imageUrl");
+      this.offsetX = object.getString("offsetX");
+      this.offsetY = object.getString("offsetY");
+      this.offsetZ = object.getString("offsetZ");
+   }
 
-    public PresetAdsBackground(int furniId, String imageUrl, String offsetX, String offsetY, String offsetZ) {
-        this.furniId = furniId;
-        this.imageUrl = imageUrl;
-        this.offsetX = offsetX;
-        this.offsetY = offsetY;
-        this.offsetZ = offsetZ;
-    }
+   public JSONObject toJsonObject() {
+      return new JSONObject().put("furniId", furniId).put("imageUrl", imageUrl)
+         .put("offsetX", offsetX).put("offsetY", offsetY).put("offsetZ", offsetZ);
+   }
 
-    public PresetAdsBackground(JSONObject object) {
-        furniId = object.getInt("furniId");
+   public String getImageUrl() {
+      return this.imageUrl;
+   }
 
-        imageUrl = object.getString("imageUrl");
-        offsetX = object.getString("offsetX");
-        offsetY = object.getString("offsetY");
-        offsetZ = object.getString("offsetZ");
-    }
+   public String getOffsetX() {
+      return this.offsetX;
+   }
 
-    public String getImageUrl() {
-        return imageUrl;
-    }
+   public String getOffsetY() {
+      return this.offsetY;
+   }
 
-    public String getOffsetX() {
-        return offsetX;
-    }
+   public String getOffsetZ() {
+      return this.offsetZ;
+   }
 
-    public String getOffsetY() {
-        return offsetY;
-    }
+   public int getFurniId() {
+      return this.furniId;
+   }
 
-    public String getOffsetZ() {
-        return offsetZ;
-    }
-
-    public int getFurniId() {
-        return furniId;
-    }
-
-    public void setFurniId(int furniId) {
-        this.furniId = furniId;
-    }
+   public void setFurniId(int furniId) {
+      this.furniId = furniId;
+   }
 }

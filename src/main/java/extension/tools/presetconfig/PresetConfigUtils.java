@@ -1,81 +1,186 @@
 package extension.tools.presetconfig;
 
 import extension.GPresets;
-import org.json.JSONObject;
-
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.Path;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.util.ArrayList;
 import java.util.List;
+import org.json.JSONObject;
 
 public class PresetConfigUtils {
-    public static final String PRESET_EXT = ".json";
+   public static final String PRESET_EXT = ".json";
+   private static volatile boolean migrationChecked = false;
 
-    public static String presetPath() {
-        try {
-            String path = (new File(GPresets.class.getProtectionDomain().getCodeSource().getLocation().toURI()))
-                    .getParentFile().toString();
-            return Paths.get(path, "presets").toString();
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
-        return "";
-    }
+   public static String baseDir() {
+      String override = System.getProperty("gpresets.dataDir");
+      if (override != null && !override.isBlank()) {
+         new File(override).mkdirs();
+         return override;
+      }
+      String os = System.getProperty("os.name", "").toLowerCase();
+      String base;
+      if (os.contains("win")) {
+         String appData = System.getenv("APPDATA");
+         if (appData == null || appData.isEmpty()) {
+            appData = Paths.get(System.getProperty("user.home"), "AppData", "Roaming").toString();
+         }
 
+         base = Paths.get(appData, "G-Presets").toString();
+      } else if (os.contains("mac")) {
+         base = Paths.get(System.getProperty("user.home"), "Library", "Application Support", "G-Presets").toString();
+      } else {
+         String xdg = System.getenv("XDG_DATA_HOME");
+         base = xdg != null && !xdg.isBlank() ? Paths.get(xdg, "G-Presets").toString() :
+            Paths.get(System.getProperty("user.home"), ".local", "share", "G-Presets").toString();
+      }
 
-    public static List<String> listPresets() {
-        List<String> presets = new ArrayList<>();
-        File presetsDir = new File(presetPath());
+      (new File(base)).mkdirs();
+      return base;
+   }
 
-        if (!presetsDir.isDirectory()) {
-            return presets;
-        }
+   public static String presetPath() {
+      String path = Paths.get(baseDir(), "presets").toString();
+      (new File(path)).mkdirs();
+      migrateLegacyPresetsIfNeeded(path);
+      return path;
+   }
 
-        File[] files = presetsDir.listFiles();
-        if (files != null) {
-            for (File presetFile : files) {
-                if (presetFile.isFile()) {
-                    String name = presetFile.getName();
-                    if (name.endsWith(PRESET_EXT)) {
-                        name = name.substring(0, name.length() - PRESET_EXT.length());
-                        presets.add(name);
-                    }
-                }
+   private static synchronized void migrateLegacyPresetsIfNeeded(String newPresetsDir) {
+      if (!migrationChecked) {
+         migrationChecked = true;
+
+         try {
+            File legacyDir = legacyPresetsDir();
+            if (legacyDir == null || !legacyDir.isDirectory()) {
+               return;
             }
-        }
-        return presets;
-    }
 
-    public static boolean savePreset(String name, PresetConfig config) {
-        File presetPath = new File(presetPath());
-        presetPath.mkdirs();
-
-        try (Writer file = new OutputStreamWriter(Files.newOutputStream(new File(presetPath(), name + PRESET_EXT).toPath()), StandardCharsets.UTF_8)) {
-            file.write(config.toJsonObject().toString(4));
-            file.flush();
-            return true;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return false;
-    }
-
-    public static PresetConfig loadPreset(String name) {
-        File file = new File(presetPath(), name + PRESET_EXT);
-        if (file.exists() && file.isFile()) {
-            try {
-                String contents = String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
-                return new PresetConfig(new JSONObject(contents));
-            } catch (IOException e) {
-                e.printStackTrace();
+            File[] legacyFiles = legacyDir.listFiles((dir, name) -> name.endsWith(".json"));
+            if (legacyFiles == null || legacyFiles.length == 0) {
+               return;
             }
-        }
 
-        return null;
-    }
+            File target = new File(newPresetsDir);
+            target.mkdirs();
+            int copied = 0;
 
+            for(File src : legacyFiles) {
+               File dst = new File(target, src.getName());
+               if (!dst.exists()) {
+                  try {
+                     Files.copy(src.toPath(), dst.toPath(), StandardCopyOption.COPY_ATTRIBUTES);
+                     ++copied;
+                  } catch (IOException var11) {
+                  }
+               }
+            }
+
+            if (copied > 0) {
+               System.out.println("[G-Presets] migrated " + copied + " preset(s) from " + legacyDir + " to " + target);
+            }
+         } catch (Exception var12) {
+         }
+
+      }
+   }
+
+   private static File legacyPresetsDir() {
+      try {
+         File codeDir = (new File(GPresets.class.getProtectionDomain().getCodeSource().getLocation().toURI())).getParentFile();
+         if (codeDir == null) {
+            return null;
+         } else {
+            File legacy = new File(codeDir, "presets");
+            return legacy;
+         }
+      } catch (URISyntaxException var2) {
+         return null;
+      }
+   }
+
+   public static boolean presetExists(String name) {
+      File f = resolvePresetFile(name).toFile();
+      return f.isFile();
+   }
+
+   public static List<String> listPresets() {
+      List<String> presets = new ArrayList();
+      File presetsDir = new File(presetPath());
+      if (!presetsDir.isDirectory()) {
+         return presets;
+      } else {
+         File[] files = presetsDir.listFiles();
+         if (files != null) {
+            for(File presetFile : files) {
+               if (presetFile.isFile()) {
+                  String name = presetFile.getName();
+                  if (name.endsWith(".json")) {
+                     name = name.substring(0, name.length() - ".json".length());
+                     presets.add(name);
+                  }
+               }
+            }
+         }
+
+         return presets;
+      }
+   }
+
+   public static Path resolvePresetFile(String name) {
+      if (name == null || name.isBlank() || name.equals(".") || name.equals("..") ||
+          name.matches(".*[\\\\/:*?\"<>|\\p{Cntrl}].*")) {
+         throw new IllegalArgumentException("Invalid preset name");
+      }
+      Path directory = Paths.get(presetPath()).toAbsolutePath().normalize();
+      Path file = directory.resolve(name + PRESET_EXT).normalize();
+      if (!file.getParent().equals(directory)) throw new IllegalArgumentException("Invalid preset path");
+      return file;
+   }
+
+   public static boolean savePreset(String name, PresetConfig config) {
+      Path temporary = null;
+      try {
+         Path destination = resolvePresetFile(name);
+         // Serialize first: a bad preset must never truncate an existing good export.
+         String contents = config.toJsonObject().toString(4);
+         temporary = Files.createTempFile(destination.getParent(), ".preset-", ".tmp");
+         Files.write(temporary, contents.getBytes(StandardCharsets.UTF_8));
+         try {
+            Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+         } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING);
+         }
+         return true;
+      } catch (IOException | RuntimeException error) {
+         System.err.println("Cannot save preset: " + error.getMessage());
+         return false;
+      } finally {
+         if (temporary != null) {
+            try { Files.deleteIfExists(temporary); } catch (IOException ignored) { }
+         }
+      }
+   }
+
+   public static PresetConfig loadPreset(String name) {
+      File file = resolvePresetFile(name).toFile();
+      if (file.exists() && file.isFile()) {
+         try {
+            String contents = String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
+            return new PresetConfig(new JSONObject(contents));
+         } catch (IOException | RuntimeException e) {
+            System.err.println("Cannot load preset: " + e.getMessage());
+         }
+      }
+
+      return null;
+   }
 }

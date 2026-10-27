@@ -2,146 +2,131 @@ package extension.tools.presetconfig.furni;
 
 import extension.tools.presetconfig.PresetJsonConfigurable;
 import gearth.extensions.parsers.HPoint;
+import java.util.HashMap;
+import java.util.Map;
 import org.json.JSONObject;
 
 public class PresetFurni implements PresetJsonConfigurable {
+   private int furniId;
+   private String className;
+   private HPoint location;
+   private int rotation;
+   private String state;
+   private Map<String, Integer> variables;
+   private String furniName = null;
 
-    private int furniId;
-    private String className;
-    private HPoint location; // relative to selection, both x & y & z matter
-    private int rotation;
-    private String state;    // only if category = legacystuffdata (0), only apply if UseFurniture packet works
+   public PresetFurni(int furniId, String className, HPoint location, int rotation, String state) {
+      this.furniId = furniId;
+      this.className = className;
+      this.location = location;
+      this.rotation = rotation;
+      this.state = state;
+   }
 
-    private String furniName = null; // uniquely given name by GPresets, based on furniId and className
-    private String mobi = null; // furniture identifier from furnidata for enhanced identification
+   public PresetFurni(PresetFurni furni) {
+      this.furniId = furni.furniId;
+      this.className = furni.className;
+      this.location = new HPoint(furni.location.getX(), furni.location.getY(), furni.location.getZ());
+      this.rotation = furni.rotation;
+      this.state = furni.state;
+      this.furniName = furni.furniName;
+      this.variables = furni.variables == null ? null : new HashMap(furni.variables);
+   }
 
-    public PresetFurni(int furniId, String className, HPoint location, int rotation, String state) {
-        this.furniId = furniId;
-        this.className = className;
-        this.location = location;
-        this.rotation = rotation;
-        this.state = state;
-    }
+   public PresetFurni(JSONObject jsonObject) {
+      this.furniId = jsonObject.getInt("id");
+      this.className = jsonObject.getString("className");
+      JSONObject jsonLocation = jsonObject.getJSONObject("location");
+      this.location = new HPoint(jsonLocation.getInt("x"), jsonLocation.getInt("y"), jsonLocation.getDouble("z"));
+      this.rotation = jsonObject.getInt("rotation");
+      this.state = jsonObject.has("state") ? jsonObject.getString("state") : null;
+      this.furniName = jsonObject.getString("name");
+      if (jsonObject.has("variables")) {
+         this.variables = new HashMap();
+         JSONObject vars = jsonObject.getJSONObject("variables");
 
-    public PresetFurni(int furniId, String className, HPoint location, int rotation, String state, String mobi) {
-        this.furniId = furniId;
-        this.className = className;
-        this.location = location;
-        this.rotation = rotation;
-        this.state = state;
-        this.mobi = mobi;
-    }
+         for(String key : vars.keySet()) {
+            this.variables.put(key, vars.getInt(key));
+         }
+      }
 
-    // deep copy constructor
-    public PresetFurni(PresetFurni furni) {
-        this.furniId = furni.furniId;
-        this.className = furni.className;
-        this.location = new HPoint(
-                furni.location.getX(),
-                furni.location.getY(),
-                furni.location.getZ()
-        );
-        this.rotation = furni.rotation;
-        this.state = furni.state;
-        this.furniName = furni.furniName;
-        this.mobi = furni.mobi;
-    }
+   }
 
-    public PresetFurni(JSONObject jsonObject) {
-        this.furniId = jsonObject.getInt("id");
-        this.className = jsonObject.getString("className");
-        JSONObject jsonLocation = jsonObject.getJSONObject("location");
-        this.location = new HPoint(
-                jsonLocation.getInt("x"),
-                jsonLocation.getInt("y"),
-                jsonLocation.getDouble("z")
-        );
-        this.rotation = jsonObject.getInt("rotation");
-        this.state = jsonObject.has("state") ? jsonObject.getString("state") : null;
-        this.furniName = jsonObject.getString("name"); // required when parsing from jsonobject
-        this.mobi = jsonObject.has("mobi") ? jsonObject.getString("mobi") : null; // backward compatibility
-    }
+   public JSONObject toJsonObject() {
+      JSONObject object = new JSONObject();
+      object.put("id", this.furniId);
+      object.put("className", this.className);
+      JSONObject jsonLocation = new JSONObject();
+      jsonLocation.put("x", this.location.getX());
+      jsonLocation.put("y", this.location.getY());
+      jsonLocation.put("z", this.location.getZ());
+      object.put("location", jsonLocation);
+      object.put("rotation", this.rotation);
+      if (this.state != null) {
+         object.put("state", this.state);
+      }
 
-    @Override
-    public JSONObject toJsonObject() {
-        JSONObject object = new JSONObject();
-        object.put("id", furniId);
-        object.put("className", className);
+      if (this.variables != null && !this.variables.isEmpty()) {
+         object.put("variables", new JSONObject(this.variables));
+      }
 
-        JSONObject jsonLocation = new JSONObject();
-        jsonLocation.put("x", location.getX());
-        jsonLocation.put("y", location.getY());
-        jsonLocation.put("z", location.getZ());
-        object.put("location", jsonLocation);
+      object.put("name", this.furniName);
+      return object;
+   }
 
-        object.put("rotation", rotation);
+   public String getClassName() {
+      return this.className;
+   }
 
-        if (state != null) {
-            object.put("state", state);
-        }
+   public void setClassName(String className) {
+      this.className = className;
+   }
 
-        object.put("name", furniName); // required when exporting to json object
+   public HPoint getLocation() {
+      return this.location;
+   }
 
-        if (mobi != null) {
-            object.put("mobi", mobi);
-        }
+   public void setLocation(HPoint location) {
+      this.location = location;
+   }
 
-        return object;
-    }
+   public int getRotation() {
+      return this.rotation;
+   }
 
-    public String getClassName() {
-        return className;
-    }
+   public void setRotation(int rotation) {
+      this.rotation = rotation;
+   }
 
-    public void setClassName(String className) {
-        this.className = className;
-    }
+   public String getState() {
+      return this.state;
+   }
 
-    public HPoint getLocation() {
-        return location;
-    }
+   public void setState(String state) {
+      this.state = state;
+   }
 
-    public void setLocation(HPoint location) {
-        this.location = location;
-    }
+   public int getFurniId() {
+      return this.furniId;
+   }
 
-    public int getRotation() {
-        return rotation;
-    }
+   public void setFurniId(int furniId) {
+      this.furniId = furniId;
+   }
 
-    public void setRotation(int rotation) {
-        this.rotation = rotation;
-    }
+   public void setFurniName(String furniName) {
+      this.furniName = furniName;
+   }
 
-    public String getState() {
-        return state;
-    }
+   public String getFurniName() {
+      return this.furniName;
+   }
 
-    public void setState(String state) {
-        this.state = state;
-    }
+   public Map<String, Integer> getVariables() {
+      return this.variables;
+   }
 
-    public int getFurniId() {
-        return furniId;
-    }
-
-    public void setFurniId(int furniId) {
-        this.furniId = furniId;
-    }
-
-    public void setFurniName(String furniName) {
-        this.furniName = furniName;
-    }
-
-    public String getFurniName() {
-        return furniName;
-    }
-
-    public String getMobi() {
-        return mobi;
-    }
-
-    public void setMobi(String mobi) {
-        this.mobi = mobi;
-    }
+   public void setVariables(Map<String, Integer> variables) {
+      this.variables = variables;
+   }
 }

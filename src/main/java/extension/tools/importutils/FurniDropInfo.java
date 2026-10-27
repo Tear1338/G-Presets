@@ -3,37 +3,47 @@ package extension.tools.importutils;
 import extension.tools.postconfig.ItemSource;
 
 public class FurniDropInfo {
-    private int x;
-    private int y;
-    private int typeId;
-    private ItemSource itemSource; // may be customizable per furni in the future
-    private int rotation;
+   private int x;
+   private int y;
+   private int typeId;
+   private ItemSource itemSource;
+   private int rotation;
+   private int furniId;
 
-    public FurniDropInfo(int x, int y, int typeId, ItemSource itemSource, int rotation) {
-        this.x = x;
-        this.y = y;
-        this.typeId = typeId;
-        this.itemSource = itemSource;
-        this.rotation = rotation;
-    }
+   public FurniDropInfo(int x, int y, int typeId, ItemSource itemSource, int rotation) {
+      this(x, y, typeId, itemSource, rotation, -1);
+   }
 
-    public int getX() {
-        return x;
-    }
+   public FurniDropInfo(int x, int y, int typeId, ItemSource itemSource, int rotation, int furniId) {
+      this.x = x;
+      this.y = y;
+      this.typeId = typeId;
+      this.itemSource = itemSource;
+      this.rotation = rotation;
+      this.furniId = furniId;
+   }
 
-    public int getY() {
-        return y;
-    }
+   public int getX() {
+      return this.x;
+   }
 
-    public int getTypeId() {
-        return typeId;
-    }
+   public int getY() {
+      return this.y;
+   }
 
-    public ItemSource getItemSource() {
-        return itemSource;
-    }
+   public int getTypeId() {
+      return this.typeId;
+   }
 
-    public int getRotation() {
-        return rotation;
-    }
+   public ItemSource getItemSource() {
+      return this.itemSource;
+   }
+
+   public int getRotation() {
+      return this.rotation;
+   }
+
+   public int getFurniId() {
+      return this.furniId;
+   }
 }

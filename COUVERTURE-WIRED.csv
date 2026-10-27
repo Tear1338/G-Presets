@@ -1,0 +1,285 @@
+className,implementation,live_gameplay_tested
+wf_cnd_trggrer_on_frn,six-family configuration envelope,no
+wf_trg_walks_off_furni,six-family configuration envelope,no
+wf_wire4,"placement, state and writable inspected properties where available",no
+wf_act_reset_timers,six-family configuration envelope,no
+wf_cnd_match_snapshot,six-family configuration envelope,no
+wf_pressureplate,"placement, state and writable inspected properties where available",no
+wf_wire2,"placement, state and writable inspected properties where available",no
+wf_wire1,"placement, state and writable inspected properties where available",no
+wf_glowball,"placement, state and writable inspected properties where available",no
+wf_act_show_message,six-family configuration envelope,no
+wf_xtra_random,six-family configuration envelope,no
+wf_cnd_time_more_than,six-family configuration envelope,no
+wf_trg_says_something,six-family configuration envelope,no
+wf_ringplate,"placement, state and writable inspected properties where available",no
+wf_pyramid,"placement, state and writable inspected properties where available",no
+wf_act_move_rotate,six-family configuration envelope,no
+wf_trg_state_changed,six-family configuration envelope,no
+wf_firegate,"placement, state and writable inspected properties where available",no
+wf_xtra_unseen,six-family configuration envelope,no
+wf_trg_game_ends,six-family configuration envelope,no
+wf_act_toggle_state,six-family configuration envelope,no
+wf_trg_enter_room,six-family configuration envelope,no
+wf_arrowplate,"placement, state and writable inspected properties where available",no
+wf_act_give_score,six-family configuration envelope,no
+wf_trg_at_given_time,six-family configuration envelope,no
+wf_cnd_time_less_than,six-family configuration envelope,no
+wf_cnd_furnis_hv_avtrs,six-family configuration envelope,no
+wf_floor_switch2,"placement, state and writable inspected properties where available",no
+wf_floor_switch1,"placement, state and writable inspected properties where available",no
+wf_act_match_to_sshot,six-family configuration envelope,no
+wf_glassdoor,"placement, state and writable inspected properties where available",no
+wf_wire3,"placement, state and writable inspected properties where available",no
+wf_colortile,"placement, state and writable inspected properties where available",no
+wf_act_teleport_to,six-family configuration envelope,no
+wf_trg_periodically,six-family configuration envelope,no
+wf_colorwheel,"placement, state and writable inspected properties where available",no
+wf_trg_game_starts,six-family configuration envelope,no
+wf_trg_score_achieved,six-family configuration envelope,no
+wf_trg_walks_on_furni,six-family configuration envelope,no
+wf_box,"placement, state and writable inspected properties where available",no
+wf_cnd_has_furni_on,six-family configuration envelope,no
+wf_maze,"placement, state and writable inspected properties where available",no
+wf_cnd_actor_in_group,six-family configuration envelope,no
+wf_act_give_reward,six-family configuration envelope,no
+wf_act_call_stacks,six-family configuration envelope,no
+wf_act_kick_user,six-family configuration envelope,no
+wf_act_leave_team,six-family configuration envelope,no
+wf_act_move_to_dir,six-family configuration envelope,no
+wf_act_chase,six-family configuration envelope,no
+wf_trg_collision,six-family configuration envelope,no
+wf_act_give_score_tm,six-family configuration envelope,no
+wf_act_join_team,six-family configuration envelope,no
+wf_trg_period_long,six-family configuration envelope,no
+wf_cnd_actor_in_team,six-family configuration envelope,no
+wf_act_flee,six-family configuration envelope,no
+wf_blob2,"placement, state and writable inspected properties where available",no
+wf_blob,"placement, state and writable inspected properties where available",no
+wf_cnd_wearing_effect,six-family configuration envelope,no
+wf_cnd_wearing_badge,six-family configuration envelope,no
+wf_cnd_not_furni_on,six-family configuration envelope,no
+wf_cnd_not_user_count,six-family configuration envelope,no
+wf_cnd_not_trggrer_on,six-family configuration envelope,no
+wf_trg_at_time_long,six-family configuration envelope,no
+wf_cnd_not_wearing_b,six-family configuration envelope,no
+wf_cnd_not_in_team,six-family configuration envelope,no
+wf_act_toggle_to_rnd,six-family configuration envelope,no
+wf_cnd_not_stuff_is,six-family configuration envelope,no
+wf_cnd_not_match_snap,six-family configuration envelope,no
+wf_cnd_not_wearing_fx,six-family configuration envelope,no
+wf_cnd_not_hv_avtrs,six-family configuration envelope,no
+wf_cnd_not_in_group,six-family configuration envelope,no
+wf_cnd_stuff_is,six-family configuration envelope,no
+wf_act_move_furni_to,six-family configuration envelope,no
+wf_cnd_user_count_in,six-family configuration envelope,no
+wf_act_mute_triggerer,six-family configuration envelope,no
+wf_cnd_date_rng_active,six-family configuration envelope,no
+wf_blob2_vis,"placement, state and writable inspected properties where available",no
+wf_blob_invis,"placement, state and writable inspected properties where available",no
+wf_act_bot_follow_avatar,six-family configuration envelope,no
+wf_trg_bot_reached_stf,six-family configuration envelope,no
+wf_act_bot_clothes,six-family configuration envelope,no
+wf_act_bot_talk_to_avatar,six-family configuration envelope,no
+wf_cnd_has_handitem,six-family configuration envelope,no
+wf_act_bot_move,six-family configuration envelope,no
+wf_act_bot_teleport,six-family configuration envelope,no
+wf_trg_bot_reached_avtr,six-family configuration envelope,no
+wf_act_bot_give_handitem,six-family configuration envelope,no
+wf_act_bot_talk,six-family configuration envelope,no
+wf_xtra_or_eval,six-family configuration envelope,no
+wf_upcounter1,"placement, state and writable inspected properties where available",no
+wf_game_upcounter2,"placement, state and writable inspected properties where available",no
+wf_trg_clock_counter,six-family configuration envelope,no
+wf_act_control_clock,six-family configuration envelope,no
+wf_game_upcounter1,"placement, state and writable inspected properties where available",no
+wf_upcounter2,"placement, state and writable inspected properties where available",no
+wf_test_cnd,six-family configuration envelope,no
+wf_test_trg,six-family configuration envelope,no
+wf_test_xtra,six-family configuration envelope,no
+wf_test_act,six-family configuration envelope,no
+wf_cnd_not_user_performs_action,six-family configuration envelope,no
+wf_cnd_match_date,six-family configuration envelope,no
+wf_cnd_match_time,six-family configuration envelope,no
+wf_cnd_triggerer_match,six-family configuration envelope,no
+wf_cnd_not_has_handitem,six-family configuration envelope,no
+wf_trg_user_performs_action,six-family configuration envelope,no
+wf_cnd_not_triggerer_match,six-family configuration envelope,no
+wf_cnd_user_performs_action,six-family configuration envelope,no
+wf_cnd_counter_time_matches,six-family configuration envelope,no
+wf_cnd_team_has_rank,six-family configuration envelope,no
+wf_cnd_team_has_score,six-family configuration envelope,no
+wf_act_send_signal,six-family configuration envelope,no
+wf_xtra_mov_physics,six-family configuration envelope,no
+wf_numbertile2,"placement, state and writable inspected properties where available",no
+wf_xtra_mov_no_animation,six-family configuration envelope,no
+wf_trg_click_furni,six-family configuration envelope,no
+wf_trg_recv_signal,six-family configuration envelope,no
+wf_trg_stuff_state,six-family configuration envelope,no
+wf_act_set_altitude,six-family configuration envelope,no
+wf_cnd_has_altitude,six-family configuration envelope,no
+wf_numbertile1,"placement, state and writable inspected properties where available",no
+wf_antenna2,"placement, state and writable inspected properties where available",no
+wf_xtra_mov_carry_users,six-family configuration envelope,no
+wf_antenna1,"placement, state and writable inspected properties where available",no
+wf_xtra_execution_limit,six-family configuration envelope,no
+wf_tile2,"placement, state and writable inspected properties where available",no
+wf_tile1,"placement, state and writable inspected properties where available",no
+wf_test_slc,six-family configuration envelope,no
+wf_act_freeze,six-family configuration envelope,no
+wf_act_rel_mov,six-family configuration envelope,no
+wf_trg_period_short,six-family configuration envelope,no
+wf_cnd_actor_dir,six-family configuration envelope,no
+wf_act_unfreeze,six-family configuration envelope,no
+wf_xtra_anim_time,six-family configuration envelope,no
+wf_slc_users_area,six-family configuration envelope,no
+wf_slc_furni_signal,six-family configuration envelope,no
+wf_slc_users_byname,six-family configuration envelope,no
+wf_act_furni_to_furni,six-family configuration envelope,no
+wf_slc_furni_onfurni,six-family configuration envelope,no
+wf_slc_furni_altitude,six-family configuration envelope,no
+wf_slc_users_group,six-family configuration envelope,no
+wf_xtra_filter_users,six-family configuration envelope,no
+wf_slc_furni_area,six-family configuration envelope,no
+wf_slc_furni_bytype,six-family configuration envelope,no
+wf_cnd_slc_quantity,six-family configuration envelope,no
+wf_slc_users_handitem,six-family configuration envelope,no
+wf_slc_furni_picks,six-family configuration envelope,no
+wf_slc_users_signal,six-family configuration envelope,no
+wf_slc_users_byaction,six-family configuration envelope,no
+wf_act_furni_to_user,six-family configuration envelope,no
+wf_slc_users_onfurni,six-family configuration envelope,no
+wf_slc_furni_neighborhood,six-family configuration envelope,no
+wf_slc_users_bytype,six-family configuration envelope,no
+wf_xtra_filter_furni,six-family configuration envelope,no
+wf_slc_users_team,six-family configuration envelope,no
+wf_slc_users_neighborhood,six-family configuration envelope,no
+wf_cnd_valid_moves,six-family configuration envelope,no
+wf_trg_click_tile,six-family configuration envelope,no
+wf_act_adjust_clock,six-family configuration envelope,no
+wf_act_neg_send_signal,six-family configuration envelope,no
+wf_act_neg_call_stacks,six-family configuration envelope,no
+wf_test_var,six-family configuration envelope,no
+wf_slc_furni_with_var,six-family configuration envelope,no
+wf_trg_var_changed,six-family configuration envelope,no
+wf_xtra_filter_furni_by_var,six-family configuration envelope,no
+wf_cnd_var_val_match,six-family configuration envelope,no
+wf_trg_leave_room,six-family configuration envelope,no
+wf_act_change_var_val,six-family configuration envelope,no
+wf_xtra_filter_users_by_var,six-family configuration envelope,no
+wf_var_context,six-family configuration envelope,no
+wf_var_user,six-family configuration envelope,no
+wf_xtra_var_text_connector,six-family configuration envelope,no
+wf_cnd_var_age_match,six-family configuration envelope,no
+wf_xtra_text_output_variable,six-family configuration envelope,no
+wf_var_furni,six-family configuration envelope,no
+wf_act_give_var,six-family configuration envelope,no
+wf_act_move_rotate_user,six-family configuration envelope,no
+wf_act_remove_var,six-family configuration envelope,no
+wf_act_user_to_furni,six-family configuration envelope,no
+wf_xtra_text_output_username,six-family configuration envelope,no
+wf_slc_remote,six-family configuration envelope,no
+wf_cnd_neg_has_var,six-family configuration envelope,no
+wf_xtra_text_input_variable,six-family configuration envelope,no
+wf_slc_users_with_var,six-family configuration envelope,no
+wf_cnd_has_var,six-family configuration envelope,no
+wf_var_reference,six-family configuration envelope,no
+wf_xtra_exec_in_order,six-family configuration envelope,no
+wf_var_room,six-family configuration envelope,no
+wf_act_teleport_to_room,six-family configuration envelope,no
+wf_room_linker,native writable room destination,no
+wf_var_quest,six-family configuration envelope,no
+wf_trg_click_user,six-family configuration envelope,no
+wf_var_quest_chain,six-family configuration envelope,no
+wf_xtra_var_time_util,six-family configuration envelope,no
+wf_xtra_var_lvlup_system,six-family configuration envelope,no
+wf_var_echo,six-family configuration envelope,no
+wf_act_neg_log,six-family configuration envelope,no
+wf_act_log,six-family configuration envelope,no
+wf_ltdproto_act_toggle_state,six-family configuration envelope,no
+wf_proto_pyramid,"placement, state and writable inspected properties where available",no
+wf_proto_trg_at_given_time,six-family configuration envelope,no
+wf_proto_cnd_trggrer_on_frn,six-family configuration envelope,no
+wf_token3,"placement, state and writable inspected properties where available",no
+wf_button_arrow,"placement, state and writable inspected properties where available",no
+wf_button_yellow,"placement, state and writable inspected properties where available",no
+wf_teammeter2,"placement, state and writable inspected properties where available",no
+wf_arrowplate_8dir,"placement, state and writable inspected properties where available",no
+wf_teammeter4,"placement, state and writable inspected properties where available",no
+wf_token5,"placement, state and writable inspected properties where available",no
+wf_teamcolorquarter,"placement, state and writable inspected properties where available",no
+wf_teammeter1,"placement, state and writable inspected properties where available",no
+wf_token7,"placement, state and writable inspected properties where available",no
+wf_token6,"placement, state and writable inspected properties where available",no
+wf_button,"placement, state and writable inspected properties where available",no
+wf_teamcolortile,"placement, state and writable inspected properties where available",no
+wf_token10,"placement, state and writable inspected properties where available",no
+wf_numberscreen,"placement, state and writable inspected properties where available",no
+wf_toggle,"placement, state and writable inspected properties where available",no
+wf_button_red,"placement, state and writable inspected properties where available",no
+wf_token11,"placement, state and writable inspected properties where available",no
+wf_vu,"placement, state and writable inspected properties where available",no
+wf_button_blue,"placement, state and writable inspected properties where available",no
+wf_token2,"placement, state and writable inspected properties where available",no
+wf_button_x,"placement, state and writable inspected properties where available",no
+wf_token9,"placement, state and writable inspected properties where available",no
+wf_token8,"placement, state and writable inspected properties where available",no
+wf_button_green,"placement, state and writable inspected properties where available",no
+wf_knob,"placement, state and writable inspected properties where available",no
+wf_token4,"placement, state and writable inspected properties where available",no
+wf_teammeter3,"placement, state and writable inspected properties where available",no
+wf_token1,"placement, state and writable inspected properties where available",no
+wf_slider,"placement, state and writable inspected properties where available",no
+wf_screenseparator,writable area-hide properties,no
+wf_act_cancel_transaction,six-family configuration envelope,no
+wf_act_give_currency,six-family configuration envelope,no
+wf_act_give_furni,six-family configuration envelope,no
+wf_act_init_transaction,six-family configuration envelope,no
+wf_cnd_chest_has_item_type,six-family configuration envelope,no
+wf_cnd_chest_has_items,six-family configuration envelope,no
+wf_contract_payment,dedicated structured contract rules,no
+wf_contract_reward,dedicated structured contract rules,no
+wf_contract_trade,dedicated structured contract rules,no
+wf_storage_coins1,dedicated chest preferences/options/notifications,no
+wf_storage_coins2,dedicated chest preferences/options/notifications,no
+wf_storage_furni1,dedicated chest preferences/options/notifications,no
+wf_storage_furni2,dedicated chest preferences/options/notifications,no
+wf_storage_furni_starter,dedicated chest preferences/options/notifications,no
+wf_trg_transaction_complete,six-family configuration envelope,no
+wf_trg_transaction_fail,six-family configuration envelope,no
+wf_xtra_custom_contract,six-family configuration envelope,no
+wf_xtra_scan_chest_furni_by_type,six-family configuration envelope,no
+wf_xtra_text_output_furni_name,six-family configuration envelope,no
+wf_act_click_conf,six-family configuration envelope,no
+wf_xtra_mov_curve,six-family configuration envelope,no
+wf_xtra_rotate_to_dir,six-family configuration envelope,no
+wf_act_move_furni_as_group,six-family configuration envelope,no
+wf_act_place_furni,six-family configuration envelope,no
+wf_act_remove_furni,six-family configuration envelope,no
+wf_xtra_var_web_api,six-family configuration envelope,no
+wf_fx_firegate,"placement, state and writable inspected properties where available",no
+wf_xtra_varfx_boss,six-family configuration envelope,no
+wf_xtra_varfx_hp,six-family configuration envelope,no
+wf_xtra_varfx_levelling,six-family configuration envelope,no
+wf_xtra_varfx_number,six-family configuration envelope,no
+wf_xtra_varfx_prog,six-family configuration envelope,no
+wf_xtra_varfx_status,six-family configuration envelope,no
+wf_test_26secret1,unpublished prototype: configurable behavior unverified,no
+wf_test_26secret2,unpublished prototype: configurable behavior unverified,no
+wf_act_progress_ach,six-family configuration envelope,no
+wf_act_send_dataframe,six-family configuration envelope,no
+wf_act_send_message,six-family configuration envelope,no
+wf_act_set_highlight,six-family configuration envelope,no
+wf_act_set_visibility,six-family configuration envelope,no
+wf_label,typed label/region snapshot and setters,no
+wf_link,existing network association and local reception,no
+wf_trg_receive_dataframe,six-family configuration envelope,no
+wf_trg_receive_message,six-family configuration envelope,no
+wf_trg_room_initializes,six-family configuration envelope,no
+wf_var_dailytask,six-family configuration envelope,no
+wf_var_pointer,six-family configuration envelope,no
+wf_xtra_achievement_enabler,six-family configuration envelope,no
+wf_xtra_link_speaker,six-family configuration envelope,no
+wf_xtra_var_import,six-family configuration envelope,no
+wf_xtra_var_leaderboard,six-family configuration envelope,no
+wf_xtra_var_share,six-family configuration envelope,no

@@ -1,30 +1,43 @@
 package extension;
 
+import extension.logger.Logger;
 import gearth.extensions.ExtensionInfo;
 import gearth.extensions.ThemedExtensionFormCreator;
+import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import javafx.stage.Stage;
 
-import java.net.URL;
-
 public class GPresetsLauncher extends ThemedExtensionFormCreator {
+   protected String getTitle() {
+      return "G-Presets - Building & Wired Presets - " + ((ExtensionInfo)GPresets.class.getAnnotation(ExtensionInfo.class)).Version();
+   }
 
-    @Override
-    protected String getTitle() {
-        return "G-Presets - Building & Wired Presets - " + GPresets.class.getAnnotation(ExtensionInfo.class).Version();
-    }
+   protected URL getFormResource() {
+      return this.getClass().getResource("ui/gpresets.fxml");
+   }
 
-    @Override
-    protected URL getFormResource() {
-        return getClass().getResource("ui/gpresets.fxml");
-    }
+   protected void initialize(Stage primaryStage) {
+      primaryStage.getScene().getStylesheets().add(this.getClass().getResource("ui/styles.css").toExternalForm());
+   }
 
-    @Override
-    protected void initialize(Stage primaryStage) {
-        primaryStage.getScene().getStylesheets().add(getClass().getResource("ui/styles.css").toExternalForm());
-    }
+   public static void main(String[] args) {
+      boolean debug = false;
 
-    public static void main(String[] args) {
-        runExtensionForm(args, GPresetsLauncher.class);
-    }
+      for(String a : args) {
+         if ("-d".equals(a) || "--debug".equals(a)) {
+            debug = true;
+            break;
+         }
+      }
 
+      if (debug) {
+         Logger.setVerboseConsole(true);
+         Path logFile = Paths.get(System.getProperty("user.dir"), "app.log");
+         Logger.enableFileOutput(logFile);
+         System.out.println("[G-Presets] debug mode enabled - mirroring logs to console and " + logFile);
+      }
+
+      runExtensionForm(args, GPresetsLauncher.class);
+   }
 }

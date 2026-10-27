@@ -3,34 +3,31 @@ package extension.tools.importutils;
 import gearth.extensions.parsers.HPoint;
 
 public class StackTileInfo {
+   private int furniId;
+   private HPoint location;
+   private int rotation;
+   private int dimension;
 
-    private int furniId;
+   public StackTileInfo(int furniId, HPoint location, int rotation, int dimension) {
+      this.furniId = furniId;
+      this.location = location;
+      this.rotation = rotation;
+      this.dimension = dimension;
+   }
 
-    private HPoint location;
-    private int rotation;
+   public int getFurniId() {
+      return this.furniId;
+   }
 
-    private int dimension;  // -1 means 1x2
+   public HPoint getLocation() {
+      return this.location;
+   }
 
-    public StackTileInfo(int furniId, HPoint location, int rotation, int dimension) {
-        this.furniId = furniId;
-        this.location = location;
-        this.rotation = rotation;
-        this.dimension = dimension;
-    }
+   public int getRotation() {
+      return this.rotation;
+   }
 
-    public int getFurniId() {
-        return furniId;
-    }
-
-    public HPoint getLocation() {
-        return location;
-    }
-
-    public int getRotation() {
-        return rotation;
-    }
-
-    public int getDimension() {
-        return dimension;
-    }
+   public int getDimension() {
+      return this.dimension;
+   }
 }

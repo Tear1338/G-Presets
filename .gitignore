@@ -1,4 +1,7 @@
+/target/
+/dist/
+__pycache__/
+*.pyc
 .idea/
-target/
+.vscode/
 *.iml
-.env
