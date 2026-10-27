@@ -1,3 +1,8 @@
+## 1.4.1
+
+- Update the extension description.
+- Move the preview setting fully into the visible Settings area.
+
 ## 1.4.0
 
 - Set authors to sirjonasxx and 1desirable1337.

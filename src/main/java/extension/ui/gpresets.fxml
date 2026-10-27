@@ -106,7 +106,7 @@
                       </toggleGroup>
                   </RadioButton>
                   <RadioButton fx:id="donateAll" layoutX="245.0" layoutY="111.0" mnemonicParsing="false" selected="false" text="All items in export" toggleGroup="$donate_tgl" userData="ALL_ITEMS" visible="false" />
-                  <CheckBox fx:id="previewBeforeImportCbx" layoutX="14.0" layoutY="260.0" mnemonicParsing="false" selected="true" text="Preview before import (:ip)" />
+                  <CheckBox fx:id="previewBeforeImportCbx" layoutX="187.0" layoutY="255.0" mnemonicParsing="false" selected="true" text="Preview before import (:ip)" />
                   <CheckBox fx:id="useRoomFurniCbx" layoutX="14.0" layoutY="106.0" mnemonicParsing="false" text="Use room furni" />
                </children></AnchorPane>
       </content>

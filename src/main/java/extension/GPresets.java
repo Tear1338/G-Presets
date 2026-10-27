@@ -75,8 +75,8 @@ import utils.Utils;
 
 @ExtensionInfo(
    Title = "G-Presets",
-   Description = "Never do anything twice mod. by TH",
-   Version = "1.4.0",
+   Description = "edit by 1desirable1337",
+   Version = "1.4.1",
    Author = "sirjonasxx & 1desirable1337"
 )
 public class GPresets extends ExtensionForm {
