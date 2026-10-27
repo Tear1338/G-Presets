@@ -76,7 +76,7 @@ import utils.Utils;
 @ExtensionInfo(
    Title = "G-Presets",
    Description = "Never do anything twice mod. by TH",
-   Version = "1.4.0-rc2",
+   Version = "1.4.0-rc3",
    Author = "sirjonasxx"
 )
 public class GPresets extends ExtensionForm {
@@ -582,3 +582,4 @@ public class GPresets extends ExtensionForm {
       this.exporter.clearCache();
    }
 }
+

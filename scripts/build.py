@@ -95,6 +95,15 @@ def main():
         for name in base.namelist():
             if not name.endswith("/") and not name.upper().endswith((".SF", ".RSA", ".DSA")):
                 entries[name] = base.read(name)
+    # Bundle the pinned Windows UI runtime so `java -jar` works in G-Earth.
+    dependency_dir = ROOT / "lib" / "dependencies"
+    for dependency in sorted(dependency_dir.glob("*.jar")):
+        with zipfile.ZipFile(dependency) as archive:
+            for name in archive.namelist():
+                upper = name.upper()
+                if name.endswith("/") or name == "module-info.class" or upper.startswith("META-INF/"):
+                    continue
+                entries.setdefault(name, archive.read(name))
     for p in classes.rglob("*.class"):
         entries[p.relative_to(classes).as_posix()] = p.read_bytes()
     for p in (SOURCE_ROOT / "extension").rglob("*"):
@@ -112,7 +121,7 @@ def main():
     output.with_suffix(".jar.sha256").write_text(digest + "  " + output.name + "\n", encoding="ascii")
     smoke_output = None
     if args.ui_smoke:
-        smoke_cp = os.pathsep.join([str(test_classes), str(output), classpath])
+        smoke_cp = os.pathsep.join([str(test_classes), str(output)])
         smoke = subprocess.run([java, "-Dprism.order=sw", "-Djavafx.cachedir=" + str(target / "javafx-cache"),
                                 "-cp", smoke_cp, "tests.UiResourceSmoke"], cwd=ROOT, capture_output=True,
                                text=True, timeout=30)
@@ -131,3 +140,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
