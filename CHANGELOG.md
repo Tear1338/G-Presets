@@ -1,3 +1,7 @@
+## 1.4.0-rc4
+
+- Corrige la detection Java et la lecture du manifeste par G-Earth 1.5.4-beta-29.
+
 ## 1.4.0-rc3
 
 - Correction du demarrage : JavaFX et les dependances de l interface sont incluses dans le JAR Windows. Java 17 ou plus reste necessaire.

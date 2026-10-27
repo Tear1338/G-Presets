@@ -111,9 +111,11 @@ def main():
             entries[p.relative_to(SOURCE_ROOT).as_posix()] = p.read_bytes()
     entries["META-INF/MANIFEST.MF"] = ("Manifest-Version: 1.0\r\n"
         "Main-Class: extension.GPresetsLauncher\r\n"
+        "Build-Jdk: 21\r\n"
         f"Implementation-Version: {VERSION}\r\n\r\n").encode()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name, data in sorted(entries.items()):
+        for name in sorted(entries, key=lambda item: (item != "META-INF/MANIFEST.MF", item)):
+            data = entries[name]
             info = zipfile.ZipInfo(name, date_time=(2026, 10, 26, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(info, data)
@@ -140,4 +142,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
