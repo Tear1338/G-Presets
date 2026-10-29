@@ -13,6 +13,7 @@ import extension.tools.importutils.ImportUndoJournal;
 import extension.tools.importutils.WiredDiagnostics;
 import extension.tools.importutils.FurniDropInfo;
 import extension.tools.importutils.FurniMoveInfo;
+import extension.tools.importutils.SnapshotPlacement;
 import extension.tools.importutils.StackTileInfo;
 import extension.tools.importutils.StackTileUtils;
 import extension.tools.postconfig.ItemSource;
@@ -142,6 +143,7 @@ public class GPresetImporter {
    private boolean preparePlacedConfigurations() {
       this.reportRequestedPreset=new PresetConfig(this.workingPresetConfig.toJsonObject());
       this.partialPlan=PartialImportPlan.create(this.reportRequestedPreset,this.realFurniIdMap,this.reportWallIds);
+      if(this.incompleteBuildAllowed)this.workingPresetConfig=this.partialPlan.effective();
       if(!this.partialPlan.omissions().isEmpty()) {
          if(!this.incompleteBuildAllowed) {
             for(var omission:this.partialPlan.omissions()) if(omission.category().equals("Floor") || omission.category().equals("Wall"))return failWiredImport(omission.reason());
@@ -152,7 +154,25 @@ public class GPresetImporter {
       }
       return true;
    }
+   private boolean matchesFloorPosition(PresetFurni requested,HFloorItem actual) {
+      if(actual==null)return false;
+      HPoint p=requested.getLocation(),a=actual.getTile();
+      return ImportReport.floorMatches(p.getX()+this.rootLocation.getX(),p.getY()+this.rootLocation.getY(),p.getZ()+this.importZDelta,requested.getRotation(),a.getX(),a.getY(),a.getZ(),actual.getFacing().ordinal());
+   }
+   private boolean verifyFinalFurniture() {
+      if(this.rootLocation==null)return true;
+      for(var p:this.workingPresetConfig.getFurniture()) {
+         Integer id=this.realFurniIdMap.get(p.getFurniId());if(id==null)continue;
+         HFloorItem actual=this.extension.getFloorState().furniFromId(id);
+         String reason=null;
+         if(!matchesFloorPosition(p,actual))reason="Final furniture position/height/rotation not confirmed";
+         else if(p.getState()!=null && !p.getState().equals(StateExtractor.stateFromItem(actual)))reason="Final furniture state not confirmed";
+         if(reason!=null && !skipConfigurationOrFail("Floor",p.getFurniId(),reason,BuildingImportState.MOVE_FURNITURE))return false;
+      }
+      return true;
+   }
    private void finishImport() {
+      if(!verifyFinalFurniture())return;
       boolean skipped=this.partialPlan!=null && !this.partialPlan.omissions().isEmpty();
       String outcome=skipped?"Import finished with omissions":"Import finished";
       this.state=BuildingImportState.NONE;
@@ -173,6 +193,7 @@ public class GPresetImporter {
    private volatile PresetWiredContract receivedContract;
    private volatile String variableReadError;
    private volatile String wiredSaveError;
+   private volatile boolean awaitingWiredSave;
    private final Semaphore labelSaveConfirmation = new Semaphore(0);
    private volatile PresetFurniLabel pendingLabel;
    private final Semaphore linkResponse = new Semaphore(0);
@@ -183,7 +204,7 @@ public class GPresetImporter {
    private final extension.tools.importutils.ImportPauseGate pauseGate=new extension.tools.importutils.ImportPauseGate();
    private volatile int activeImportRoomId;
    private boolean checkpoint(BuildingImportState expected) {
-      boolean valid=pauseGate.checkpoint(()->this.state==expected && this.extension.getFloorState().getRoomId()==activeImportRoomId);
+      boolean valid=pauseGate.checkpoint(()->this.state==expected && this.extension.getFloorState().inRoom() && this.extension.getFloorState().getRoomId()==activeImportRoomId);
       if(!valid && this.state==expected) {
          this.extension.getLogger().log("Import stopped: room or connection changed during pause.","red");
          this.reset();
@@ -374,8 +395,8 @@ public class GPresetImporter {
       extension.intercept(HMessage.Direction.TOCLIENT, "WiredSaveSuccess", this::wiredSaved);
       extension.intercept(HMessage.Direction.TOCLIENT, "FurnitureLabelsAndRegionsUpdate", this::labelUpdated);
       extension.intercept(HMessage.Direction.TOCLIENT, "WiredValidationError", message -> {
-         if (this.state == BuildingImportState.SETUP_WIRED) {
-            this.wiredSaveError = "Habbo rejected the WIRED configuration";
+         if (this.state == BuildingImportState.SETUP_WIRED && this.awaitingWiredSave) {
+            this.wiredSaveError = "Habbo rejected the WIRED configuration" + validationDetail(message.getPacket());
             this.wiredSaveConfirmation.release();
          }
       });
@@ -393,14 +414,16 @@ public class GPresetImporter {
             if (wireds != null) {
                for (Map.Entry<String, String> original : wireds.getVariablesMap().entrySet()) {
                   List<HWiredVariable> matches = this.variableSnapshot.values().stream()
-                     .filter(v -> v.name.equals(original.getKey())).collect(Collectors.toList());
+                     .filter(v -> v.name.equals(original.getKey()))
+                      .filter(v -> wireds.getVariables().stream().filter(d -> d.getVariableName().equals(original.getKey())).allMatch(d -> !d.getExternalVariableIds().contains(v.id) && (d.getVariableTarget()==null || d.getVariableTarget()==v.variableType)))
+                      .collect(Collectors.toList());
                   // Same-name variables in different scopes must not be chosen at random.
                   if (matches.size() == 1) this.realVariableIdMap.put(original.getValue(), matches.get(0).id);
                }
                for (PresetWiredVariable original : wireds.getVariables()) {
-                  if (!PresetWiredBase.isLocalVariableId(original.variableId)) continue;
+                  if (!PresetWiredBase.isLocalVariableId(original.variableId) || original.getExternalVariableIds().contains(original.variableId)) continue;
                   List<HWiredVariable> matches = this.variableSnapshot.values().stream()
-                     .filter(v -> v.name.equals(original.getVariableName()))
+                     .filter(v -> v.name.equals(original.getVariableName()) && !original.getExternalVariableIds().contains(v.id))
                      .filter(v -> original.getVariableTarget() == null || original.getVariableTarget() == v.variableType)
                      .collect(Collectors.toList());
                   if (matches.size() == 1) this.realVariableIdMap.put(original.variableId, matches.get(0).id);
@@ -464,7 +487,8 @@ public class GPresetImporter {
    private void onObjectAdd(HMessage hMessage) {
       synchronized(this.lock) {
          if (this.isPlacing()) {
-            HFloorItem item = new HFloorItem(hMessage.getPacket());
+            HFloorItem item = new HFloorItem(new HPacket(hMessage.getPacket()));
+             if(this.undoBaselineFloors.contains(item.getId()) || this.realFurniIdMap.containsValue(item.getId()))return;
             String dropKey = String.format("%d|%d|%d", item.getTile().getX(), item.getTile().getY(), item.getTypeId());
             LinkedList<Integer> awaitMatchingDropIds = (LinkedList)this.expectFurniDrops.get(dropKey);
             if (awaitMatchingDropIds != null && awaitMatchingDropIds.size() > 0) {
@@ -601,6 +625,7 @@ public class GPresetImporter {
       if (source != null) {
          this.activePostConfig=new PostConfig(options);
          this.workingPresetConfig = new PresetConfig(source.toJsonObject());
+          WiredImportPlanner.normalizeReferences(this.workingPresetConfig);
          this.wallFurniturePlaced = false;
          this.confirmedWiredCount=0;
          this.reportWallIds.clear();this.reportFloorIds.clear();this.reportWiredIds.clear();this.reportOtherCounts.clear();
@@ -611,7 +636,7 @@ public class GPresetImporter {
          this.realFurniIdMap = this.workingPresetConfig.applyPostConfig(this.importPostConfig());
          this.rootLocation=null;this.importZDelta=0;
          try {
-            var checks=WiredDiagnostics.inspect(source);
+            var checks=WiredDiagnostics.inspect(this.workingPresetConfig);
             for(Object value:checks.getJSONArray("issues")) {
                org.json.JSONObject issue=(org.json.JSONObject)value;
                if(issue.getString("severity").equals("ERROR"))throw new IllegalArgumentException(issue.getString("message"));
@@ -722,6 +747,14 @@ public class GPresetImporter {
 
    }
 
+   private void startImportWorker(Runnable task) {
+      Thread worker=new Thread(()-> {
+         try { task.run(); }
+         catch(RuntimeException error) { failWiredImport("Unexpected import error: "+error.getClass().getSimpleName()+": "+error.getMessage()); }
+      },"G-Presets import");
+      worker.setDaemon(true);worker.start();
+   }
+
    private void moveAvatar(HMessage hMessage) {
       synchronized(this.lock) {
          boolean startAddingFurni = false;
@@ -752,7 +785,7 @@ public class GPresetImporter {
             if (!this.deferredRequiredStackTileDimensions.isEmpty()) {
                boolean needRootAfterAcquire = this.rootLocation == null;
                this.extension.sendVisualChatInfo("Preparing required stacktiles from BC...");
-               (new Thread(() -> {
+               startImportWorker(() -> {
                   if (this.ensureDeferredStackTilesIfNeeded()) {
                      synchronized(this.lock) {
                         if (this.state == GPresetImporter.BuildingImportState.AWAITING_UNOCCUPIED_SPACE) {
@@ -761,14 +794,14 @@ public class GPresetImporter {
                               this.extension.sendVisualChatInfo("Select where the preset should be imported");
                            } else if (this.workingPresetConfig != null && !this.workingPresetConfig.getFurniture().isEmpty()) {
                               this.state = GPresetImporter.BuildingImportState.ADD_UNSTACKABLES;
-                              (new Thread(this::addUnstackables)).start();
+                              startImportWorker(this::addUnstackables);
                               this.extension.sendVisualChatInfo("Adding furniture...");
                            }
 
                         }
                      }
                   }
-               })).start();
+               });
                return;
             }
 
@@ -803,7 +836,7 @@ public class GPresetImporter {
                this.startWallOnlyImport();
             } else {
                this.state = GPresetImporter.BuildingImportState.ADD_UNSTACKABLES;
-               (new Thread(this::addUnstackables)).start();
+               startImportWorker(this::addUnstackables);
                this.extension.sendVisualChatInfo("Adding furniture...");
             }
          }
@@ -836,16 +869,18 @@ public class GPresetImporter {
 
    private void startWallOnlyImport() {
       this.state = GPresetImporter.BuildingImportState.MOVE_FURNITURE;
-      (new Thread(() -> {
+      startImportWorker(() -> {
          this.placeWallItems();
          if(this.state!=BuildingImportState.MOVE_FURNITURE || !this.preparePlacedConfigurations())return;
+         this.applyWallFurniVariables();
+         if(this.state==BuildingImportState.MOVE_FURNITURE)this.applyObjectVariables();
          synchronized(this.lock) {
             if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
                this.finishImport();
             }
 
          }
-      })).start();
+      });
    }
 
    private boolean isStackTileClass(String className) {
@@ -1103,6 +1138,13 @@ public class GPresetImporter {
       }
    }
 
+   private void forgetExpectedDrop(FurniDropInfo drop) {
+      synchronized(this.lock) {
+         String key=String.format("%d|%d|%d",drop.getX(),drop.getY(),drop.getTypeId());
+         LinkedList<Integer> pending=this.expectFurniDrops.get(key);
+         if(pending!=null) {pending.remove(Integer.valueOf(drop.getFurniId()));if(pending.isEmpty())this.expectFurniDrops.remove(key);}
+      }
+   }
    private void dropFurni(FurniDropInfo dropInfo) {
       FurniDataTools furniData = this.extension.getFurniDataTools();
       int typeId = dropInfo.getTypeId();
@@ -1130,6 +1172,7 @@ public class GPresetImporter {
                this.extension.sendVisualChatInfo(String.format("Couldn't find the item '%s' in BC warehouse.. continuing", className));
             }
 
+            forgetExpectedDrop(dropInfo);
             return;
          }
 
@@ -1146,6 +1189,7 @@ public class GPresetImporter {
                this.extension.sendVisualChatInfo(String.format("Couldn't find '%s' in inventory.. continuing", className));
             }
 
+            forgetExpectedDrop(dropInfo);
             return;
          }
 
@@ -1155,6 +1199,7 @@ public class GPresetImporter {
             if (floorItem != null) {
                this.roomItemsList.removeIf((itemx) -> itemx.getId() == floorItem.getId());
                int furniMapKey = dropInfo.getFurniId() >= 0 ? dropInfo.getFurniId() : dropInfo.getTypeId();
+               forgetExpectedDrop(dropInfo);
                this.realFurniIdMap.put(furniMapKey, floorItem.getId());
                this.extension.getLogger().log(String.format("[UseRoomFurni] Found '%s' (id=%d at %d,%d), mapping presetFurniId=%d -> roomId=%d, moving to %d,%d rot=%d", className, floorItem.getId(), floorItem.getTile().getX(), floorItem.getTile().getY(), furniMapKey, floorItem.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()), "orange");
                HPacket packet = new HPacket("MoveObject", HMessage.Direction.TOSERVER, new Object[]{floorItem.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()});
@@ -1170,6 +1215,7 @@ public class GPresetImporter {
                this.extension.sendVisualChatInfo(String.format("Couldn't find '%s' in inventory or room.. continuing", className));
             }
 
+            forgetExpectedDrop(dropInfo);
             return;
          }
 
@@ -1308,7 +1354,7 @@ public class GPresetImporter {
    }
 
    private void wiredSaved(HMessage hMessage) {
-      if (this.state == GPresetImporter.BuildingImportState.SETUP_WIRED) {
+      if (this.state == GPresetImporter.BuildingImportState.SETUP_WIRED && this.awaitingWiredSave) {
          this.wiredSaveConfirmation.release();
       }
 
@@ -1328,22 +1374,23 @@ public class GPresetImporter {
             resolved.translateRoomCoordinates(this.rootLocation.getX(),this.rootLocation.getY());
             resolved.toPacket(); // validate before waiting for or sending anything
          } catch (RuntimeException error) {
-            return failWiredImport(error.getMessage());
+            return skipWiredOrFail(presetWired,error.getMessage());
          }
          Utils.sleep(300);
          if (this.state != BuildingImportState.SETUP_WIRED) return false;
          this.wiredSaveConfirmation.drainPermits();
          this.wiredSaveError = null;
-         resolved.applyWiredConfig(this.extension);
          boolean confirmed;
+         this.awaitingWiredSave=true;
          try {
+            if(!this.extension.sendToServer(resolved.toPacket()))return failWiredImport("Cannot send WIRED " + presetWired.getWiredId());
             confirmed = this.wiredSaveConfirmation.tryAcquire(5L, TimeUnit.SECONDS);
          } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             return failWiredImport("WIRED import interrupted");
-         }
+         } finally { this.awaitingWiredSave=false; }
          if (this.state != BuildingImportState.SETUP_WIRED) return false;
-         if (this.wiredSaveError != null) return failWiredImport(this.wiredSaveError + " (preset WIRED " + presetWired.getWiredId() + ")");
+         if (this.wiredSaveError != null) return skipWiredOrFail(presetWired,this.wiredSaveError);
          if (confirmed) {
             this.extension.getExporter().cacheWiredConfig(resolved);
             if (presetWired instanceof PresetWiredVariable && !refreshVariableMap()) {
@@ -1356,6 +1403,30 @@ public class GPresetImporter {
       return failWiredImport("No save confirmation for WIRED " + presetWired.getWiredId() + " after 3 attempts");
    }
 
+   private static String validationDetail(HPacket original) {
+      HPacket packet=new HPacket(original);
+      try {
+         String detail=packet.readString();
+         if(!packet.isCorrupted() && packet.isEOF()==1 && !detail.isBlank())return ": "+detail.substring(0,Math.min(300,detail.length()));
+      }catch(RuntimeException ignored) { }
+      byte[] payload=packetPayload(original);
+      return payload.length==0?"":" (validation data "+java.util.HexFormat.of().formatHex(payload,0,Math.min(64,payload.length))+")";
+   }
+   private boolean skipWiredOrFail(PresetWiredBase box,String reason) {
+      if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
+      if(!this.incompleteBuildAllowed || this.partialPlan==null)return failWiredImport(reason+" (preset WIRED "+box.getWiredId()+")");
+      this.partialPlan.rejectWired(box.getWiredId(),reason);
+      this.extension.getLogger().log("Skipped WIRED "+box.getWiredId()+": "+reason,"orange");
+      return true;
+   }
+   private boolean skipConfigurationOrFail(String category,int id,String reason,BuildingImportState phase) {
+      if(!checkpoint(phase))return false;
+      if(!this.incompleteBuildAllowed || this.partialPlan==null)return failWiredImport(reason);
+      this.partialPlan.noteUnconfirmed(category,id,reason);
+      this.extension.getLogger().log("Unconfirmed "+category+" ["+id+"]: "+reason,"orange");
+      return true;
+   }
+
    private void reportImport(String outcome) {
       if(this.workingPresetConfig==null)return;
       try {
@@ -1365,7 +1436,7 @@ public class GPresetImporter {
          report.getJSONObject("otherConfigurations").put("confirmed",new org.json.JSONObject(reportOtherCounts));
          if(this.partialPlan!=null) {
             org.json.JSONArray skipped=new org.json.JSONArray();for(var omission:this.partialPlan.omissions())skipped.put(omission.json());report.put("omissions",skipped);
-            for(Object value:report.getJSONArray("wired")) {var row=(org.json.JSONObject)value;String reason=this.partialPlan.skippedWired().get(row.getInt("presetId"));if(reason!=null)row.put("status","SKIPPED_MISSING_DEPENDENCY").put("reason",reason);}
+            for(Object value:report.getJSONArray("wired")) {var row=(org.json.JSONObject)value;String reason=this.partialPlan.skippedWired().get(row.getInt("presetId"));if(reason!=null)row.put("status","SKIPPED").put("reason",reason);}
          }
          this.extension.showImportReport(report);
       } catch(RuntimeException error){this.extension.getLogger().log("Cannot capture import report: "+error.getMessage(),"orange");}
@@ -1433,23 +1504,10 @@ public class GPresetImporter {
 
       Utils.sleep(300 + this.extension.getSafeFeedbackTimeout());
       if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-         List<HFloorItem> maybeNotMovedItems = new ArrayList<>(this.extension.getFloorState().getFurniOnTile(this.stackTileLocation.getX(), this.stackTileLocation.getY()));
-         maybeNotMovedItems.addAll(this.extension.getFloorState().getFurniOnTile(this.stackTileLocation.getX() + 1, this.stackTileLocation.getY()));
-
-         for(HFloorItem o : maybeNotMovedItems.stream().filter((h) -> {
-            PresetFurni p = (PresetFurni)movesByRealId.get(h.getId());
-            if (p == null) {
-               return false;
-            } else {
-               return p.getLocation().getX() + this.rootLocation.getX() != h.getTile().getX() || p.getLocation().getY() + this.rootLocation.getY() != h.getTile().getY() || p.getRotation() != h.getFacing().ordinal();
-            }
-         }).collect(Collectors.toList())) {
-            if (this.state != GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-               break;
-            }
-
-            PresetFurni p = (PresetFurni)movesByRealId.get(o.getId());
-            this.moveFurni(o.getId(), p.getLocation().getX() + this.rootLocation.getX(), p.getLocation().getY() + this.rootLocation.getY(), p.getRotation(), true, p.getLocation().getZ() + this.importZDelta);
+         for(var entry:movesByRealId.entrySet()) {
+            if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
+            PresetFurni p=entry.getValue();HFloorItem actual=this.extension.getFloorState().furniFromId(entry.getKey());
+            if(!matchesFloorPosition(p,actual))this.moveFurni(entry.getKey(),p.getLocation().getX()+this.rootLocation.getX(),p.getLocation().getY()+this.rootLocation.getY(),p.getRotation(),true,p.getLocation().getZ()+this.importZDelta);
          }
       }
 
@@ -1480,6 +1538,7 @@ public class GPresetImporter {
       }
       if(this.state==BuildingImportState.MOVE_FURNITURE) this.applyRoomSettings();
 
+      Utils.sleep(Math.max(300,this.extension.getSafeFeedbackTimeout()));
       synchronized(this.lock) {
          if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
             this.finishImport();
@@ -1497,7 +1556,7 @@ public class GPresetImporter {
          Utils.sleep(Math.max(300,this.extension.getSafeFeedbackTimeout()));
          if(this.state!=BuildingImportState.MOVE_FURNITURE) return;
          if(!this.extension.sendToServer(PresetWiredRoomSettings.requestPacket()) || !this.roomSettingsResponse.tryAcquire(5L,TimeUnit.SECONDS) || !settings.matches(this.receivedRoomSettings)) {
-            failWiredImport("WIRED room settings were not confirmed");
+            skipConfigurationOrFail("roomSettings",0,"WIRED room settings were not confirmed",BuildingImportState.MOVE_FURNITURE);
          } else {this.reportOtherCounts.merge("roomSettings",1,Integer::sum);}
       } catch(InterruptedException error) { Thread.currentThread().interrupt();failWiredImport("Room settings import interrupted"); }
       finally { this.awaitingRoomSettings=false; }
@@ -1540,7 +1599,8 @@ public class GPresetImporter {
          PresetWiredContract actual=requestContract(id);
          if(this.state!=BuildingImportState.SETUP_WIRED) return false;
          if(actual==null || !java.util.Arrays.equals(packetPayload(save),packetPayload(actual.savePacket(this.extension.getFurniDataTools())))) {
-            return failWiredImport("Contract settings were not confirmed for " + id);
+            if(!skipConfigurationOrFail("contracts",original.furniId,"Contract settings were not confirmed for " + id,BuildingImportState.SETUP_WIRED))return false;
+            continue;
          }
          this.reportOtherCounts.merge("contracts",1,Integer::sum);
       }
@@ -1567,10 +1627,11 @@ public class GPresetImporter {
                this.extension.getLogger().log(reason+" (preset holder "+original.objectId+")","orange");continue;
             }
             if(!inspected || !mapped.matches(actual)) {
-               failWiredImport("Variable values not confirmed for holder " + mapped.objectId);return;
+               if(!skipConfigurationOrFail("objectVariables",original.objectId,"Variable values not confirmed for holder " + mapped.objectId,BuildingImportState.MOVE_FURNITURE))return;
+               continue;
             }
             this.reportOtherCounts.merge("objectVariables",1,Integer::sum);
-         } catch(RuntimeException error) { failWiredImport(error.getMessage());return; }
+         } catch(RuntimeException error) { if(!skipConfigurationOrFail("objectVariables",original.objectId,error.getMessage(),BuildingImportState.MOVE_FURNITURE))return; }
       }
    }
 
@@ -1584,7 +1645,7 @@ public class GPresetImporter {
          if(!this.extension.sendToServer(mapped.savePacket()))return failWiredImport("Cannot save linked furniture destination for "+id);
          Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
          boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==Integer.parseInt(mapped.destination);
-         if(!confirmed)return failWiredImport("Linked furniture destination not confirmed for "+id);
+         if(!confirmed) {if(!skipConfigurationOrFail("roomLinks",original.furniId,"Linked furniture destination not confirmed for "+id,BuildingImportState.SETUP_WIRED))return false;continue;}
          this.reportOtherCounts.merge("roomLinks",1,Integer::sum);
       }
       return this.state==BuildingImportState.SETUP_WIRED;
@@ -1607,7 +1668,7 @@ public class GPresetImporter {
             if(item!=null && item.getStuff() instanceof MapStuffData && mapped.matches((MapStuffData)item.getStuff())) { confirmed=true; break; }
             Utils.sleep(200);
          }
-         if(!confirmed) return failWiredImport("Chest settings/capacity not confirmed for " + id + "; capacity upgrades are not purchased automatically");
+         if(!confirmed) {if(!skipConfigurationOrFail("chests",original.furniId,"Chest settings/capacity not confirmed for " + id + "; capacity upgrades are not purchased automatically",BuildingImportState.SETUP_WIRED))return false;continue;}
          this.reportOtherCounts.merge("chests",1,Integer::sum);
       }
       return this.state==BuildingImportState.SETUP_WIRED;
@@ -1651,13 +1712,13 @@ public class GPresetImporter {
          if (id == null) continue;
          HWiredLinkConfiguration available = requestLink(id);
          if (available == null || this.state != BuildingImportState.SETUP_WIRED) return failWiredImport("No WIRED Link configuration for " + id);
-         if (!available.hasNetwork(original.networkId)) return failWiredImport("WIRED Link network " + original.networkId + " is unavailable in this room/account");
+         if (!available.hasNetwork(original.networkId)) {if(!skipConfigurationOrFail("links",original.furniId,"WIRED Link network " + original.networkId + " is unavailable in this room/account",BuildingImportState.SETUP_WIRED))return false;continue;}
          PresetWiredLink mapped = original.withFurniId(id);
          if (!this.extension.sendToServer(mapped.savePacket())) return failWiredImport("Cannot save WIRED Link " + id);
          Utils.sleep(Math.max(300, this.extension.getSafeFeedbackTimeout()));
          HWiredLinkConfiguration actual = requestLink(id);
          if (actual == null || !mapped.networkId.equals(actual.configuration.networkId) || mapped.receiveLocal != actual.configuration.receiveLocal) {
-            return failWiredImport("WIRED Link settings were not confirmed for " + id);
+            if(!skipConfigurationOrFail("links",original.furniId,"WIRED Link settings were not confirmed for " + id,BuildingImportState.SETUP_WIRED))return false;continue;
          }
          this.reportOtherCounts.merge("links",1,Integer::sum);
       }
@@ -1699,8 +1760,8 @@ public class GPresetImporter {
             if (this.state != BuildingImportState.MOVE_FURNITURE) return;
             if(!label.isRegion() && !this.extension.sendToServer(label.settingsPacket())) { failWiredImport("Cannot save label settings " + id); return; }
             if (!this.labelSaveConfirmation.tryAcquire(5L, TimeUnit.SECONDS)) {
-               failWiredImport("No confirmation for WIRED label " + id);
-               return;
+               if(!skipConfigurationOrFail("labels",original.furniId,"No confirmation for WIRED label " + id,BuildingImportState.MOVE_FURNITURE))return;
+               continue;
             }
             this.reportOtherCounts.merge("labels",1,Integer::sum);
          } catch (InterruptedException error) {
@@ -1779,6 +1840,7 @@ public class GPresetImporter {
                   } catch (InterruptedException var16) {
                   }
 
+                  if(this.state!=BuildingImportState.SETUP_WIRED)return;
                   this.state = prev;
                }
             }
@@ -1903,6 +1965,7 @@ public class GPresetImporter {
                   } catch (InterruptedException var17) {
                   }
 
+                  if(this.state!=BuildingImportState.SETUP_WIRED)return;
                   this.state = prev;
                }
             }
@@ -1937,7 +2000,7 @@ public class GPresetImporter {
 
                   Map<String, Integer> variables = presetWallFurni.getVariables();
                   if (variables != null && !variables.isEmpty()) {
-                     Integer realId = (Integer)this.realFurniIdMap.get(presetWallFurni.getFurniId());
+                     Integer realId = this.reportWallIds.get(presetWallFurni.getFurniId());
                      if (realId != null) {
                         for(Map.Entry<String, Integer> entry : variables.entrySet()) {
                            if (this.state != GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
@@ -1987,6 +2050,12 @@ public class GPresetImporter {
             }
          }
       }
+   }
+
+   private void recordWallMapping(int presetId,int realId) {
+      // Positive keys belong exclusively to floor furniture; wall references use negative keys.
+      this.reportWallIds.put(presetId,realId);
+      this.realFurniIdMap.put(-Math.abs(presetId),-Math.abs(realId));
    }
 
    private void placeWallItems() { placeWallItems(BuildingImportState.MOVE_FURNITURE); }
@@ -2182,8 +2251,7 @@ public class GPresetImporter {
                    if(undoCandidates.size()==1 && undoCandidates.get(0).getId()==newWallItemId && floor.getRoomId()==undoJournal.room()) {
                       var placed=undoCandidates.get(0);undoJournal.record(new extension.tools.importutils.ImportUndoJournal.Entry(true,placed.getId(),placed.getTypeId(),placed.getOwnerId(),expectedUndoWallId==null));
                    }
-                  this.realFurniIdMap.put(wallFurni.getFurniId(), newWallItemId);
-                  this.realFurniIdMap.put(-wallFurni.getFurniId(), -newWallItemId);
+                  this.recordWallMapping(wallFurni.getFurniId(),newWallItemId);
                   placedWallTracking.add(new int[]{newWallItemId, absX, absY, absAltitude, relPos.getOffsetX(), offY, relPos.getDirection()});
                   int actualX = -1;
                   int actualY = -1;
@@ -2460,6 +2528,7 @@ public class GPresetImporter {
          if(!checkpoint(BuildingImportState.SETUP_WIRED))return;
          this.extension.setImportProgress("Configuring WIRED", i, allWireds.size());
          PresetWiredBase wiredBase = (PresetWiredBase)allWireds.get(i);
+         if(this.partialPlan!=null && this.partialPlan.skippedWired().containsKey(wiredBase.getWiredId())) { i++;continue; }
          if ((i + 1) % 50 == 0) {
             this.extension.getLogger().log(String.format("Setting up wired.. (%d/%d)", i + 1, allWireds.size()), "orange");
          }
@@ -2500,27 +2569,8 @@ public class GPresetImporter {
                      HFloorItem floorItem = floor.furniFromId(furniId);
                      if (floorItem != null) {
                         boolean needStacktile = furniData.isStackable(furniData.getFloorItemName(this.extension.getFloorState().furniFromId(furniId).getTypeId())) || binding.getAltitude() != null;
-                        FurniMoveInfo undoMovement = new FurniMoveInfo(furniId, floorItem.getTile().getX(), floorItem.getTile().getY(), floorItem.getFacing().ordinal(), (Integer)null, needStacktile);
-                        undoBindMoves.add(undoMovement);
-                        int targetX = floorItem.getTile().getX() + this.rootLocation.getX();
-                        int targetY = floorItem.getTile().getY() + this.rootLocation.getY();
-                        int targetRotation = floorItem.getFacing().ordinal();
-                        Integer targetAltitude = null;
-                        if (binding.getLocation() != null) {
-                           targetX = binding.getLocation().getX() + this.rootLocation.getX();
-                           targetY = binding.getLocation().getY() + this.rootLocation.getY();
-                        }
-
-                        if (binding.getRotation() != null) {
-                           targetRotation = binding.getRotation();
-                        }
-
-                        if (binding.getAltitude() != null) {
-                           targetAltitude = binding.getAltitude();
-                        }
-
-                        FurniMoveInfo movement = new FurniMoveInfo(furniId, targetX, targetY, targetRotation, targetAltitude, needStacktile);
-                        bindMoves.add(movement);
+                        undoBindMoves.add(SnapshotPlacement.restore(floorItem,needStacktile));
+                        bindMoves.add(SnapshotPlacement.target(furniId,binding,floorItem,this.rootLocation,this.importZDelta,needStacktile));
                      }
                   }
                }
@@ -2535,11 +2585,12 @@ public class GPresetImporter {
          boolean saved = this.saveWired(wiredBase, 0);
 
          for(FurniMoveInfo furniMoveInfo : undoBindMoves) {
+            if(this.state!=BuildingImportState.SETUP_WIRED)break;
             double altitude = furniMoveInfo.getAltitude() == null ? (double)-1.0F : (double)furniMoveInfo.getAltitude() / (double)100.0F;
             this.moveFurni(furniMoveInfo.getFurniId(), furniMoveInfo.getX(), furniMoveInfo.getY(), furniMoveInfo.getRotation(), furniMoveInfo.useStackTile(), altitude);
          }
          if (!saved) return;
-         this.confirmedWiredCount++;
+         if(this.reportWiredIds.contains(wiredBase.getWiredId()))this.confirmedWiredCount++;
 
       }
 
@@ -2719,7 +2770,7 @@ public class GPresetImporter {
       synchronized(this.lock) {
          this.workingPresetConfig.getFurniture().forEach((f) -> {
             if (!furniData.isStackable(f.getClassName())) {
-               FurniDropInfo dropInfo = new FurniDropInfo(f.getLocation().getX() + this.rootLocation.getX(), f.getLocation().getY() + this.rootLocation.getY(), furniData.getFloorTypeId(f.getClassName()), this.importPostConfig().getItemSource(), f.getRotation());
+               FurniDropInfo dropInfo = new FurniDropInfo(f.getLocation().getX() + this.rootLocation.getX(), f.getLocation().getY() + this.rootLocation.getY(), furniData.getFloorTypeId(f.getClassName()), this.importPostConfig().getItemSource(), f.getRotation(), f.getFurniId());
                furniDropInfos.add(dropInfo);
                String key = String.format("%d|%d|%d", dropInfo.getX(), dropInfo.getY(), dropInfo.getTypeId());
                if (!this.expectFurniDrops.containsKey(key)) {
@@ -2765,7 +2816,8 @@ public class GPresetImporter {
       this.pendingLabel = null;
       this.pendingLinkId = null;
       this.pendingContractId = null;
-      this.awaitingRoomSettings=false;
+      this.awaitingRoomSettings=false;this.awaitingWiredSave=false;
+      this.awaitingInspectionForFurniId.set(null);this.inspectionResponseSemaphore.release();
       this.roomSettingsResponse.release();
       this.contractResponse.release();
       this.linkResponse.release();

@@ -58,6 +58,33 @@ public final class PartialImportTests {
   var complete=PartialImportPlan.create(preset,full,Map.of(1,1001));
   check(complete.omissions().isEmpty() && complete.effective().getPresetWireds().getAll().size()==9,"fully supplied preset keeps all configuration");
   check(effective.getPresetWireds().getEffects().get(0).remap(ids,Map.of()).getItems().equals(List.of(102)),"remaining WIRED uses actual destination room IDs");
+  var reference=new PresetWiredVariable(box(1,List.of(),List.of(),List.of("shared")).put("config","shared_name").put("variableId","shared").put("externalVariableIds",List.of("shared")));
+  check(reference.remap(ids,Map.of("shared","wrong-local")).getVariableIds().equals(List.of("shared")),"explicit external references cannot be overwritten by local same-name mapping");
+  var runtimePreset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
+  var runtime=runtimePreset.getPresetWireds();runtime.getVariables().add(reference);runtime.getVariablesMap().put("shared_name","alias");
+  runtime.getVariables().add(new PresetWiredVariable(box(2,List.of(),List.of(),List.of("alias")).put("variableId","child").put("config","child_name")));
+  runtime.getEffects().add(new PresetWiredEffect(box(3,List.of(),List.of(),List.of("child"))));
+  runtime.getEffects().add(new PresetWiredEffect(box(4,List.of(),List.of(),List.of("shared")).put("externalVariableIds",List.of("shared"))));
+  runtimePreset.setObjectVariables(new ArrayList<>(List.of(new PresetObjectVariables(0,5,Map.of("child",1,"~100",2)))));
+  var rejected=PartialImportPlan.create(runtimePreset,ids,Map.of());rejected.rejectWired(1,"Reference refused");
+  check(rejected.skippedWired().keySet().equals(Set.of(1,2,3)),"rejected external definition propagates local alias and transitive dependencies only");
+  check(rejected.effective().getObjectVariables().get(0).values.equals(Map.of("~100",2)),"runtime failure prunes dependent holder values while preserving independent properties");
+  check(runtimePreset.getObjectVariables().get(0).values.size()==2 && runtime.getVariablesMap().containsKey("shared_name"),"runtime rejection leaves requested preset untouched");
+  var oldReference=new PresetWiredVariable(box(8,List.of(),List.of(),List.of("shared-source")).put("config","external_name").put("variableId","shared-source"));
+  var pointer=new PresetWiredVariable(box(9,List.of(),List.of(),List.of("local-accessor")).put("config","pointer").put("variableId","pointer-id"));
+  var oldPreset=new PresetConfig(new ArrayList<>(List.of(new PresetFurni(8,"wf_var_reference",new HPoint(0,0),0,null),new PresetFurni(9,"wf_var_pointer",new HPoint(0,0),0,null))),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
+  oldPreset.getPresetWireds().getVariables().addAll(List.of(oldReference,pointer));oldPreset.getPresetWireds().getVariablesMap().put("external_name","local-alias");
+  WiredImportPlanner.normalizeReferences(oldPreset);
+  check(oldReference.getExternalVariableIds().equals(List.of("shared-source")) && oldReference.variableId.equals("local-alias"),"upstream legacy references preserve shared source and repair local alias");
+  check(pointer.getExternalVariableIds().isEmpty(),"one-input pointer is not misclassified as cross-room reference");
+  var current=new gearth.extensions.parsers.HFloorItem(new gearth.protocol.HPacket(1,500,10,2,3,0,"1.75","1",0,0,"0",-1,0,5));
+  var rotationOnly=new PresetWiredFurniBinding(1,2,null,4,null,null);
+  var rotated=SnapshotPlacement.target(500,rotationOnly,current,new HPoint(10,20),3,true);
+  check(rotated.getX()==2 && rotated.getY()==3 && rotated.getRotation()==4 && rotated.getAltitude()==null,"rotation-only snapshot does not add import origin twice");
+  var located=SnapshotPlacement.target(500,new PresetWiredFurniBinding(1,2,new HPoint(4,5),null,null,125),current,new HPoint(10,20),3,true);
+  check(located.getX()==14 && located.getY()==25 && located.getAltitude()==425,"snapshot coordinates and altitude receive destination offsets exactly once");
+  var restored=SnapshotPlacement.restore(current,true);
+  check(restored.getX()==2 && restored.getY()==3 && restored.getAltitude()==175 && restored.getRotation()==0,"snapshot cleanup restores original altitude as well as location");
   return checks;
  }
 }

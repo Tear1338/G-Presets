@@ -1,3 +1,14 @@
+## 1.6.4
+
+- Compare the full import pipeline with upstream sirjonasxx/G-Presets. Reproduce the reported rejection of preset WIRED 149 in the real importer using a simulated hotel response.
+- With Allow building without all furni enabled, continue after explicit WIRED validation rejection and skip transitive consumers of rejected local variable aliases. Keep independent configurations and finish furniture placement. Strict mode still stops; failed sends, cancelled work and WIRED save timeouts are not presented as success.
+- Preserve cross-room reference IDs even when a local same-name mapping exists. Recover reference metadata from legacy upstream presets by furniture class; distinguish a reference's shared input from its local output alias. Do not turn pointer/accessor dependencies into external references. External room/account permissions are still required.
+- Ignore duplicate placement updates and updates from pre-existing furniture; remove skipped/reused entries from the expected placement queue. Preserve preset IDs for unstackable furniture and separate wall mappings from positive floor IDs.
+- Correct rotation-only snapshot offsets, translate snapshot altitude to the destination floor and restore original height after capture. Retry misplaced furniture across the whole moved set, including wrong height/rotation; report unresolved final floor mismatches instead of full success.
+- Apply wall properties for wall-only imports, keep abort effective during variable refresh, release inspection waits on reset and report unexpected worker errors. Correct inventory-plus-room availability accounting.
+- Record unconfirmed auxiliary configuration in partial-mode reports, including room settings, object properties, chests, contracts, labels and unavailable WIRED networks. Acknowledgement counters remain separate from omissions.
+- Add regression and real-importer integration checks for rejection/strict behavior, transitive aliases, legacy references, placement duplicates, wall/floor namespaces, snapshot coordinates and inventory/room accounting. Full live gameplay import remains to be validated; no private preset is included. Preserve every older release.
+
 ## 1.6.3
 
 - Fix the observed room-linker import stop: native property ~103 is a linked furniture ID (teleport.target_id), not a room ID. Never send an old absolute source furniture ID as an apartment destination.

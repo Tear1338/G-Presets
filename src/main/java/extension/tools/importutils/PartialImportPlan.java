@@ -38,7 +38,7 @@ public final class PartialImportPlan {
       boolean changed;
       do {
          changed=false;
-         for(var variable:wired.getVariables()) if(skippedWired.containsKey(variable.getWiredId()))missingVariables.add(variable.variableId);
+         for(var variable:wired.getVariables()) if(skippedWired.containsKey(variable.getWiredId()))missingVariables.addAll(variableAliases(variable));
          for(var box:wired.getAll()) if(!skippedWired.containsKey(box.getWiredId())) {
             for(String id:box.getVariableIds()) if(missingVariables.contains(id) && !box.getExternalVariableIds().contains(id)) {
                skippedWired.put(box.getWiredId(),"Unavailable preset variable "+id);changed=true;break;
@@ -86,6 +86,49 @@ public final class PartialImportPlan {
       }
       effective.setObjectVariables(holders);
    }
+   private Set<String> variableAliases(PresetWiredVariable variable) {
+      Set<String> ids=new HashSet<>();
+      if(PresetWiredBase.isLocalVariableId(variable.variableId) && !variable.getExternalVariableIds().contains(variable.variableId))ids.add(variable.variableId);
+      if(effective.getPresetWireds().getVariables().stream().filter(v->v.getVariableName().equals(variable.getVariableName())).count()==1) {
+         String alias=effective.getPresetWireds().getVariablesMap().get(variable.getVariableName());
+         if(PresetWiredBase.isLocalVariableId(alias) && !variable.getExternalVariableIds().contains(alias))ids.add(alias);
+      }
+      return ids;
+   }
+   /** A rejected definition invalidates its local aliases, not the shared variable it references. */
+   public void rejectWired(int id,String reason) {
+      if(skippedWired.putIfAbsent(id,reason)!=null)return;
+      var wired=effective.getPresetWireds();
+      boolean changed;
+      do {
+         changed=false;
+         for(var variable:wired.getVariables())if(skippedWired.containsKey(variable.getWiredId()))missingVariables.addAll(variableAliases(variable));
+         for(var box:wired.getAll())if(!skippedWired.containsKey(box.getWiredId())) {
+            for(String dependency:box.getVariableIds())if(missingVariables.contains(dependency) && !box.getExternalVariableIds().contains(dependency)) {
+               skippedWired.put(box.getWiredId(),"Unavailable preset variable "+dependency);changed=true;break;
+            }
+         }
+      }while(changed);
+      for(var box:wired.getAll())if(skippedWired.containsKey(box.getWiredId()))omit("WIRED",box.getWiredId(),skippedWired.get(box.getWiredId()));
+      Set<String> names=new HashSet<>();
+      wired.getVariablesMap().forEach((name,value)->{if(missingVariables.contains(value))names.add(name);});
+      wired.getVariablesMap().entrySet().removeIf(e->missingVariables.contains(e.getValue()));
+      for(var item:effective.getFurniture())item.setVariables(legacyValues(item.getVariables(),names,item.getFurniId()));
+      for(var item:effective.getWallFurniture())item.setVariables(legacyValues(item.getVariables(),names,-Math.abs(item.getFurniId())));
+      List<PresetObjectVariables> holders=new ArrayList<>();
+      for(var holder:effective.getObjectVariables()) {
+         JSONObject json=holder.toJsonObject(),values=json.getJSONObject("values");
+         for(String key:new ArrayList<>(values.keySet()))if(missingVariables.contains(key)) {
+            values.remove(key);omit("objectVariables",holder.objectId,"Skipped value "+key+": rejected preset variable");
+         }
+         for(String array:List.of("furnitureReferenceKeys","writeOnlyVariableIds")) {
+            JSONArray kept=new JSONArray();for(Object key:json.getJSONArray(array))if(values.has(key.toString()))kept.put(key);json.put(array,kept);
+         }
+         if(!values.isEmpty())holders.add(new PresetObjectVariables(json));
+      }
+      effective.setObjectVariables(holders);
+      effective.getBindings().removeIf(b->skippedWired.containsKey(b.getWiredId()));
+   }
    private Map<String,Integer> legacyValues(Map<String,Integer> values,Set<String> names,int id) {
       if(values==null)return null;
       Map<String,Integer> kept=new HashMap<>(values);
@@ -95,7 +138,7 @@ public final class PartialImportPlan {
       return kept;
    }
    public void noteUnconfirmed(String category,int id,String reason){omit(category,id,reason);}
-   private void omit(String category,int id,String reason){omissions.add(new Omission(category,id,reason));}
+   private void omit(String category,int id,String reason){var omission=new Omission(category,id,reason);if(!omissions.contains(omission))omissions.add(omission);}
    private <T> void exclude(List<T> items,ToIntFunction<T> id,String category,Map<Integer,Integer> furniture) {
       items.removeIf(item->{int source=id.applyAsInt(item);if(furniture.containsKey(source))return false;omit(category,source,"Owner furniture was not placed");return true;});
    }

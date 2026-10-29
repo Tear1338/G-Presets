@@ -655,7 +655,7 @@ public class GPresetExporter {
                            allSelectors.add(new PresetWiredSelector((PresetWiredSelector)this.wiredSelectorConfigs.get(key)));
                         } else if (WiredKind.fromClassName(classname) == WiredKind.VARIABLE) {
                            PresetWiredVariable presetVariable = new PresetWiredVariable((PresetWiredVariable)this.wiredVariableConfigs.get(key));
-                           if (this.hasVariableMap && (presetVariable.variableId == null || presetVariable.variableId.isEmpty() || presetVariable.variableId.equals("0"))) {
+                           if (this.hasVariableMap && (presetVariable.variableId == null || presetVariable.variableId.isEmpty() || presetVariable.variableId.equals("0") || presetVariable.getExternalVariableIds().contains(presetVariable.variableId))) {
                               Optional<Map.Entry<String, String>> op = this.variablesMap.entrySet().stream().filter((k) -> ((String)k.getKey()).equals(presetVariable.getVariableName())).findFirst();
                               op.ifPresent((stringStringEntry) -> presetVariable.variableId = (String)stringStringEntry.getValue());
                            }

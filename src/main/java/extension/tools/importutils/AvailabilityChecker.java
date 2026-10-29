@@ -24,8 +24,9 @@ public class AvailabilityChecker {
    }
 
    public static Map<String, Integer> missingItems(List<FurniDropInfo> furniDrops, Inventory inventory, FurniDataTools furniDataTools, FloorState floorState, boolean useRoomFurni,BCCatalog catalog) {
-      if (inventory.getState() == Inventory.InventoryState.LOADED && furniDataTools.isReady()) {
+      if (inventory != null && furniDataTools != null && inventory.getState() == Inventory.InventoryState.LOADED && furniDataTools.isReady()) {
          Map<Integer, Integer> usedInventorySpots = new HashMap();
+         Map<Integer,Integer> usedRoomSpots = new HashMap<>();
          Map<Integer, Integer> missingItemCounts = new HashMap();
 
          for(FurniDropInfo furniDropInfo : furniDrops) {
@@ -34,7 +35,7 @@ public class AvailabilityChecker {
             ItemSource src = furniDropInfo.getItemSource();
             List<HInventoryItem> invItems = inventory.getFloorItemsByType(typeId);
             FloorItemDetails floorItemDetails = furniDataTools.getFloorItemDetails(furniDataTools.getFloorItemName(typeId));
-            boolean bcAvailable=(catalog!=null && catalog.getFloorProduct(typeId)!=null) || (floorItemDetails!=null && floorItemDetails.bcOfferId!=-1);
+            boolean bcAvailable=(catalog!=null && catalog.getFloorProduct(typeId)!=null && catalog.getFloorProduct(typeId).getOfferId()!=-1) || (floorItemDetails!=null && floorItemDetails.bcOfferId!=-1);
             boolean isMissing = false;
             boolean useInventorySpace = false;
             if (src == ItemSource.ONLY_BC) {
@@ -66,8 +67,8 @@ public class AvailabilityChecker {
             if (isMissing && useRoomFurni) {
                List<HFloorItem> itemsInFloor = floorState.getItemsFromType(typeId);
                long roomItemCount = itemsInFloor.stream().filter((furni) -> furni.getTile().getX() != furniDropInfo.getX() || furni.getTile().getY() != furniDropInfo.getY()).count();
-               if ((long)(Integer)usedInventorySpots.get(typeId) < roomItemCount) {
-                  useInventorySpace = true;
+               if (usedRoomSpots.getOrDefault(typeId,0) < roomItemCount) {
+                  usedRoomSpots.merge(typeId,1,Integer::sum);
                   isMissing = false;
                }
             }

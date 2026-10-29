@@ -81,7 +81,7 @@
 +@ExtensionInfo(
 +   Title = "G-Presets",
 +   Description = "edit by 1desirable1337",
-+   Version = "1.6.3",
++   Version = "1.6.4",
 +   Author = "sirjonasxx & 1desirable1337"
 +)
 +public class GPresets extends ExtensionForm {
@@ -2233,7 +2233,7 @@
 +                           allSelectors.add(new PresetWiredSelector((PresetWiredSelector)this.wiredSelectorConfigs.get(key)));
 +                        } else if (WiredKind.fromClassName(classname) == WiredKind.VARIABLE) {
 +                           PresetWiredVariable presetVariable = new PresetWiredVariable((PresetWiredVariable)this.wiredVariableConfigs.get(key));
-+                           if (this.hasVariableMap && (presetVariable.variableId == null || presetVariable.variableId.isEmpty() || presetVariable.variableId.equals("0"))) {
++                           if (this.hasVariableMap && (presetVariable.variableId == null || presetVariable.variableId.isEmpty() || presetVariable.variableId.equals("0") || presetVariable.getExternalVariableIds().contains(presetVariable.variableId))) {
 +                              Optional<Map.Entry<String, String>> op = this.variablesMap.entrySet().stream().filter((k) -> ((String)k.getKey()).equals(presetVariable.getVariableName())).findFirst();
 +                              op.ifPresent((stringStringEntry) -> presetVariable.variableId = (String)stringStringEntry.getValue());
 +                           }
@@ -3180,7 +3180,7 @@
 +}
 --- a/src/main/java/extension/tools/GPresetImporter.java
 +++ b/src/main/java/extension/tools/GPresetImporter.java
-@@ -0,0 +1,2813 @@
+@@ -0,0 +1,2865 @@
 +package extension.tools;
 +
 +import extension.GPresets;
@@ -3196,6 +3196,7 @@
 +import extension.tools.importutils.WiredDiagnostics;
 +import extension.tools.importutils.FurniDropInfo;
 +import extension.tools.importutils.FurniMoveInfo;
++import extension.tools.importutils.SnapshotPlacement;
 +import extension.tools.importutils.StackTileInfo;
 +import extension.tools.importutils.StackTileUtils;
 +import extension.tools.postconfig.ItemSource;
@@ -3325,6 +3326,7 @@
 +   private boolean preparePlacedConfigurations() {
 +      this.reportRequestedPreset=new PresetConfig(this.workingPresetConfig.toJsonObject());
 +      this.partialPlan=PartialImportPlan.create(this.reportRequestedPreset,this.realFurniIdMap,this.reportWallIds);
++      if(this.incompleteBuildAllowed)this.workingPresetConfig=this.partialPlan.effective();
 +      if(!this.partialPlan.omissions().isEmpty()) {
 +         if(!this.incompleteBuildAllowed) {
 +            for(var omission:this.partialPlan.omissions()) if(omission.category().equals("Floor") || omission.category().equals("Wall"))return failWiredImport(omission.reason());
@@ -3335,7 +3337,25 @@
 +      }
 +      return true;
 +   }
++   private boolean matchesFloorPosition(PresetFurni requested,HFloorItem actual) {
++      if(actual==null)return false;
++      HPoint p=requested.getLocation(),a=actual.getTile();
++      return ImportReport.floorMatches(p.getX()+this.rootLocation.getX(),p.getY()+this.rootLocation.getY(),p.getZ()+this.importZDelta,requested.getRotation(),a.getX(),a.getY(),a.getZ(),actual.getFacing().ordinal());
++   }
++   private boolean verifyFinalFurniture() {
++      if(this.rootLocation==null)return true;
++      for(var p:this.workingPresetConfig.getFurniture()) {
++         Integer id=this.realFurniIdMap.get(p.getFurniId());if(id==null)continue;
++         HFloorItem actual=this.extension.getFloorState().furniFromId(id);
++         String reason=null;
++         if(!matchesFloorPosition(p,actual))reason="Final furniture position/height/rotation not confirmed";
++         else if(p.getState()!=null && !p.getState().equals(StateExtractor.stateFromItem(actual)))reason="Final furniture state not confirmed";
++         if(reason!=null && !skipConfigurationOrFail("Floor",p.getFurniId(),reason,BuildingImportState.MOVE_FURNITURE))return false;
++      }
++      return true;
++   }
 +   private void finishImport() {
++      if(!verifyFinalFurniture())return;
 +      boolean skipped=this.partialPlan!=null && !this.partialPlan.omissions().isEmpty();
 +      String outcome=skipped?"Import finished with omissions":"Import finished";
 +      this.state=BuildingImportState.NONE;
@@ -3356,6 +3376,7 @@
 +   private volatile PresetWiredContract receivedContract;
 +   private volatile String variableReadError;
 +   private volatile String wiredSaveError;
++   private volatile boolean awaitingWiredSave;
 +   private final Semaphore labelSaveConfirmation = new Semaphore(0);
 +   private volatile PresetFurniLabel pendingLabel;
 +   private final Semaphore linkResponse = new Semaphore(0);
@@ -3366,7 +3387,7 @@
 +   private final extension.tools.importutils.ImportPauseGate pauseGate=new extension.tools.importutils.ImportPauseGate();
 +   private volatile int activeImportRoomId;
 +   private boolean checkpoint(BuildingImportState expected) {
-+      boolean valid=pauseGate.checkpoint(()->this.state==expected && this.extension.getFloorState().getRoomId()==activeImportRoomId);
++      boolean valid=pauseGate.checkpoint(()->this.state==expected && this.extension.getFloorState().inRoom() && this.extension.getFloorState().getRoomId()==activeImportRoomId);
 +      if(!valid && this.state==expected) {
 +         this.extension.getLogger().log("Import stopped: room or connection changed during pause.","red");
 +         this.reset();
@@ -3557,8 +3578,8 @@
 +      extension.intercept(HMessage.Direction.TOCLIENT, "WiredSaveSuccess", this::wiredSaved);
 +      extension.intercept(HMessage.Direction.TOCLIENT, "FurnitureLabelsAndRegionsUpdate", this::labelUpdated);
 +      extension.intercept(HMessage.Direction.TOCLIENT, "WiredValidationError", message -> {
-+         if (this.state == BuildingImportState.SETUP_WIRED) {
-+            this.wiredSaveError = "Habbo rejected the WIRED configuration";
++         if (this.state == BuildingImportState.SETUP_WIRED && this.awaitingWiredSave) {
++            this.wiredSaveError = "Habbo rejected the WIRED configuration" + validationDetail(message.getPacket());
 +            this.wiredSaveConfirmation.release();
 +         }
 +      });
@@ -3576,14 +3597,16 @@
 +            if (wireds != null) {
 +               for (Map.Entry<String, String> original : wireds.getVariablesMap().entrySet()) {
 +                  List<HWiredVariable> matches = this.variableSnapshot.values().stream()
-+                     .filter(v -> v.name.equals(original.getKey())).collect(Collectors.toList());
++                     .filter(v -> v.name.equals(original.getKey()))
++                      .filter(v -> wireds.getVariables().stream().filter(d -> d.getVariableName().equals(original.getKey())).allMatch(d -> !d.getExternalVariableIds().contains(v.id) && (d.getVariableTarget()==null || d.getVariableTarget()==v.variableType)))
++                      .collect(Collectors.toList());
 +                  // Same-name variables in different scopes must not be chosen at random.
 +                  if (matches.size() == 1) this.realVariableIdMap.put(original.getValue(), matches.get(0).id);
 +               }
 +               for (PresetWiredVariable original : wireds.getVariables()) {
-+                  if (!PresetWiredBase.isLocalVariableId(original.variableId)) continue;
++                  if (!PresetWiredBase.isLocalVariableId(original.variableId) || original.getExternalVariableIds().contains(original.variableId)) continue;
 +                  List<HWiredVariable> matches = this.variableSnapshot.values().stream()
-+                     .filter(v -> v.name.equals(original.getVariableName()))
++                     .filter(v -> v.name.equals(original.getVariableName()) && !original.getExternalVariableIds().contains(v.id))
 +                     .filter(v -> original.getVariableTarget() == null || original.getVariableTarget() == v.variableType)
 +                     .collect(Collectors.toList());
 +                  if (matches.size() == 1) this.realVariableIdMap.put(original.variableId, matches.get(0).id);
@@ -3647,7 +3670,8 @@
 +   private void onObjectAdd(HMessage hMessage) {
 +      synchronized(this.lock) {
 +         if (this.isPlacing()) {
-+            HFloorItem item = new HFloorItem(hMessage.getPacket());
++            HFloorItem item = new HFloorItem(new HPacket(hMessage.getPacket()));
++             if(this.undoBaselineFloors.contains(item.getId()) || this.realFurniIdMap.containsValue(item.getId()))return;
 +            String dropKey = String.format("%d|%d|%d", item.getTile().getX(), item.getTile().getY(), item.getTypeId());
 +            LinkedList<Integer> awaitMatchingDropIds = (LinkedList)this.expectFurniDrops.get(dropKey);
 +            if (awaitMatchingDropIds != null && awaitMatchingDropIds.size() > 0) {
@@ -3784,6 +3808,7 @@
 +      if (source != null) {
 +         this.activePostConfig=new PostConfig(options);
 +         this.workingPresetConfig = new PresetConfig(source.toJsonObject());
++          WiredImportPlanner.normalizeReferences(this.workingPresetConfig);
 +         this.wallFurniturePlaced = false;
 +         this.confirmedWiredCount=0;
 +         this.reportWallIds.clear();this.reportFloorIds.clear();this.reportWiredIds.clear();this.reportOtherCounts.clear();
@@ -3794,7 +3819,7 @@
 +         this.realFurniIdMap = this.workingPresetConfig.applyPostConfig(this.importPostConfig());
 +         this.rootLocation=null;this.importZDelta=0;
 +         try {
-+            var checks=WiredDiagnostics.inspect(source);
++            var checks=WiredDiagnostics.inspect(this.workingPresetConfig);
 +            for(Object value:checks.getJSONArray("issues")) {
 +               org.json.JSONObject issue=(org.json.JSONObject)value;
 +               if(issue.getString("severity").equals("ERROR"))throw new IllegalArgumentException(issue.getString("message"));
@@ -3905,6 +3930,14 @@
 +
 +   }
 +
++   private void startImportWorker(Runnable task) {
++      Thread worker=new Thread(()-> {
++         try { task.run(); }
++         catch(RuntimeException error) { failWiredImport("Unexpected import error: "+error.getClass().getSimpleName()+": "+error.getMessage()); }
++      },"G-Presets import");
++      worker.setDaemon(true);worker.start();
++   }
++
 +   private void moveAvatar(HMessage hMessage) {
 +      synchronized(this.lock) {
 +         boolean startAddingFurni = false;
@@ -3935,7 +3968,7 @@
 +            if (!this.deferredRequiredStackTileDimensions.isEmpty()) {
 +               boolean needRootAfterAcquire = this.rootLocation == null;
 +               this.extension.sendVisualChatInfo("Preparing required stacktiles from BC...");
-+               (new Thread(() -> {
++               startImportWorker(() -> {
 +                  if (this.ensureDeferredStackTilesIfNeeded()) {
 +                     synchronized(this.lock) {
 +                        if (this.state == GPresetImporter.BuildingImportState.AWAITING_UNOCCUPIED_SPACE) {
@@ -3944,14 +3977,14 @@
 +                              this.extension.sendVisualChatInfo("Select where the preset should be imported");
 +                           } else if (this.workingPresetConfig != null && !this.workingPresetConfig.getFurniture().isEmpty()) {
 +                              this.state = GPresetImporter.BuildingImportState.ADD_UNSTACKABLES;
-+                              (new Thread(this::addUnstackables)).start();
++                              startImportWorker(this::addUnstackables);
 +                              this.extension.sendVisualChatInfo("Adding furniture...");
 +                           }
 +
 +                        }
 +                     }
 +                  }
-+               })).start();
++               });
 +               return;
 +            }
 +
@@ -3986,7 +4019,7 @@
 +               this.startWallOnlyImport();
 +            } else {
 +               this.state = GPresetImporter.BuildingImportState.ADD_UNSTACKABLES;
-+               (new Thread(this::addUnstackables)).start();
++               startImportWorker(this::addUnstackables);
 +               this.extension.sendVisualChatInfo("Adding furniture...");
 +            }
 +         }
@@ -4019,16 +4052,18 @@
 +
 +   private void startWallOnlyImport() {
 +      this.state = GPresetImporter.BuildingImportState.MOVE_FURNITURE;
-+      (new Thread(() -> {
++      startImportWorker(() -> {
 +         this.placeWallItems();
 +         if(this.state!=BuildingImportState.MOVE_FURNITURE || !this.preparePlacedConfigurations())return;
++         this.applyWallFurniVariables();
++         if(this.state==BuildingImportState.MOVE_FURNITURE)this.applyObjectVariables();
 +         synchronized(this.lock) {
 +            if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
 +               this.finishImport();
 +            }
 +
 +         }
-+      })).start();
++      });
 +   }
 +
 +   private boolean isStackTileClass(String className) {
@@ -4286,6 +4321,13 @@
 +      }
 +   }
 +
++   private void forgetExpectedDrop(FurniDropInfo drop) {
++      synchronized(this.lock) {
++         String key=String.format("%d|%d|%d",drop.getX(),drop.getY(),drop.getTypeId());
++         LinkedList<Integer> pending=this.expectFurniDrops.get(key);
++         if(pending!=null) {pending.remove(Integer.valueOf(drop.getFurniId()));if(pending.isEmpty())this.expectFurniDrops.remove(key);}
++      }
++   }
 +   private void dropFurni(FurniDropInfo dropInfo) {
 +      FurniDataTools furniData = this.extension.getFurniDataTools();
 +      int typeId = dropInfo.getTypeId();
@@ -4313,6 +4355,7 @@
 +               this.extension.sendVisualChatInfo(String.format("Couldn't find the item '%s' in BC warehouse.. continuing", className));
 +            }
 +
++            forgetExpectedDrop(dropInfo);
 +            return;
 +         }
 +
@@ -4329,6 +4372,7 @@
 +               this.extension.sendVisualChatInfo(String.format("Couldn't find '%s' in inventory.. continuing", className));
 +            }
 +
++            forgetExpectedDrop(dropInfo);
 +            return;
 +         }
 +
@@ -4338,6 +4382,7 @@
 +            if (floorItem != null) {
 +               this.roomItemsList.removeIf((itemx) -> itemx.getId() == floorItem.getId());
 +               int furniMapKey = dropInfo.getFurniId() >= 0 ? dropInfo.getFurniId() : dropInfo.getTypeId();
++               forgetExpectedDrop(dropInfo);
 +               this.realFurniIdMap.put(furniMapKey, floorItem.getId());
 +               this.extension.getLogger().log(String.format("[UseRoomFurni] Found '%s' (id=%d at %d,%d), mapping presetFurniId=%d -> roomId=%d, moving to %d,%d rot=%d", className, floorItem.getId(), floorItem.getTile().getX(), floorItem.getTile().getY(), furniMapKey, floorItem.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()), "orange");
 +               HPacket packet = new HPacket("MoveObject", HMessage.Direction.TOSERVER, new Object[]{floorItem.getId(), dropInfo.getX(), dropInfo.getY(), dropInfo.getRotation()});
@@ -4353,6 +4398,7 @@
 +               this.extension.sendVisualChatInfo(String.format("Couldn't find '%s' in inventory or room.. continuing", className));
 +            }
 +
++            forgetExpectedDrop(dropInfo);
 +            return;
 +         }
 +
@@ -4491,7 +4537,7 @@
 +   }
 +
 +   private void wiredSaved(HMessage hMessage) {
-+      if (this.state == GPresetImporter.BuildingImportState.SETUP_WIRED) {
++      if (this.state == GPresetImporter.BuildingImportState.SETUP_WIRED && this.awaitingWiredSave) {
 +         this.wiredSaveConfirmation.release();
 +      }
 +
@@ -4511,22 +4557,23 @@
 +            resolved.translateRoomCoordinates(this.rootLocation.getX(),this.rootLocation.getY());
 +            resolved.toPacket(); // validate before waiting for or sending anything
 +         } catch (RuntimeException error) {
-+            return failWiredImport(error.getMessage());
++            return skipWiredOrFail(presetWired,error.getMessage());
 +         }
 +         Utils.sleep(300);
 +         if (this.state != BuildingImportState.SETUP_WIRED) return false;
 +         this.wiredSaveConfirmation.drainPermits();
 +         this.wiredSaveError = null;
-+         resolved.applyWiredConfig(this.extension);
 +         boolean confirmed;
++         this.awaitingWiredSave=true;
 +         try {
++            if(!this.extension.sendToServer(resolved.toPacket()))return failWiredImport("Cannot send WIRED " + presetWired.getWiredId());
 +            confirmed = this.wiredSaveConfirmation.tryAcquire(5L, TimeUnit.SECONDS);
 +         } catch (InterruptedException interrupted) {
 +            Thread.currentThread().interrupt();
 +            return failWiredImport("WIRED import interrupted");
-+         }
++         } finally { this.awaitingWiredSave=false; }
 +         if (this.state != BuildingImportState.SETUP_WIRED) return false;
-+         if (this.wiredSaveError != null) return failWiredImport(this.wiredSaveError + " (preset WIRED " + presetWired.getWiredId() + ")");
++         if (this.wiredSaveError != null) return skipWiredOrFail(presetWired,this.wiredSaveError);
 +         if (confirmed) {
 +            this.extension.getExporter().cacheWiredConfig(resolved);
 +            if (presetWired instanceof PresetWiredVariable && !refreshVariableMap()) {
@@ -4539,6 +4586,30 @@
 +      return failWiredImport("No save confirmation for WIRED " + presetWired.getWiredId() + " after 3 attempts");
 +   }
 +
++   private static String validationDetail(HPacket original) {
++      HPacket packet=new HPacket(original);
++      try {
++         String detail=packet.readString();
++         if(!packet.isCorrupted() && packet.isEOF()==1 && !detail.isBlank())return ": "+detail.substring(0,Math.min(300,detail.length()));
++      }catch(RuntimeException ignored) { }
++      byte[] payload=packetPayload(original);
++      return payload.length==0?"":" (validation data "+java.util.HexFormat.of().formatHex(payload,0,Math.min(64,payload.length))+")";
++   }
++   private boolean skipWiredOrFail(PresetWiredBase box,String reason) {
++      if(!checkpoint(BuildingImportState.SETUP_WIRED))return false;
++      if(!this.incompleteBuildAllowed || this.partialPlan==null)return failWiredImport(reason+" (preset WIRED "+box.getWiredId()+")");
++      this.partialPlan.rejectWired(box.getWiredId(),reason);
++      this.extension.getLogger().log("Skipped WIRED "+box.getWiredId()+": "+reason,"orange");
++      return true;
++   }
++   private boolean skipConfigurationOrFail(String category,int id,String reason,BuildingImportState phase) {
++      if(!checkpoint(phase))return false;
++      if(!this.incompleteBuildAllowed || this.partialPlan==null)return failWiredImport(reason);
++      this.partialPlan.noteUnconfirmed(category,id,reason);
++      this.extension.getLogger().log("Unconfirmed "+category+" ["+id+"]: "+reason,"orange");
++      return true;
++   }
++
 +   private void reportImport(String outcome) {
 +      if(this.workingPresetConfig==null)return;
 +      try {
@@ -4548,7 +4619,7 @@
 +         report.getJSONObject("otherConfigurations").put("confirmed",new org.json.JSONObject(reportOtherCounts));
 +         if(this.partialPlan!=null) {
 +            org.json.JSONArray skipped=new org.json.JSONArray();for(var omission:this.partialPlan.omissions())skipped.put(omission.json());report.put("omissions",skipped);
-+            for(Object value:report.getJSONArray("wired")) {var row=(org.json.JSONObject)value;String reason=this.partialPlan.skippedWired().get(row.getInt("presetId"));if(reason!=null)row.put("status","SKIPPED_MISSING_DEPENDENCY").put("reason",reason);}
++            for(Object value:report.getJSONArray("wired")) {var row=(org.json.JSONObject)value;String reason=this.partialPlan.skippedWired().get(row.getInt("presetId"));if(reason!=null)row.put("status","SKIPPED").put("reason",reason);}
 +         }
 +         this.extension.showImportReport(report);
 +      } catch(RuntimeException error){this.extension.getLogger().log("Cannot capture import report: "+error.getMessage(),"orange");}
@@ -4616,23 +4687,10 @@
 +
 +      Utils.sleep(300 + this.extension.getSafeFeedbackTimeout());
 +      if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-+         List<HFloorItem> maybeNotMovedItems = new ArrayList<>(this.extension.getFloorState().getFurniOnTile(this.stackTileLocation.getX(), this.stackTileLocation.getY()));
-+         maybeNotMovedItems.addAll(this.extension.getFloorState().getFurniOnTile(this.stackTileLocation.getX() + 1, this.stackTileLocation.getY()));
-+
-+         for(HFloorItem o : maybeNotMovedItems.stream().filter((h) -> {
-+            PresetFurni p = (PresetFurni)movesByRealId.get(h.getId());
-+            if (p == null) {
-+               return false;
-+            } else {
-+               return p.getLocation().getX() + this.rootLocation.getX() != h.getTile().getX() || p.getLocation().getY() + this.rootLocation.getY() != h.getTile().getY() || p.getRotation() != h.getFacing().ordinal();
-+            }
-+         }).collect(Collectors.toList())) {
-+            if (this.state != GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
-+               break;
-+            }
-+
-+            PresetFurni p = (PresetFurni)movesByRealId.get(o.getId());
-+            this.moveFurni(o.getId(), p.getLocation().getX() + this.rootLocation.getX(), p.getLocation().getY() + this.rootLocation.getY(), p.getRotation(), true, p.getLocation().getZ() + this.importZDelta);
++         for(var entry:movesByRealId.entrySet()) {
++            if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
++            PresetFurni p=entry.getValue();HFloorItem actual=this.extension.getFloorState().furniFromId(entry.getKey());
++            if(!matchesFloorPosition(p,actual))this.moveFurni(entry.getKey(),p.getLocation().getX()+this.rootLocation.getX(),p.getLocation().getY()+this.rootLocation.getY(),p.getRotation(),true,p.getLocation().getZ()+this.importZDelta);
 +         }
 +      }
 +
@@ -4663,6 +4721,7 @@
 +      }
 +      if(this.state==BuildingImportState.MOVE_FURNITURE) this.applyRoomSettings();
 +
++      Utils.sleep(Math.max(300,this.extension.getSafeFeedbackTimeout()));
 +      synchronized(this.lock) {
 +         if (this.state == GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
 +            this.finishImport();
@@ -4680,7 +4739,7 @@
 +         Utils.sleep(Math.max(300,this.extension.getSafeFeedbackTimeout()));
 +         if(this.state!=BuildingImportState.MOVE_FURNITURE) return;
 +         if(!this.extension.sendToServer(PresetWiredRoomSettings.requestPacket()) || !this.roomSettingsResponse.tryAcquire(5L,TimeUnit.SECONDS) || !settings.matches(this.receivedRoomSettings)) {
-+            failWiredImport("WIRED room settings were not confirmed");
++            skipConfigurationOrFail("roomSettings",0,"WIRED room settings were not confirmed",BuildingImportState.MOVE_FURNITURE);
 +         } else {this.reportOtherCounts.merge("roomSettings",1,Integer::sum);}
 +      } catch(InterruptedException error) { Thread.currentThread().interrupt();failWiredImport("Room settings import interrupted"); }
 +      finally { this.awaitingRoomSettings=false; }
@@ -4723,7 +4782,8 @@
 +         PresetWiredContract actual=requestContract(id);
 +         if(this.state!=BuildingImportState.SETUP_WIRED) return false;
 +         if(actual==null || !java.util.Arrays.equals(packetPayload(save),packetPayload(actual.savePacket(this.extension.getFurniDataTools())))) {
-+            return failWiredImport("Contract settings were not confirmed for " + id);
++            if(!skipConfigurationOrFail("contracts",original.furniId,"Contract settings were not confirmed for " + id,BuildingImportState.SETUP_WIRED))return false;
++            continue;
 +         }
 +         this.reportOtherCounts.merge("contracts",1,Integer::sum);
 +      }
@@ -4750,10 +4810,11 @@
 +               this.extension.getLogger().log(reason+" (preset holder "+original.objectId+")","orange");continue;
 +            }
 +            if(!inspected || !mapped.matches(actual)) {
-+               failWiredImport("Variable values not confirmed for holder " + mapped.objectId);return;
++               if(!skipConfigurationOrFail("objectVariables",original.objectId,"Variable values not confirmed for holder " + mapped.objectId,BuildingImportState.MOVE_FURNITURE))return;
++               continue;
 +            }
 +            this.reportOtherCounts.merge("objectVariables",1,Integer::sum);
-+         } catch(RuntimeException error) { failWiredImport(error.getMessage());return; }
++         } catch(RuntimeException error) { if(!skipConfigurationOrFail("objectVariables",original.objectId,error.getMessage(),BuildingImportState.MOVE_FURNITURE))return; }
 +      }
 +   }
 +
@@ -4767,7 +4828,7 @@
 +         if(!this.extension.sendToServer(mapped.savePacket()))return failWiredImport("Cannot save linked furniture destination for "+id);
 +         Utils.sleep(Math.max(200,this.extension.getSafeFeedbackTimeout()));
 +         boolean confirmed=fetchObjectVariables(0,id,3000L) && this.inspectedFurniVariables.getOrDefault(id,Collections.emptyMap()).getOrDefault("~103",Integer.MIN_VALUE)==Integer.parseInt(mapped.destination);
-+         if(!confirmed)return failWiredImport("Linked furniture destination not confirmed for "+id);
++         if(!confirmed) {if(!skipConfigurationOrFail("roomLinks",original.furniId,"Linked furniture destination not confirmed for "+id,BuildingImportState.SETUP_WIRED))return false;continue;}
 +         this.reportOtherCounts.merge("roomLinks",1,Integer::sum);
 +      }
 +      return this.state==BuildingImportState.SETUP_WIRED;
@@ -4790,7 +4851,7 @@
 +            if(item!=null && item.getStuff() instanceof MapStuffData && mapped.matches((MapStuffData)item.getStuff())) { confirmed=true; break; }
 +            Utils.sleep(200);
 +         }
-+         if(!confirmed) return failWiredImport("Chest settings/capacity not confirmed for " + id + "; capacity upgrades are not purchased automatically");
++         if(!confirmed) {if(!skipConfigurationOrFail("chests",original.furniId,"Chest settings/capacity not confirmed for " + id + "; capacity upgrades are not purchased automatically",BuildingImportState.SETUP_WIRED))return false;continue;}
 +         this.reportOtherCounts.merge("chests",1,Integer::sum);
 +      }
 +      return this.state==BuildingImportState.SETUP_WIRED;
@@ -4834,13 +4895,13 @@
 +         if (id == null) continue;
 +         HWiredLinkConfiguration available = requestLink(id);
 +         if (available == null || this.state != BuildingImportState.SETUP_WIRED) return failWiredImport("No WIRED Link configuration for " + id);
-+         if (!available.hasNetwork(original.networkId)) return failWiredImport("WIRED Link network " + original.networkId + " is unavailable in this room/account");
++         if (!available.hasNetwork(original.networkId)) {if(!skipConfigurationOrFail("links",original.furniId,"WIRED Link network " + original.networkId + " is unavailable in this room/account",BuildingImportState.SETUP_WIRED))return false;continue;}
 +         PresetWiredLink mapped = original.withFurniId(id);
 +         if (!this.extension.sendToServer(mapped.savePacket())) return failWiredImport("Cannot save WIRED Link " + id);
 +         Utils.sleep(Math.max(300, this.extension.getSafeFeedbackTimeout()));
 +         HWiredLinkConfiguration actual = requestLink(id);
 +         if (actual == null || !mapped.networkId.equals(actual.configuration.networkId) || mapped.receiveLocal != actual.configuration.receiveLocal) {
-+            return failWiredImport("WIRED Link settings were not confirmed for " + id);
++            if(!skipConfigurationOrFail("links",original.furniId,"WIRED Link settings were not confirmed for " + id,BuildingImportState.SETUP_WIRED))return false;continue;
 +         }
 +         this.reportOtherCounts.merge("links",1,Integer::sum);
 +      }
@@ -4882,8 +4943,8 @@
 +            if (this.state != BuildingImportState.MOVE_FURNITURE) return;
 +            if(!label.isRegion() && !this.extension.sendToServer(label.settingsPacket())) { failWiredImport("Cannot save label settings " + id); return; }
 +            if (!this.labelSaveConfirmation.tryAcquire(5L, TimeUnit.SECONDS)) {
-+               failWiredImport("No confirmation for WIRED label " + id);
-+               return;
++               if(!skipConfigurationOrFail("labels",original.furniId,"No confirmation for WIRED label " + id,BuildingImportState.MOVE_FURNITURE))return;
++               continue;
 +            }
 +            this.reportOtherCounts.merge("labels",1,Integer::sum);
 +         } catch (InterruptedException error) {
@@ -4962,6 +5023,7 @@
 +                  } catch (InterruptedException var16) {
 +                  }
 +
++                  if(this.state!=BuildingImportState.SETUP_WIRED)return;
 +                  this.state = prev;
 +               }
 +            }
@@ -5086,6 +5148,7 @@
 +                  } catch (InterruptedException var17) {
 +                  }
 +
++                  if(this.state!=BuildingImportState.SETUP_WIRED)return;
 +                  this.state = prev;
 +               }
 +            }
@@ -5120,7 +5183,7 @@
 +
 +                  Map<String, Integer> variables = presetWallFurni.getVariables();
 +                  if (variables != null && !variables.isEmpty()) {
-+                     Integer realId = (Integer)this.realFurniIdMap.get(presetWallFurni.getFurniId());
++                     Integer realId = this.reportWallIds.get(presetWallFurni.getFurniId());
 +                     if (realId != null) {
 +                        for(Map.Entry<String, Integer> entry : variables.entrySet()) {
 +                           if (this.state != GPresetImporter.BuildingImportState.MOVE_FURNITURE) {
@@ -5170,6 +5233,12 @@
 +            }
 +         }
 +      }
++   }
++
++   private void recordWallMapping(int presetId,int realId) {
++      // Positive keys belong exclusively to floor furniture; wall references use negative keys.
++      this.reportWallIds.put(presetId,realId);
++      this.realFurniIdMap.put(-Math.abs(presetId),-Math.abs(realId));
 +   }
 +
 +   private void placeWallItems() { placeWallItems(BuildingImportState.MOVE_FURNITURE); }
@@ -5365,8 +5434,7 @@
 +                   if(undoCandidates.size()==1 && undoCandidates.get(0).getId()==newWallItemId && floor.getRoomId()==undoJournal.room()) {
 +                      var placed=undoCandidates.get(0);undoJournal.record(new extension.tools.importutils.ImportUndoJournal.Entry(true,placed.getId(),placed.getTypeId(),placed.getOwnerId(),expectedUndoWallId==null));
 +                   }
-+                  this.realFurniIdMap.put(wallFurni.getFurniId(), newWallItemId);
-+                  this.realFurniIdMap.put(-wallFurni.getFurniId(), -newWallItemId);
++                  this.recordWallMapping(wallFurni.getFurniId(),newWallItemId);
 +                  placedWallTracking.add(new int[]{newWallItemId, absX, absY, absAltitude, relPos.getOffsetX(), offY, relPos.getDirection()});
 +                  int actualX = -1;
 +                  int actualY = -1;
@@ -5643,6 +5711,7 @@
 +         if(!checkpoint(BuildingImportState.SETUP_WIRED))return;
 +         this.extension.setImportProgress("Configuring WIRED", i, allWireds.size());
 +         PresetWiredBase wiredBase = (PresetWiredBase)allWireds.get(i);
++         if(this.partialPlan!=null && this.partialPlan.skippedWired().containsKey(wiredBase.getWiredId())) { i++;continue; }
 +         if ((i + 1) % 50 == 0) {
 +            this.extension.getLogger().log(String.format("Setting up wired.. (%d/%d)", i + 1, allWireds.size()), "orange");
 +         }
@@ -5683,27 +5752,8 @@
 +                     HFloorItem floorItem = floor.furniFromId(furniId);
 +                     if (floorItem != null) {
 +                        boolean needStacktile = furniData.isStackable(furniData.getFloorItemName(this.extension.getFloorState().furniFromId(furniId).getTypeId())) || binding.getAltitude() != null;
-+                        FurniMoveInfo undoMovement = new FurniMoveInfo(furniId, floorItem.getTile().getX(), floorItem.getTile().getY(), floorItem.getFacing().ordinal(), (Integer)null, needStacktile);
-+                        undoBindMoves.add(undoMovement);
-+                        int targetX = floorItem.getTile().getX() + this.rootLocation.getX();
-+                        int targetY = floorItem.getTile().getY() + this.rootLocation.getY();
-+                        int targetRotation = floorItem.getFacing().ordinal();
-+                        Integer targetAltitude = null;
-+                        if (binding.getLocation() != null) {
-+                           targetX = binding.getLocation().getX() + this.rootLocation.getX();
-+                           targetY = binding.getLocation().getY() + this.rootLocation.getY();
-+                        }
-+
-+                        if (binding.getRotation() != null) {
-+                           targetRotation = binding.getRotation();
-+                        }
-+
-+                        if (binding.getAltitude() != null) {
-+                           targetAltitude = binding.getAltitude();
-+                        }
-+
-+                        FurniMoveInfo movement = new FurniMoveInfo(furniId, targetX, targetY, targetRotation, targetAltitude, needStacktile);
-+                        bindMoves.add(movement);
++                        undoBindMoves.add(SnapshotPlacement.restore(floorItem,needStacktile));
++                        bindMoves.add(SnapshotPlacement.target(furniId,binding,floorItem,this.rootLocation,this.importZDelta,needStacktile));
 +                     }
 +                  }
 +               }
@@ -5718,11 +5768,12 @@
 +         boolean saved = this.saveWired(wiredBase, 0);
 +
 +         for(FurniMoveInfo furniMoveInfo : undoBindMoves) {
++            if(this.state!=BuildingImportState.SETUP_WIRED)break;
 +            double altitude = furniMoveInfo.getAltitude() == null ? (double)-1.0F : (double)furniMoveInfo.getAltitude() / (double)100.0F;
 +            this.moveFurni(furniMoveInfo.getFurniId(), furniMoveInfo.getX(), furniMoveInfo.getY(), furniMoveInfo.getRotation(), furniMoveInfo.useStackTile(), altitude);
 +         }
 +         if (!saved) return;
-+         this.confirmedWiredCount++;
++         if(this.reportWiredIds.contains(wiredBase.getWiredId()))this.confirmedWiredCount++;
 +
 +      }
 +
@@ -5902,7 +5953,7 @@
 +      synchronized(this.lock) {
 +         this.workingPresetConfig.getFurniture().forEach((f) -> {
 +            if (!furniData.isStackable(f.getClassName())) {
-+               FurniDropInfo dropInfo = new FurniDropInfo(f.getLocation().getX() + this.rootLocation.getX(), f.getLocation().getY() + this.rootLocation.getY(), furniData.getFloorTypeId(f.getClassName()), this.importPostConfig().getItemSource(), f.getRotation());
++               FurniDropInfo dropInfo = new FurniDropInfo(f.getLocation().getX() + this.rootLocation.getX(), f.getLocation().getY() + this.rootLocation.getY(), furniData.getFloorTypeId(f.getClassName()), this.importPostConfig().getItemSource(), f.getRotation(), f.getFurniId());
 +               furniDropInfos.add(dropInfo);
 +               String key = String.format("%d|%d|%d", dropInfo.getX(), dropInfo.getY(), dropInfo.getTypeId());
 +               if (!this.expectFurniDrops.containsKey(key)) {
@@ -5948,7 +5999,8 @@
 +      this.pendingLabel = null;
 +      this.pendingLinkId = null;
 +      this.pendingContractId = null;
-+      this.awaitingRoomSettings=false;
++      this.awaitingRoomSettings=false;this.awaitingWiredSave=false;
++      this.awaitingInspectionForFurniId.set(null);this.inspectionResponseSemaphore.release();
 +      this.roomSettingsResponse.release();
 +      this.contractResponse.release();
 +      this.linkResponse.release();
@@ -6053,7 +6105,7 @@
 +}
 --- a/src/main/java/extension/tools/importutils/AvailabilityChecker.java
 +++ b/src/main/java/extension/tools/importutils/AvailabilityChecker.java
-@@ -0,0 +1,204 @@
+@@ -0,0 +1,205 @@
 +package extension.tools.importutils;
 +
 +import extension.logger.Logger;
@@ -6080,8 +6132,9 @@
 +   }
 +
 +   public static Map<String, Integer> missingItems(List<FurniDropInfo> furniDrops, Inventory inventory, FurniDataTools furniDataTools, FloorState floorState, boolean useRoomFurni,BCCatalog catalog) {
-+      if (inventory.getState() == Inventory.InventoryState.LOADED && furniDataTools.isReady()) {
++      if (inventory != null && furniDataTools != null && inventory.getState() == Inventory.InventoryState.LOADED && furniDataTools.isReady()) {
 +         Map<Integer, Integer> usedInventorySpots = new HashMap();
++         Map<Integer,Integer> usedRoomSpots = new HashMap<>();
 +         Map<Integer, Integer> missingItemCounts = new HashMap();
 +
 +         for(FurniDropInfo furniDropInfo : furniDrops) {
@@ -6090,7 +6143,7 @@
 +            ItemSource src = furniDropInfo.getItemSource();
 +            List<HInventoryItem> invItems = inventory.getFloorItemsByType(typeId);
 +            FloorItemDetails floorItemDetails = furniDataTools.getFloorItemDetails(furniDataTools.getFloorItemName(typeId));
-+            boolean bcAvailable=(catalog!=null && catalog.getFloorProduct(typeId)!=null) || (floorItemDetails!=null && floorItemDetails.bcOfferId!=-1);
++            boolean bcAvailable=(catalog!=null && catalog.getFloorProduct(typeId)!=null && catalog.getFloorProduct(typeId).getOfferId()!=-1) || (floorItemDetails!=null && floorItemDetails.bcOfferId!=-1);
 +            boolean isMissing = false;
 +            boolean useInventorySpace = false;
 +            if (src == ItemSource.ONLY_BC) {
@@ -6122,8 +6175,8 @@
 +            if (isMissing && useRoomFurni) {
 +               List<HFloorItem> itemsInFloor = floorState.getItemsFromType(typeId);
 +               long roomItemCount = itemsInFloor.stream().filter((furni) -> furni.getTile().getX() != furniDropInfo.getX() || furni.getTile().getY() != furniDropInfo.getY()).count();
-+               if ((long)(Integer)usedInventorySpots.get(typeId) < roomItemCount) {
-+                  useInventorySpace = true;
++               if (usedRoomSpots.getOrDefault(typeId,0) < roomItemCount) {
++                  usedRoomSpots.merge(typeId,1,Integer::sum);
 +                  isMissing = false;
 +               }
 +            }
@@ -6478,7 +6531,7 @@
 +}
 --- a/src/main/java/extension/tools/importutils/PartialImportPlan.java
 +++ b/src/main/java/extension/tools/importutils/PartialImportPlan.java
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,149 @@
 +package extension.tools.importutils;
 +
 +import extension.tools.presetconfig.PresetConfig;
@@ -6519,7 +6572,7 @@
 +      boolean changed;
 +      do {
 +         changed=false;
-+         for(var variable:wired.getVariables()) if(skippedWired.containsKey(variable.getWiredId()))missingVariables.add(variable.variableId);
++         for(var variable:wired.getVariables()) if(skippedWired.containsKey(variable.getWiredId()))missingVariables.addAll(variableAliases(variable));
 +         for(var box:wired.getAll()) if(!skippedWired.containsKey(box.getWiredId())) {
 +            for(String id:box.getVariableIds()) if(missingVariables.contains(id) && !box.getExternalVariableIds().contains(id)) {
 +               skippedWired.put(box.getWiredId(),"Unavailable preset variable "+id);changed=true;break;
@@ -6567,6 +6620,49 @@
 +      }
 +      effective.setObjectVariables(holders);
 +   }
++   private Set<String> variableAliases(PresetWiredVariable variable) {
++      Set<String> ids=new HashSet<>();
++      if(PresetWiredBase.isLocalVariableId(variable.variableId) && !variable.getExternalVariableIds().contains(variable.variableId))ids.add(variable.variableId);
++      if(effective.getPresetWireds().getVariables().stream().filter(v->v.getVariableName().equals(variable.getVariableName())).count()==1) {
++         String alias=effective.getPresetWireds().getVariablesMap().get(variable.getVariableName());
++         if(PresetWiredBase.isLocalVariableId(alias) && !variable.getExternalVariableIds().contains(alias))ids.add(alias);
++      }
++      return ids;
++   }
++   /** A rejected definition invalidates its local aliases, not the shared variable it references. */
++   public void rejectWired(int id,String reason) {
++      if(skippedWired.putIfAbsent(id,reason)!=null)return;
++      var wired=effective.getPresetWireds();
++      boolean changed;
++      do {
++         changed=false;
++         for(var variable:wired.getVariables())if(skippedWired.containsKey(variable.getWiredId()))missingVariables.addAll(variableAliases(variable));
++         for(var box:wired.getAll())if(!skippedWired.containsKey(box.getWiredId())) {
++            for(String dependency:box.getVariableIds())if(missingVariables.contains(dependency) && !box.getExternalVariableIds().contains(dependency)) {
++               skippedWired.put(box.getWiredId(),"Unavailable preset variable "+dependency);changed=true;break;
++            }
++         }
++      }while(changed);
++      for(var box:wired.getAll())if(skippedWired.containsKey(box.getWiredId()))omit("WIRED",box.getWiredId(),skippedWired.get(box.getWiredId()));
++      Set<String> names=new HashSet<>();
++      wired.getVariablesMap().forEach((name,value)->{if(missingVariables.contains(value))names.add(name);});
++      wired.getVariablesMap().entrySet().removeIf(e->missingVariables.contains(e.getValue()));
++      for(var item:effective.getFurniture())item.setVariables(legacyValues(item.getVariables(),names,item.getFurniId()));
++      for(var item:effective.getWallFurniture())item.setVariables(legacyValues(item.getVariables(),names,-Math.abs(item.getFurniId())));
++      List<PresetObjectVariables> holders=new ArrayList<>();
++      for(var holder:effective.getObjectVariables()) {
++         JSONObject json=holder.toJsonObject(),values=json.getJSONObject("values");
++         for(String key:new ArrayList<>(values.keySet()))if(missingVariables.contains(key)) {
++            values.remove(key);omit("objectVariables",holder.objectId,"Skipped value "+key+": rejected preset variable");
++         }
++         for(String array:List.of("furnitureReferenceKeys","writeOnlyVariableIds")) {
++            JSONArray kept=new JSONArray();for(Object key:json.getJSONArray(array))if(values.has(key.toString()))kept.put(key);json.put(array,kept);
++         }
++         if(!values.isEmpty())holders.add(new PresetObjectVariables(json));
++      }
++      effective.setObjectVariables(holders);
++      effective.getBindings().removeIf(b->skippedWired.containsKey(b.getWiredId()));
++   }
 +   private Map<String,Integer> legacyValues(Map<String,Integer> values,Set<String> names,int id) {
 +      if(values==null)return null;
 +      Map<String,Integer> kept=new HashMap<>(values);
@@ -6576,7 +6672,7 @@
 +      return kept;
 +   }
 +   public void noteUnconfirmed(String category,int id,String reason){omit(category,id,reason);}
-+   private void omit(String category,int id,String reason){omissions.add(new Omission(category,id,reason));}
++   private void omit(String category,int id,String reason){var omission=new Omission(category,id,reason);if(!omissions.contains(omission))omissions.add(omission);}
 +   private <T> void exclude(List<T> items,ToIntFunction<T> id,String category,Map<Integer,Integer> furniture) {
 +      items.removeIf(item->{int source=id.applyAsInt(item);if(furniture.containsKey(source))return false;omit(category,source,"Owner furniture was not placed");return true;});
 +   }
@@ -6695,6 +6791,29 @@
 +         extension.ui.ReadableTheme.apply(content);
 +         stage.setScene(new Scene(content,650,500));stage.show();
 +      });
++   }
++}
+--- a/src/main/java/extension/tools/importutils/SnapshotPlacement.java
++++ b/src/main/java/extension/tools/importutils/SnapshotPlacement.java
+@@ -0,0 +1,20 @@
++package extension.tools.importutils;
++
++import extension.tools.presetconfig.binding.PresetWiredFurniBinding;
++import gearth.extensions.parsers.HFloorItem;
++import gearth.extensions.parsers.HPoint;
++
++/** Translate stored snapshot coordinates once; preserve current coordinates for rotation-only captures. */
++public final class SnapshotPlacement {
++   private SnapshotPlacement() { }
++   public static FurniMoveInfo target(int id,PresetWiredFurniBinding binding,HFloorItem current,HPoint root,double zDelta,boolean stack) {
++      int x=binding.getLocation()==null?current.getTile().getX():Math.addExact(binding.getLocation().getX(),root.getX());
++      int y=binding.getLocation()==null?current.getTile().getY():Math.addExact(binding.getLocation().getY(),root.getY());
++      int rotation=binding.getRotation()==null?current.getFacing().ordinal():binding.getRotation();
++      Integer height=binding.getAltitude()==null?null:Math.addExact(binding.getAltitude(),(int)Math.round(zDelta*100));
++      return new FurniMoveInfo(id,x,y,rotation,height,stack);
++   }
++   public static FurniMoveInfo restore(HFloorItem current,boolean stack) {
++      return new FurniMoveInfo(current.getId(),current.getTile().getX(),current.getTile().getY(),current.getFacing().ordinal(),(int)Math.round(current.getTile().getZ()*100),stack);
 +   }
 +}
 --- a/src/main/java/extension/tools/importutils/StackTileInfo.java
@@ -8755,7 +8874,7 @@
 +}
 --- a/src/main/java/extension/tools/presetconfig/wired/PresetWiredBase.java
 +++ b/src/main/java/extension/tools/presetconfig/wired/PresetWiredBase.java
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,307 @@
 +package extension.tools.presetconfig.wired;
 +
 +import extension.tools.presetconfig.PresetJsonConfigurable;
@@ -8965,8 +9084,7 @@
 +      copy.items2 = this.items2.stream().filter(furniIds::containsKey).map(furniIds::get).collect(Collectors.toList());
 +      copy.variableIds = new ArrayList<>();
 +      for (String id : this.variableIds) {
-+         String resolved = !isLocalVariableId(id) ? id : variableIds.getOrDefault(id,
-+            this.externalVariableIds.contains(id) ? id : null);
++         String resolved = !isLocalVariableId(id) || this.externalVariableIds.contains(id) ? id : variableIds.get(id);
 +         if (resolved == null || resolved.isEmpty()) {
 +            throw new IllegalStateException("Unresolved variable '" + id + "' for WIRED " + this.wiredId);
 +         }
@@ -9605,7 +9723,7 @@
 +}
 --- a/src/main/java/extension/tools/presetconfig/wired/PresetWiredVariable.java
 +++ b/src/main/java/extension/tools/presetconfig/wired/PresetWiredVariable.java
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,94 @@
 +package extension.tools.presetconfig.wired;
 +
 +import extension.parsers.HSharedVariable;
@@ -9650,8 +9768,9 @@
 +         if (wiredContext.referenceVariablesList != null && !wiredContext.referenceVariablesList.sharedVariables.isEmpty()) {
 +            for(HSharedVariable var : wiredContext.referenceVariablesList.sharedVariables) {
 +               if (var.wiredVariable.name.equals(getVariableName())) {
-+                  this.variableId = var.wiredVariable.id;
-+                  this.variableTarget = var.wiredVariable.variableType;
++                  // A shared source is not the local alias created by this box.
++                  // Keep the room-context ID; export resolves a missing alias from the room map.
++                  if (this.variableTarget == null) this.variableTarget = var.wiredVariable.variableType;
 +               }
 +            }
 +         }
@@ -9716,7 +9835,7 @@
 +}
 --- a/src/main/java/extension/tools/presetconfig/wired/WiredImportPlanner.java
 +++ b/src/main/java/extension/tools/presetconfig/wired/WiredImportPlanner.java
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,52 @@
 +package extension.tools.presetconfig.wired;
 +
 +import java.util.ArrayList;
@@ -9727,6 +9846,21 @@
 +
 +public final class WiredImportPlanner {
 +   private WiredImportPlanner() { }
++
++   /** Older upstream presets do not tag external IDs. Only a reference box has this native meaning. */
++   public static void normalizeReferences(extension.tools.presetconfig.PresetConfig preset) {
++      java.util.Map<Integer,String> classes=new java.util.HashMap<>();
++      for(var item:preset.getFurniture())classes.put(item.getFurniId(),item.getClassName());
++      for(var variable:preset.getPresetWireds().getVariables()) {
++         if(!"wf_var_reference".equals(classes.get(variable.getWiredId())) || variable.getVariableIds().size()!=1)continue;
++         String shared=variable.getVariableIds().get(0);
++         if(!PresetWiredBase.isLocalVariableId(shared))continue;
++         Set<String> external=new java.util.LinkedHashSet<>(variable.getExternalVariableIds());external.add(shared);
++         variable.setExternalVariableIds(new ArrayList<>(external));
++         String local=preset.getPresetWireds().getVariablesMap().get(variable.getVariableName());
++         if(PresetWiredBase.isLocalVariableId(local) && !external.contains(local))variable.variableId=local;
++      }
++   }
 +
 +   /** Put accessor variables before pointer/echo/reference definitions which consume them. */
 +   public static List<PresetWiredVariable> orderVariables(List<PresetWiredVariable> variables) {
@@ -10866,7 +11000,7 @@
 +}
 --- a/src/main/java/extension/ui/gpresets.fxml
 +++ b/src/main/java/extension/ui/gpresets.fxml
-@@ -0,0 +1,165 @@
+@@ -0,0 +1,166 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +
 +<?import javafx.geometry.Insets?>
@@ -10881,6 +11015,7 @@
 +<?import javafx.scene.control.TabPane?>
 +<?import javafx.scene.control.TextField?>
 +<?import javafx.scene.control.ToggleGroup?>
++<?import javafx.scene.control.Tooltip?>
 +<?import javafx.scene.layout.AnchorPane?>
 +<?import javafx.scene.layout.BorderPane?>
 +<?import javafx.scene.layout.VBox?>
@@ -10965,7 +11100,7 @@
 +                  <Button fx:id="currentPresetBtn" layoutX="187.0" layoutY="213.0" mnemonicParsing="false" onAction="#openCurrentPresetClick" prefHeight="25.0" prefWidth="222.0" text="Open Selected Preset In Editor" />
 +                  <Button layoutX="522.0" layoutY="124.0" mnemonicParsing="false" onAction="#reloadPresetsClick" prefHeight="25.0" prefWidth="150.0" text="Reload Presets" />
 +                  <Button layoutX="522.0" layoutY="159.0" mnemonicParsing="false" onAction="#clearBCClick" prefHeight="25.0" prefWidth="150.0" text="Clear BC Cache" />
-+                  <CheckBox fx:id="allowIncompleteBuildsCbx" layoutX="14.0" layoutY="167.0" mnemonicParsing="false" text="Allow building without all furni" />
++                  <CheckBox fx:id="allowIncompleteBuildsCbx" layoutX="14.0" layoutY="167.0" mnemonicParsing="false" text="Allow building without all furni"><tooltip><Tooltip text="Continue with available furniture and independent configurations. Rejected or unconfirmed configurations are listed in the import report; transport failures still stop the import." /></tooltip></CheckBox>
 +                  <RadioButton layoutX="106.0" layoutY="14.0" mnemonicParsing="false" text="1x1" toggleGroup="$stacktile_tgl" />
 +                  <CheckBox fx:id="noExportWiredCbx" layoutX="14.0" layoutY="147.0" mnemonicParsing="false" text="Do not export wired" />
 +                  <CheckBox fx:id="noExportWallItemsCbx" layoutX="14.0" layoutY="187.0" mnemonicParsing="false" text="Do not export wall items" />
@@ -11321,7 +11456,7 @@
 +}
 --- a/src/main/java/furnidata/FurniDataTools.java
 +++ b/src/main/java/furnidata/FurniDataTools.java
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,157 @@
 +package furnidata;
 +
 +import furnidata.details.FloorItemDetails;
@@ -11355,6 +11490,9 @@
 +   private Map<String, FloorItemDetails> nameToFloorItems = new HashMap();
 +   private Map<String, WallItemDetails> nameToWallItems = new HashMap();
 +   private ExternalTexts externalTexts = null;
++
++   /** For in-memory providers and deterministic offline import checks. */
++   protected FurniDataTools() { }
 +
 +   public FurniDataTools(String host, Callback onLoadListener) {
 +      this.countryCode = resolveCountryCode(host);
@@ -13763,7 +13901,7 @@
 +}
 --- a/tests/PartialImportTests.java
 +++ b/tests/PartialImportTests.java
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,90 @@
 +package tests;
 +import extension.tools.importutils.*;
 +import extension.tools.library.PresetComparison;
@@ -13824,6 +13962,33 @@
 +  var complete=PartialImportPlan.create(preset,full,Map.of(1,1001));
 +  check(complete.omissions().isEmpty() && complete.effective().getPresetWireds().getAll().size()==9,"fully supplied preset keeps all configuration");
 +  check(effective.getPresetWireds().getEffects().get(0).remap(ids,Map.of()).getItems().equals(List.of(102)),"remaining WIRED uses actual destination room IDs");
++  var reference=new PresetWiredVariable(box(1,List.of(),List.of(),List.of("shared")).put("config","shared_name").put("variableId","shared").put("externalVariableIds",List.of("shared")));
++  check(reference.remap(ids,Map.of("shared","wrong-local")).getVariableIds().equals(List.of("shared")),"explicit external references cannot be overwritten by local same-name mapping");
++  var runtimePreset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
++  var runtime=runtimePreset.getPresetWireds();runtime.getVariables().add(reference);runtime.getVariablesMap().put("shared_name","alias");
++  runtime.getVariables().add(new PresetWiredVariable(box(2,List.of(),List.of(),List.of("alias")).put("variableId","child").put("config","child_name")));
++  runtime.getEffects().add(new PresetWiredEffect(box(3,List.of(),List.of(),List.of("child"))));
++  runtime.getEffects().add(new PresetWiredEffect(box(4,List.of(),List.of(),List.of("shared")).put("externalVariableIds",List.of("shared"))));
++  runtimePreset.setObjectVariables(new ArrayList<>(List.of(new PresetObjectVariables(0,5,Map.of("child",1,"~100",2)))));
++  var rejected=PartialImportPlan.create(runtimePreset,ids,Map.of());rejected.rejectWired(1,"Reference refused");
++  check(rejected.skippedWired().keySet().equals(Set.of(1,2,3)),"rejected external definition propagates local alias and transitive dependencies only");
++  check(rejected.effective().getObjectVariables().get(0).values.equals(Map.of("~100",2)),"runtime failure prunes dependent holder values while preserving independent properties");
++  check(runtimePreset.getObjectVariables().get(0).values.size()==2 && runtime.getVariablesMap().containsKey("shared_name"),"runtime rejection leaves requested preset untouched");
++  var oldReference=new PresetWiredVariable(box(8,List.of(),List.of(),List.of("shared-source")).put("config","external_name").put("variableId","shared-source"));
++  var pointer=new PresetWiredVariable(box(9,List.of(),List.of(),List.of("local-accessor")).put("config","pointer").put("variableId","pointer-id"));
++  var oldPreset=new PresetConfig(new ArrayList<>(List.of(new PresetFurni(8,"wf_var_reference",new HPoint(0,0),0,null),new PresetFurni(9,"wf_var_pointer",new HPoint(0,0),0,null))),new ArrayList<>(),new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray())),new ArrayList<>(),new ArrayList<>());
++  oldPreset.getPresetWireds().getVariables().addAll(List.of(oldReference,pointer));oldPreset.getPresetWireds().getVariablesMap().put("external_name","local-alias");
++  WiredImportPlanner.normalizeReferences(oldPreset);
++  check(oldReference.getExternalVariableIds().equals(List.of("shared-source")) && oldReference.variableId.equals("local-alias"),"upstream legacy references preserve shared source and repair local alias");
++  check(pointer.getExternalVariableIds().isEmpty(),"one-input pointer is not misclassified as cross-room reference");
++  var current=new gearth.extensions.parsers.HFloorItem(new gearth.protocol.HPacket(1,500,10,2,3,0,"1.75","1",0,0,"0",-1,0,5));
++  var rotationOnly=new PresetWiredFurniBinding(1,2,null,4,null,null);
++  var rotated=SnapshotPlacement.target(500,rotationOnly,current,new HPoint(10,20),3,true);
++  check(rotated.getX()==2 && rotated.getY()==3 && rotated.getRotation()==4 && rotated.getAltitude()==null,"rotation-only snapshot does not add import origin twice");
++  var located=SnapshotPlacement.target(500,new PresetWiredFurniBinding(1,2,new HPoint(4,5),null,null,125),current,new HPoint(10,20),3,true);
++  check(located.getX()==14 && located.getY()==25 && located.getAltitude()==425,"snapshot coordinates and altitude receive destination offsets exactly once");
++  var restored=SnapshotPlacement.restore(current,true);
++  check(restored.getX()==2 && restored.getY()==3 && restored.getAltitude()==175 && restored.getRotation()==0,"snapshot cleanup restores original altitude as well as location");
 +  return checks;
 + }
 +}
@@ -13983,7 +14148,7 @@
 +}
 --- a/tests/PreviewImportFlow.java
 +++ b/tests/PreviewImportFlow.java
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,292 @@
 +package tests;
 +import extension.GPresets;
 +import extension.logger.Logger;
@@ -14007,6 +14172,9 @@
 +   private static void require(boolean condition,String text) { if(!condition)throw new AssertionError(text); }
 +   private static final class FakeExtension extends GPresets {
 +      final Map<String,ExtensionBase.MessageListener> callbacks=new HashMap<>();
++      java.util.function.Function<HPacket,Boolean> sendHook;
++      final extension.tools.GPresetExporter exporter=new extension.tools.GPresetExporter(this);
++      @Override public extension.tools.GPresetExporter getExporter(){return exporter;}
 +      int serverPackets;int room=42;boolean roomLoaded;Runnable onPickup;JSONObject lastReport;
 +      final Map<Integer,gearth.extensions.parsers.HFloorItem> floorItems=new HashMap<>();
 +      final Map<Integer,gearth.extensions.parsers.HWallItem> wallItems=new HashMap<>();
@@ -14026,7 +14194,7 @@
 +      @Override public void intercept(HMessage.Direction direction,String name,ExtensionBase.MessageListener listener) { callbacks.put(direction+":"+name,listener); }
 +      @Override public FloorState getFloorState() { return floor; }
 +      @Override public boolean sendToServer(HPacket packet) {
-+         serverPackets++;HPacket decoded=new HPacket(packet);int category=decoded.readInteger(),id=decoded.readInteger();pickups.add(category+":"+id);
++         serverPackets++;if(sendHook!=null)return sendHook.apply(packet);HPacket decoded=new HPacket(packet);int category=decoded.readInteger(),id=decoded.readInteger();pickups.add(category+":"+id);
 +         if(category==1)wallItems.remove(id);else floorItems.remove(id);if(onPickup!=null)onPickup.run();return true;
 +      }
 +      @Override public void sendVisualChatInfo(String text) { }
@@ -14079,6 +14247,10 @@
 +      undoWorker(extension,importer);
 +      incompletePolicy(extension,importer);
 +      legacyLinkContinuation(extension,importer);
++      rejectedWiredContinuation();
++      placementAcknowledgements();
++      availabilityCounts();
++      finalPositionCheck();
 +      System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
 +   }
 +   private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
@@ -14158,6 +14330,114 @@
 +         require(preset.getRoomLinks().size()==1,"actual import leaves selected preset intact");extension.roomLoaded=false;
 +         System.out.println("PASS: actual WIRED setup-to-final-placement pipeline continues past an unavailable legacy room-linker pairing");
 +      }catch(ReflectiveOperationException e){throw new AssertionError(e);}
++   }
++
++   private static JSONObject box(int id,String name,List<String> variables) {
++      return new JSONObject().put("wiredId",id).put("options",List.of(0)).put("config",name).put("items",List.of()).put("variableIds",variables).put("delay",0);
++   }
++   private static void rejectedWiredContinuation() {
++      try {
++         for(boolean partial:List.of(true,false)) {
++            FakeExtension e=new FakeExtension();GPresetImporter importer=new GPresetImporter(e);
++            var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
++            // Reproduces the legacy export: shared source id differs from the room-local alias.
++            wired.getVariables().add(new extension.tools.presetconfig.wired.PresetWiredVariable(box(149,"lives",List.of("9001")).put("variableId","9001").put("externalVariableIds",List.of("9001"))));
++            wired.getVariablesMap().put("lives","9002");
++            wired.getEffects().add(new extension.tools.presetconfig.wired.PresetWiredEffect(box(36,"dependent",List.of("9002"))));
++            wired.getEffects().add(new extension.tools.presetconfig.wired.PresetWiredEffect(box(7,"independent",List.of())));
++            var preset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
++            put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(149,1149,36,1036,7,1007)));put(importer,"incompleteBuildAllowed",partial);
++            put(importer,"rootLocation",new gearth.extensions.parsers.HPoint(0,0));put(importer,"stackTileLocation",new gearth.extensions.parsers.HPoint(20,20));put(importer,"allAvailableStackTiles",new ArrayList<>());
++            put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.SETUP_WIRED);e.roomLoaded=true;
++            List<String> sent=new ArrayList<>();
++            e.sendHook=packet->{
++               sent.add(packet.packetIncompleteIdentifier());
++               if("UpdateVariable".equals(packet.packetIncompleteIdentifier())) {
++                  var parsed=new extension.tools.presetconfig.wired.PresetWiredVariable(new HPacket(packet));
++                  require(parsed.getVariableIds().equals(List.of("9001")),"shared source identity remains intact");
++                  e.callbacks.get("TOCLIENT:WiredValidationError").act(new HMessage(new HPacket(1,"shared_reference_unavailable"),HMessage.Direction.TOCLIENT,0));
++               } else if("UpdateAction".equals(packet.packetIncompleteIdentifier())) {
++                  require(new HPacket(packet).readInteger()==1007,"rejected alias consumer must never be sent");
++                  e.callbacks.get("TOCLIENT:WiredSaveSuccess").act(new HMessage(new HPacket(1),HMessage.Direction.TOCLIENT,0));
++               } else throw new AssertionError("Unexpected packet: "+packet.packetIncompleteIdentifier());
++               return true;
++            };
++            var setup=GPresetImporter.class.getDeclaredMethod("setupWired");setup.setAccessible(true);setup.invoke(importer);
++            require(importer.getState()==GPresetImporter.BuildingImportState.NONE,"rejected WIRED must not leave importer stuck");
++            if(partial) {
++               require(sent.equals(List.of("UpdateVariable","UpdateAction")),"partial flow saves independent WIRED and reaches movement/completion");
++               require(e.lastReport.getString("outcome").equals("Import finished with omissions"),"rejected configurations never count as full success");
++               var rows=e.lastReport.getJSONArray("wired");
++               require(rows.getJSONObject(0).getString("status").equals("SKIPPED") && rows.getJSONObject(1).getString("status").equals("SKIPPED") && rows.getJSONObject(2).getString("status").equals("SAVE_ACKNOWLEDGED"),"report distinguishes rejected reference, dependent box and acknowledged save");
++            } else {
++               require(sent.equals(List.of("UpdateVariable")),"strict mode stops at rejection");
++               require(e.lastReport.getString("outcome").contains("shared_reference_unavailable"),"native validation detail survives in failure report");
++            }
++            require(preset.getPresetWireds().getAll().size()==3,"source preset remains unchanged");
++         }
++         System.out.println("PASS: actual rejected-reference import continues through independent WIRED to completion; strict mode stops with native error detail");
++      }catch(ReflectiveOperationException error){throw new AssertionError(error);}
++   }
++   private static void placementAcknowledgements() {
++      try {
++         FakeExtension e=new FakeExtension();GPresetImporter importer=new GPresetImporter(e);
++         Map<Integer,Integer> mapped=new HashMap<>();Map<String,LinkedList<Integer>> pending=new HashMap<>();pending.put("1|2|10",new LinkedList<>(List.of(1,2)));
++         put(importer,"realFurniIdMap",mapped);put(importer,"expectFurniDrops",pending);put(importer,"undoBaselineFloors",Set.of(99));put(importer,"state",GPresetImporter.BuildingImportState.ADD_FURNITURE);
++         java.util.function.Consumer<Integer> added=id->e.callbacks.get("TOCLIENT:ObjectAdd").act(new HMessage(new HPacket(1,id,10,1,2,0,"0","1",0,0,"0",-1,0,5),HMessage.Direction.TOCLIENT,0));
++         added.accept(99);require(mapped.isEmpty(),"pre-existing furniture update cannot satisfy a new placement");
++         added.accept(101);added.accept(101);require(mapped.equals(Map.of(1,101)),"duplicate ObjectAdd/ObjectUpdate cannot consume a second preset item");
++         added.accept(102);require(mapped.equals(Map.of(1,101,2,102)) && pending.isEmpty(),"distinct arrivals retain one-to-one preset identities");
++         pending.put("1|2|10",new LinkedList<>(List.of(3,4)));
++         var forget=GPresetImporter.class.getDeclaredMethod("forgetExpectedDrop",extension.tools.importutils.FurniDropInfo.class);forget.setAccessible(true);
++         forget.invoke(importer,new extension.tools.importutils.FurniDropInfo(1,2,10,extension.tools.postconfig.ItemSource.PREFER_BC,0,3));
++         added.accept(104);require(mapped.get(4)==104 && !mapped.containsKey(3),"skipped placement does not steal the next available furniture");
++         var wallMapping=GPresetImporter.class.getDeclaredMethod("recordWallMapping",int.class,int.class);wallMapping.setAccessible(true);
++         wallMapping.invoke(importer,1,901);
++         require(mapped.get(1)==101 && mapped.get(-1)==-901,"wall placement cannot overwrite floor id with same preset number");
++         System.out.println("PASS: duplicate/baseline placement acknowledgements and skipped queue entries preserve furniture identities");
++      }catch(ReflectiveOperationException error){throw new AssertionError(error);}
++   }
++
++   private static void availabilityCounts() {
++      FakeExtension e=new FakeExtension();
++      class Data extends furnidata.FurniDataTools {
++         Data(){super();}
++         @Override public boolean isReady(){return true;}
++         @Override public String getFloorItemName(int id){return "chair";}
++         @Override public furnidata.details.FloorItemDetails getFloorItemDetails(String name){return null;}
++      }
++      var data=new Data();
++      var inventory=new game.Inventory(e,new Logger(),()->{}) {
++         @Override public InventoryState getState(){return InventoryState.LOADED;}
++         @Override public List<gearth.extensions.parsers.HInventoryItem> getFloorItemsByType(int type){return java.util.Collections.singletonList(null);}
++      };
++      var floor=new FloorState(e,new Logger(),()->{},()->{}) {
++         @Override public List<gearth.extensions.parsers.HFloorItem> getItemsFromType(int type){return List.of(new gearth.extensions.parsers.HFloorItem(new HPacket(1,101,10,1,2,0,"0","1",0,0,"0",-1,0,5)));}
++      };
++      var drop=new extension.tools.importutils.FurniDropInfo(-1,-1,10,extension.tools.postconfig.ItemSource.PREFER_BC,0,1);
++      require(extension.tools.importutils.AvailabilityChecker.missingItems(List.of(drop,drop),inventory,data,floor,true).isEmpty(),"one inventory item plus one room item satisfy two requests independently");
++      require(extension.tools.importutils.AvailabilityChecker.missingItems(List.of(drop,drop,drop),inventory,data,floor,true).equals(Map.of("chair",1)),"room backup is consumed once and cannot fabricate extra supply");
++      require(extension.tools.importutils.AvailabilityChecker.missingItems(List.of(drop,drop),inventory,data,floor,false).equals(Map.of("chair",1)),"room backup requires explicit use-room option");
++      System.out.println("PASS: actual availability checker combines inventory and room resources without double consumption");
++   }
++
++   private static void finalPositionCheck() {
++      try {
++         for(boolean partial:List.of(true,false)) {
++            FakeExtension e=new FakeExtension();e.roomLoaded=true;GPresetImporter importer=new GPresetImporter(e);
++            var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
++            var item=new extension.tools.presetconfig.furni.PresetFurni(1,"table",new gearth.extensions.parsers.HPoint(1,2,3),0,null);item.setFurniName("table");
++            var preset=new PresetConfig(new ArrayList<>(List.of(item)),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
++            e.floorItems.put(101,new gearth.extensions.parsers.HFloorItem(new HPacket(1,101,10,1,2,0,"0","1",0,0,"0",-1,0,5)));
++            put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(1,101)));put(importer,"rootLocation",new gearth.extensions.parsers.HPoint(0,0));put(importer,"incompleteBuildAllowed",partial);put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.MOVE_FURNITURE);
++            var prepare=GPresetImporter.class.getDeclaredMethod("preparePlacedConfigurations");prepare.setAccessible(true);prepare.invoke(importer);
++            var finish=GPresetImporter.class.getDeclaredMethod("finishImport");finish.setAccessible(true);finish.invoke(importer);
++            require(importer.getState()==GPresetImporter.BuildingImportState.NONE,"final mismatch leaves importer idle");
++            require(e.lastReport.getString("outcome").startsWith(partial?"Import finished with omissions":"Import incomplete"),"wrong final height cannot be reported as full success");
++            require(e.lastReport.getJSONArray("items").getJSONObject(0).getString("status").equals("POSITION_MISMATCH"),"final report retains observed mismatch");
++         }
++         System.out.println("PASS: final height/position mismatches are explicit in partial and strict completion");
++      }catch(ReflectiveOperationException error){throw new AssertionError(error);}
 +   }
 +
 +}

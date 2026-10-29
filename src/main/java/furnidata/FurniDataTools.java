@@ -32,6 +32,9 @@ public class FurniDataTools {
    private Map<String, WallItemDetails> nameToWallItems = new HashMap();
    private ExternalTexts externalTexts = null;
 
+   /** For in-memory providers and deterministic offline import checks. */
+   protected FurniDataTools() { }
+
    public FurniDataTools(String host, Callback onLoadListener) {
       this.countryCode = resolveCountryCode(host);
       Thread loader = new Thread(() -> {

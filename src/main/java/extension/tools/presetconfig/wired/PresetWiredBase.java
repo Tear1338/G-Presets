@@ -207,8 +207,7 @@ public abstract class PresetWiredBase implements PresetJsonConfigurable, Cloneab
       copy.items2 = this.items2.stream().filter(furniIds::containsKey).map(furniIds::get).collect(Collectors.toList());
       copy.variableIds = new ArrayList<>();
       for (String id : this.variableIds) {
-         String resolved = !isLocalVariableId(id) ? id : variableIds.getOrDefault(id,
-            this.externalVariableIds.contains(id) ? id : null);
+         String resolved = !isLocalVariableId(id) || this.externalVariableIds.contains(id) ? id : variableIds.get(id);
          if (resolved == null || resolved.isEmpty()) {
             throw new IllegalStateException("Unresolved variable '" + id + "' for WIRED " + this.wiredId);
          }

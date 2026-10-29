@@ -42,8 +42,9 @@ public class PresetWiredVariable extends PresetWiredBase {
          if (wiredContext.referenceVariablesList != null && !wiredContext.referenceVariablesList.sharedVariables.isEmpty()) {
             for(HSharedVariable var : wiredContext.referenceVariablesList.sharedVariables) {
                if (var.wiredVariable.name.equals(getVariableName())) {
-                  this.variableId = var.wiredVariable.id;
-                  this.variableTarget = var.wiredVariable.variableType;
+                  // A shared source is not the local alias created by this box.
+                  // Keep the room-context ID; export resolves a missing alias from the room map.
+                  if (this.variableTarget == null) this.variableTarget = var.wiredVariable.variableType;
                }
             }
          }
