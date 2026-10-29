@@ -1612,7 +1612,9 @@ public class GPresetImporter {
          if(!checkpoint(BuildingImportState.MOVE_FURNITURE))return;
          if(this.state!=BuildingImportState.MOVE_FURNITURE) return;
          try {
-            PresetObjectVariables mapped=original.translate(this.rootLocation.getX(),this.rootLocation.getY()).remap(this.realFurniIdMap,this.realVariableIdMap);
+            PresetObjectVariables restorable=original.withoutPlacementState();
+            if(restorable.values.isEmpty())continue;
+            PresetObjectVariables mapped=restorable.translate(this.rootLocation.getX(),this.rootLocation.getY()).remap(this.realFurniIdMap,this.realVariableIdMap);
             for(HPacket p:mapped.packets()) {
                if(this.state!=BuildingImportState.MOVE_FURNITURE) return;
                this.throttleWiredSetObjectVariableValue();

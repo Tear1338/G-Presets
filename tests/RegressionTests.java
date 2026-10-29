@@ -350,6 +350,11 @@ public final class RegressionTests {
       check(new HashSet<>(ids.values()).size()==4,"all selected objects keep unique local IDs");
       fails(()->WiredFurnitureIds.sourceMap(List.of(7,7),List.of()),"duplicate source floor object rejected");
       check(!PresetWiredBase.isLocalVariableId("~103"),"special builtin IDs are not room-local references");
+      PresetObjectVariables oldPlacement=new PresetObjectVariables(0,7,Map.of("-126",0x1d0100,"~100",42)).withWriteOnlyVariables(Set.of("-126","~100"));
+      PresetObjectVariables safe=oldPlacement.withoutPlacementState();
+      check(safe.values.equals(Map.of("~100",42)) && oldPlacement.values.containsKey("-126"), "legacy occupation is stripped without mutating source or losing other values");
+      check(safe.remap(Map.of(7,700),Map.of()).packets().size()==1 && oldPlacement.packets().size()==1, "neither legacy nor mixed holders emit occupation writes");
+      check(new PresetObjectVariables(0,7,Map.of("-126",0x1d0100)).withoutPlacementState().packets().isEmpty(), "placement-only holder requires no write or inspection");
       PresetObjectVariables teleport=new PresetObjectVariables(0,7,Map.of("~103",8)).withFurnitureReference("~103");
       check(teleport.remap(Map.of(7,700,8,800),Map.of()).values.get("~103")==800,"internal teleporter target resolves to cloned furniture");
       check(new PresetObjectVariables(teleport.toJsonObject()).remap(Map.of(7,700,8,800),Map.of()).values.get("~103")==800,"teleporter reference metadata survives JSON");

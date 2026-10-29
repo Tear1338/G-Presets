@@ -1,3 +1,9 @@
+## 1.6.5
+
+- Stop exporting and applying derived furniture occupation property `-126`: legacy presets can encode source coordinates in this property, and writing it after placement can move furniture back to those coordinates.
+- Preserve existing preset JSON and other object values. An occupation-only holder does not send a packet or produce a misleading unconfirmed-variable warning; packet generation independently blocks occupation writes.
+- Add regression and real-importer tests for legacy and mixed object values, including a nonzero import origin. Live gameplay remains to be verified. Preserve all previous releases.
+
 ## 1.6.4
 
 - Compare the full import pipeline with upstream sirjonasxx/G-Presets. Reproduce the reported rejection of preset WIRED 149 in the real importer using a simulated hotel response.

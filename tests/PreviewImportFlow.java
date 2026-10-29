@@ -100,6 +100,7 @@ public final class PreviewImportFlow {
       placementAcknowledgements();
       availabilityCounts();
       finalPositionCheck();
+      legacyOccupationImport();
       System.out.println("PASS: real import command preview gate, cancel, abort and stale contexts send no game packets");
    }
    private static void undoWorker(FakeExtension extension,GPresetImporter importer) {
@@ -286,6 +287,21 @@ public final class PreviewImportFlow {
             require(e.lastReport.getJSONArray("items").getJSONObject(0).getString("status").equals("POSITION_MISMATCH"),"final report retains observed mismatch");
          }
          System.out.println("PASS: final height/position mismatches are explicit in partial and strict completion");
+      }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+   }
+
+   private static void legacyOccupationImport() {
+      try {
+         FakeExtension e=new FakeExtension();GPresetImporter importer=new GPresetImporter(e);e.roomLoaded=true;
+         var wired=new PresetWireds(new JSONObject().put("conditions",new JSONArray()).put("effects",new JSONArray()).put("triggers",new JSONArray()));
+         var preset=new PresetConfig(new ArrayList<>(),new ArrayList<>(),wired,new ArrayList<>(),new ArrayList<>());
+         preset.setObjectVariables(new ArrayList<>(List.of(new extension.tools.presetconfig.wired.PresetObjectVariables(0,34,Map.of("-126",0x1d0100)))));
+         put(importer,"workingPresetConfig",preset);put(importer,"realFurniIdMap",new HashMap<>(Map.of(34,2147418174)));put(importer,"rootLocation",new gearth.extensions.parsers.HPoint(5,6));
+         put(importer,"activeImportRoomId",42);put(importer,"state",GPresetImporter.BuildingImportState.MOVE_FURNITURE);
+         int sent=e.serverPackets;var apply=GPresetImporter.class.getDeclaredMethod("applyObjectVariables");apply.setAccessible(true);apply.invoke(importer);
+         require(e.serverPackets==sent,"legacy placement property must send no packet or inspection, even with a nonzero origin");
+         require(importer.getState()==GPresetImporter.BuildingImportState.MOVE_FURNITURE && preset.getObjectVariables().get(0).values.containsKey("-126"),"legacy preset remains unchanged and importer continues");
+         System.out.println("PASS: real importer ignores legacy position-derived occupation without sending movement-causing writes or false unconfirmed reports");
       }catch(ReflectiveOperationException error){throw new AssertionError(error);}
    }
 

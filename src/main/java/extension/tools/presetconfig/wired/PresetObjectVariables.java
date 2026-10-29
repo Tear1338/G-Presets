@@ -56,9 +56,18 @@ public final class PresetObjectVariables {
       for(String old:writeOnlyVariableIds) copy.writeOnlyVariableIds.add(target==0 && BUILTINS.contains(old)?old:variables.get(old));
       return copy;
    }
+   /** Occupation is derived from the current furniture placement; restoring it moves furniture. */
+   public PresetObjectVariables withoutPlacementState() {
+      if(target!=0 || !values.containsKey("-126"))return this;
+      Map<String,Integer> kept=new LinkedHashMap<>(values);kept.remove("-126");
+      PresetObjectVariables copy=new PresetObjectVariables(target,objectId,kept);
+      copy.furnitureReferenceKeys.addAll(furnitureReferenceKeys);
+      copy.writeOnlyVariableIds.addAll(writeOnlyVariableIds);copy.writeOnlyVariableIds.remove("-126");
+      return copy;
+   }
    public List<HPacket> packets() {
       List<HPacket> packets=new ArrayList<>();
-      for(Map.Entry<String,Integer> e:values.entrySet())packets.add(new HPacket("WiredSetObjectVariableValue",HMessage.Direction.TOSERVER,target,objectId,e.getKey(),e.getValue(),target==-10 || BUILTINS.contains(e.getKey()) || writeOnlyVariableIds.contains(e.getKey())?0:1));
+      for(Map.Entry<String,Integer> e:values.entrySet())if(target!=0 || !"-126".equals(e.getKey()))packets.add(new HPacket("WiredSetObjectVariableValue",HMessage.Direction.TOSERVER,target,objectId,e.getKey(),e.getValue(),target==-10 || BUILTINS.contains(e.getKey()) || writeOnlyVariableIds.contains(e.getKey())?0:1));
       return packets;
    }
    public JSONObject toJsonObject() { return new JSONObject().put("target",target).put("objectId",objectId).put("values",new JSONObject(values)).put("furnitureReferenceKeys",new JSONArray(furnitureReferenceKeys)).put("writeOnlyVariableIds",new JSONArray(writeOnlyVariableIds)); }

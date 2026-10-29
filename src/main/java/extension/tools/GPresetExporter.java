@@ -824,7 +824,7 @@ public class GPresetExporter {
                Map<String,Integer> values=new HashMap<>();
                for(Map.Entry<String,Integer> value:source.entrySet()) {
                   HWiredVariable metadata=this.variableInfoById.get(value.getKey());
-                  if(PresetObjectVariables.BUILTINS.contains(value.getKey()) || (metadata!=null && metadata.variableInternalType==VariableInternalType.USER_CREATED && metadata.canWriteValue)) values.put(value.getKey(),value.getValue());
+                  if(!"-126".equals(value.getKey()) && (PresetObjectVariables.BUILTINS.contains(value.getKey()) || (metadata!=null && metadata.variableInternalType==VariableInternalType.USER_CREATED && metadata.canWriteValue))) values.put(value.getKey(),value.getValue());
                }
                HFloorItem item=entry.getKey()>0?floor.furniFromId(entry.getKey()):null;
                if(item!=null && "wf_room_linker".equals(furniDataTools.getFloorItemName(item.getTypeId()))) values.remove("~103");

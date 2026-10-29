@@ -1,8 +1,8 @@
-# G-Presets 1.6.4 — guide technique
+# G-Presets 1.6.5 — guide technique
 
 Édition modifiée de [sirjonasxx/G-Presets](https://github.com/sirjonasxx/G-Presets), à partir de la version modifiée 1.3.7 fournie. Auteurs : **sirjonasxx & 1desirable1337** ; dépôt de cette édition : [Tear1338/G-Presets](https://github.com/Tear1338/G-Presets).
 
-Consultez le [README principal](README.md) pour l'installation, les commandes et l'utilisation des fonctions. Téléchargements : [JAR 1.6.4](https://github.com/Tear1338/G-Presets/releases/download/v1.6.4/GPresets-1.6.4.jar) et [archive complète](https://github.com/Tear1338/G-Presets/releases/download/v1.6.4/GPresets-1.6.4-complet.zip).
+Consultez le [README principal](README.md) pour l'installation, les commandes et l'utilisation des fonctions. Téléchargements : [JAR 1.6.5](https://github.com/Tear1338/G-Presets/releases/download/v1.6.5/GPresets-1.6.5.jar) et [archive complète](https://github.com/Tear1338/G-Presets/releases/download/v1.6.5/GPresets-1.6.5-complet.zip).
 
 ## Environnement
 
@@ -27,7 +27,7 @@ L'interface propose zoom, panoramique, recentrage, rotation de vue, recherche, s
 
 Les deux fenêtres — aperçu et partage — utilisent `FurnitureSprites` et `FurnitureSpriteStore`. Le chargement est préamorcé après une sélection de preset stabilisée pendant 250 ms.
 
-| Mécanisme | Comportement en 1.6.4 |
+| Mécanisme | Comportement en 1.6.5 |
 | :--- | :--- |
 | Téléchargements | Quatre tâches simultanées en arrière-plan ; suppression du délai de 1,1 seconde par image |
 | Déduplication | Une demande en cours partagée pour une même classe, orientation normalisée et état normalisé |
@@ -82,13 +82,13 @@ Le rapport reflète un instant donné. Des réponses tardives peuvent modifier l
 - Le partage et les rapports enregistrent de nouveaux fichiers sans écraser une destination existante.
 - La distribution exclut les dossiers de presets personnels ; les données du cache ne sont pas incluses dans l'archive complète.
 
-## Validation de la version 1.6.4
+## Validation de la version 1.6.5
 
 **1 413 assertions de régression passent**, ainsi que les vérifications de l'interface JavaFX et de ses ressources embarquées. Les 80 nouvelles assertions couvrent l’historique, la comparaison, les remplacements, la confidentialité, le placement et les garde-fous d’annulation. Le traitement réel d’annulation est aussi exercé avec une salle simulée, sans connexion réseau. Les tests comprennent les formats binaires, les fichiers, les correspondances d'identifiants, les diagnostics, la pause et les comportements du cache : parallélisme borné, demande unique partagée, cache disque après redémarrage, corruption et panne. Un contrôle JavaFX vérifie aussi qu'une image déjà décodée est disponible dès la première vue, avec les couleurs du thème sombre de G-Earth : panneaux #333333, champs #363636, boutons #262626 et textes clairs.
 
 Le catalogue de référence comporte **284 classes liées aux WIRED**, dont **207 classes des six familles** ; les fixtures couvrent **188 codes de formulaires**. Ces tests utilisent des exemples contrôlés pour vérifier les données et ne constituent pas une validation de chaque règle métier.
 
-**Aucun cycle complet export/import ni scénario WIRED en jeu n'a été validé pour cette édition.** La salle observée était vide. Les prototypes `wf_test_26secret1` et `wf_test_26secret2` ont un comportement configurable inconnu. Voir [COMPATIBILITE.md](COMPATIBILITE.md), [COUVERTURE-WIRED.csv](COUVERTURE-WIRED.csv) et le [rapport du build 1.6.4](https://github.com/Tear1338/G-Presets/releases/download/v1.6.4/build-report.json).
+**Aucun cycle complet export/import ni scénario WIRED en jeu n'a été validé pour cette édition.** La salle observée était vide. Les prototypes `wf_test_26secret1` et `wf_test_26secret2` ont un comportement configurable inconnu. Voir [COMPATIBILITE.md](COMPATIBILITE.md), [COUVERTURE-WIRED.csv](COUVERTURE-WIRED.csv) et le [rapport du build 1.6.5](https://github.com/Tear1338/G-Presets/releases/download/v1.6.5/build-report.json).
 
 Les rapports sous `validation/1.4.0-rc2/` sont historiques et ne décrivent pas la validation de la version actuelle.
 
@@ -106,7 +106,7 @@ Le build recompile les sources applicatives et la classe `HPacket` adaptée. `li
 L'archive complète contient le JAR, les sources, dépendances, fixtures, documents et rapports sélectionnés. Le workflow GitHub recompile et vérifie les changements, puis publie une nouvelle version si son tag n'existe pas déjà. Une modification du README ne remplace pas une release existante. Consulter [RELEASING.md](RELEASING.md).
 
 
-## Outils 1.6.4 et conservation des releases
+## Outils 1.6.5 et conservation des releases
 
 L'onglet **Tools** regroupe les nouveaux outils. La 1.5.3 et les releases déjà publiées sont conservées sur GitHub ; les prochaines publications ne les suppriment pas.
 
@@ -137,20 +137,20 @@ Les cases du partage permettent d'exclure le nom, la description et l'image. La 
 Dans **Preview preset**, activez **Choose origin here** et réglez **X** / **Y**. Le contrôle se rafraîchit avec la salle : les empreintes hors du sol utilisable ou chevauchant un mobi existant sont entourées en rouge. Ce contrôle géométrique en 2D reste indicatif : il ne simule ni les hauteurs d'empilement, ni les droits, ni les collisions physiques, ni le placement mural exact. La confirmation utilise l'origine choisie ; la préparation peut encore demander la zone technique des stacktiles dans Habbo.
 
 
-## Import avec des éléments manquants (1.6.4)
+## Import avec des éléments manquants (1.6.5)
 
 `Allow building without all furni` permet de terminer la construction disponible. Le plan de configuration exclut les WIRED qui dépendent d'un mobi non posé, les instantanés incomplets et les dépendances de variables devenues indisponibles. Les paramètres des autres mobis continuent ; seules les valeurs de propriétés qui référencent un élément absent sont retirées. Le preset source reste intact et le rapport conserve les quantités initiales, les éléments ignorés et leurs raisons. Le résultat affiche `Import finished with omissions`.
 
 Sans cette option, un mobi requis manquant reste bloquant. Une erreur de sauvegarde ou une absence de confirmation serveur reste bloquante dans les deux modes. `Prefer BC` garde la priorité BC au sol et au mur, puis utilise l'inventaire lorsqu'aucune offre BC n'existe pour le mobi ; cela n'achète aucun mobi.
 
-## Ancrage des images (1.6.4)
+## Ancrage des images (1.6.5)
 
 La preview lit uniquement les métadonnées de géométrie des assets SWF officiels à la révision du furnidata, sans exécuter leur code. Elle utilise leurs origines et les rectangles des calques lorsque ces limites correspondent exactement au PNG affiché. Les symboles partagés, alias, miroirs horizontaux et états de base sont pris en charge ; une image incompatible conserve un ancrage approximatif indiqué à l'écran. Les empreintes suivent les centres des cases, la rotation de caméra conserve l'origine des mobis rectangulaires et le cadrage utilise les limites complètes des images. Les couches de fond sont dessinées avant les objets et la sélection tient compte de la transparence. Ce rendu de PNG n'est pas le moteur d'animations/composition par calque de Habbo ; les marqueurs muraux restent approximatifs.
 
 Deux tâches de fond au maximum lisent les géométries, avec déduplication et un cache disque plafonné à 32 Mio. Les contrôles JavaFX exercent les ancrages, les hauteurs, les quatre orientations, le cadrage et les clics transparents. Des assets officiels de sable, eau, plateforme et arbre ont également été examinés localement pour confirmer les origines ; ces assets de diagnostic et les presets privés ne sont pas distribués.
 
-## Compatibilité des anciennes liaisons (1.6.4)
+## Compatibilité des anciennes liaisons (1.6.5)
 
 `roomLinks.destination` a été incorrectement interprété comme un numéro d'appartement dans les versions précédentes. La propriété native `~103` désigne le téléporteur associé (`~teleport.target_id`). Un ancien identifiant absolu ne peut pas être appliqué à un nouveau mobi comme une destination de salle.
 
-Les exports 1.6.4 ajoutent `destinationType` : `furniture` pour un identifiant de preset local, `externalFurniture` pour une association hors sélection, et `none` pour une absence de liaison explicite. Seuls les identifiants locaux résolus sont envoyés au serveur. En mode partiel, les anciennes liaisons ambiguës et les associations externes sont ignorées avec une raison détaillée ; leur liaison native actuelle reste intacte et le reste de la construction continue. En mode strict, ces réglages non transférables restent bloquants. Une nouvelle exportation permet de capturer une paire locale explicitement.
+Les exports 1.6.5 ajoutent `destinationType` : `furniture` pour un identifiant de preset local, `externalFurniture` pour une association hors sélection, et `none` pour une absence de liaison explicite. Seuls les identifiants locaux résolus sont envoyés au serveur. En mode partiel, les anciennes liaisons ambiguës et les associations externes sont ignorées avec une raison détaillée ; leur liaison native actuelle reste intacte et le reste de la construction continue. En mode strict, ces réglages non transférables restent bloquants. Une nouvelle exportation permet de capturer une paire locale explicitement.
